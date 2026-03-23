@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel City - Evolution 6.16</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            color: white;
+            z-index: 10;
+        }
+        .interactive {
+            pointer-events: auto;
+        }
+        .modal {
+            background: rgba(15, 23, 42, 0.98);
+            border: 2px solid #334155;
+            border-radius: 16px;
+            padding: 15px;
+            display: none;
+            width: 280px;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            z-index: 100;
+        }
+        /* True Split Screen Viewport Positioning */
+        .p0-view .modal { left: 25%; transform: translate(-50%, -50%); }
+        .p1-view .modal { left: 75%; transform: translate(-50%, -50%); }
+        .solo-view .modal { left: 50%; transform: translate(-50%, -50%); }
+
+        .list-item-btn {
+            background: rgba(30, 41, 59, 0.7);
+            border: 2px solid #334155;
+            padding: 12px;
+            border-radius: 10px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 8px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.1s;
+        }
+        .list-item-btn.highlighted {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.02);
+        }
+        .list-item-btn:active { background: #3b82f6; transform: scale(0.98); }
+
+        #minimap-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 140px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        #minimapCanvas { width: 100%; height: 100%; }
+
+        #lobby-screen {
+            position: fixed;
+            inset: 0;
+            background: #111;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #jail-overlay, #game-over-overlay, #victory-overlay, #nuke-flash, #jackpot-flash {
+            position: fixed;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            pointer-events: auto;
+        }
+        #nuke-flash { background: white; z-index: 1000; pointer-events: none; }
+        #jackpot-flash { background: rgba(250, 204, 21, 0.4); z-index: 1000; pointer-events: none; }
+        #jail-overlay, #game-over-overlay { background: rgba(0,0,0,0.95); }
+        #victory-overlay { background: radial-gradient(circle, #1e3a8a 0%, #000 100%); border: 8px solid #fbbf24; }
+        
+        .spin-anim { animation: pulse 0.1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div id="lobby-screen">
+        <h1 class="text-4xl md:text-6xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
+        <p class="text-blue-300 mb-2 uppercase tracking-[0.3em] text-[10px] font-bold text-center">Evolution 6.16 (Anti-Zoom Fix)</p>
+        <p id="lobby-wins-display" class="text-yellow-400 font-black mb-6 text-sm">🏆 Wins: 0</p>
+        
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
+            <div>
+                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Device</h2>
+                <div class="flex gap-2">
+                    <button id="device-pc" class="bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">COMPUTER</button>
+                    <button id="device-phone" class="border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">PHONE</button>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Mode</h2>
+                <div class="flex gap-2">
+                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
+                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">2 PLAYERS</button>
+                </div>
+            </div>
+
+            <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest mt-2">Start Game</button>
+            
+            <div class="pt-2 border-t border-slate-700">
+                <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300">Secret Modes</button>
+                <div id="secret-input-area" class="hidden flex gap-2 mt-2">
+                    <!-- Changed from text-xs to text-base (16px) to prevent mobile zooming -->
+                    <input type="text" id="secret-code-input" placeholder="ENTER CODE" class="bg-slate-900 border border-slate-700 p-2 rounded text-white text-base w-full uppercase interactive">
+                    <button id="secret-apply-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded font-bold text-xs interactive">APPLY</button>
+                </div>
+                <div id="secret-applied-msg" class="text-[10px] text-purple-400 font-bold mt-1 h-3"></div>
+            </div>
+
+            <div id="control-hint" class="text-[10px] text-slate-400 font-bold uppercase space-y-1">
+                <p class="text-white">P1: WASD to Move, E to Interact</p>
+            </div>
+        </div>
+
+        <!-- SEPARATED ADMIN LOGIN (BOTTOM OF SCREEN) -->
+        <div class="mt-8 flex flex-col items-center">
+            <div id="admin-toggle-btn" class="text-[10px] text-slate-700 uppercase font-black interactive cursor-pointer hover:text-slate-500 transition-colors">Admin Login</div>
+            <div id="admin-input-area" class="hidden flex gap-2 mt-2">
+                <!-- Changed from text-xs to text-base (16px) to prevent mobile zooming -->
+                <input type="password" id="admin-code-input" placeholder="PIN" class="bg-slate-900 border border-slate-700 p-2 rounded text-white text-base w-24 text-center uppercase interactive">
+                <button id="admin-apply-btn" class="bg-red-700 hover:bg-red-600 text-white px-3 rounded font-bold text-xs interactive">LOGIN</button>
+            </div>
+            <div id="admin-msg" class="text-[10px] text-red-500 font-bold mt-1 h-3"></div>
+            
+            <!-- ADMIN CHEAT SHEET (REVEALED ON LOGIN) -->
+            <div id="admin-codes-list-display" class="hidden mt-4 p-4 border border-red-500/50 bg-slate-900/90 rounded-xl text-left shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+                <h3 class="text-red-400 font-black text-sm mb-2 text-center uppercase tracking-widest">Master Admin Cheat List</h3>
+                <ul class="text-xs font-mono space-y-2 text-slate-300">
+                    <li><span class="text-yellow-400 font-bold">SONIC</span> = 3x Speed</li>
+                    <li><span class="text-yellow-400 font-bold">RICH</span> = $50k Start</li>
+                    <li><span class="text-yellow-400 font-bold">GHOST</span> = Thru walls</li>
+                    <li><span class="text-yellow-400 font-bold">MURDER</span> = Chaos mode</li>
+                    <li><span class="text-yellow-400 font-bold">REALITY</span> = Hard mode</li>
+                    <li><span class="text-yellow-400 font-bold">RARITY DROP</span> = 99% $100k</li>
+                    <li><span class="text-yellow-400 font-bold">GODLY</span> = God Settings</li>
+                </ul>
+                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">Enter these in the "Secret Modes" box.</p>
+                <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="nuke-flash"></div>
+    <div id="jackpot-flash">
+        <h1 class="text-7xl md:text-9xl font-black text-yellow-400 animate-pulse" style="text-shadow: 0 10px 30px rgba(0,0,0,0.8);">JACKPOT!</h1>
+    </div>
+
+    <div id="ui-layer">
+        <!-- Shared HUD -->
+        <div class="flex justify-between items-start bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit mt-4">
+            <div class="px-4 border-r border-slate-700">
+                <div class="text-xl font-black text-green-400" id="money-display">$0</div>
+                <div class="text-[8px] text-slate-400 uppercase font-bold text-center">Wallet</div>
+            </div>
+            <div class="px-4 text-center">
+                <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-tighter">Goal: $100k</div>
+            </div>
+        </div>
+
+        <!-- Viewport Aware Modals for P1 -->
+        <div id="p0-modals" class="p0-view">
+            <div id="store-modal-0" class="modal interactive">
+                <h2 class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
+                <div class="job-list space-y-2 mb-4"></div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to select</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
+            </div>
+            <div id="work-modal-0" class="modal interactive">
+                <h2 id="job-title-0" class="text-xl font-bold mb-2 text-green-400 text-center uppercase">Working...</h2>
+                <button class="bg-green-600 active:bg-green-500 w-full py-8 rounded-xl text-center border-b-4 border-green-800" onclick="window.handleWork(0)">
+                    <div class="text-2xl font-black text-white uppercase">Tap for $10</div>
+                    <div id="job-count-0" class="text-xs text-green-200 mt-2">0 taps this shift</div>
+                </button>
+                <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint">Or tap E repeatedly</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded mt-4 font-bold" onclick="window.closePlayerModal(0)">Quit Job</button>
+            </div>
+            <div id="dealer-modal-0" class="modal interactive">
+                <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase">🏎️ Dealer</h2>
+                <div class="car-list space-y-2 mb-4"></div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to buy</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
+            </div>
+            <div id="bank-modal-0" class="modal interactive">
+                <h2 class="text-2xl font-bold mb-4 text-center text-yellow-400 uppercase">🏦 Bank</h2>
+                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(0)">Rob Vault ($500)</button>
+                <button class="bg-slate-700 text-white w-full py-3 rounded-lg font-bold" onclick="window.closePlayerModal(0)">Exit</button>
+            </div>
+            <div id="rob-modal-0" class="modal interactive">
+                <h2 class="text-2xl font-bold mb-2 text-center text-orange-400 uppercase">🏠 Robbery</h2>
+                <div class="bg-slate-900 p-6 rounded-lg text-center border border-slate-700 mb-4">
+                    <div id="rob-result-0" class="text-4xl font-black text-white">???</div>
+                </div>
+                <button id="start-rob-0" class="bg-orange-500 text-white w-full py-3 rounded-lg font-bold mb-2" onclick="window.startRobbery(0)">Spin Wheel</button>
+                <button id="exit-rob-0" class="bg-slate-700 text-white w-full py-2 rounded-lg font-bold" onclick="window.closePlayerModal(0)">Leave</button>
+            </div>
+            <div id="prompt-0" class="absolute bottom-[35%] left-1/4 -translate-x-1/2 text-center pointer-events-none opacity-0 transition-opacity">
+                <div class="font-bold text-white mb-1 text-sm prompt-lbl">Press E</div>
+                <div id="prompt-sub-0" class="text-[10px] text-blue-300 uppercase font-bold"></div>
+            </div>
+        </div>
+
+        <!-- Viewport Aware Modals for P2 -->
+        <div id="p1-modals" class="p1-view hidden">
+            <div id="store-modal-1" class="modal interactive">
+                <h2 class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
+                <div class="job-list space-y-2 mb-4"></div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to select</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
+            </div>
+            <div id="work-modal-1" class="modal interactive">
+                <h2 id="job-title-1" class="text-xl font-bold mb-2 text-green-400 text-center uppercase">Working...</h2>
+                <button class="bg-green-600 active:bg-green-500 w-full py-8 rounded-xl text-center border-b-4 border-green-800" onclick="window.handleWork(1)">
+                    <div class="text-2xl font-black text-white uppercase">Tap for $10</div>
+                    <div id="job-count-1" class="text-xs text-green-200 mt-2">0 taps this shift</div>
+                </button>
+                <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint">Or tap SHIFT repeatedly</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded mt-4 font-bold" onclick="window.closePlayerModal(1)">Quit Job</button>
+            </div>
+            <div id="dealer-modal-1" class="modal interactive">
+                <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase">🏎️ Dealer</h2>
+                <div class="car-list space-y-2 mb-4"></div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to buy</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
+            </div>
+            <div id="bank-modal-1" class="modal interactive">
+                <h2 class="text-2xl font-bold mb-4 text-center text-yellow-400 uppercase">🏦 Bank</h2>
+                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(1)">Rob Vault ($500)</button>
+                <button class="bg-slate-700 text-white w-full py-3 rounded-lg font-bold" onclick="window.closePlayerModal(1)">Exit</button>
+            </div>
+            <div id="rob-modal-1" class="modal interactive">
+                <h2 class="text-2xl font-bold mb-2 text-center text-orange-400 uppercase">🏠 Robbery</h2>
+                <div class="bg-slate-900 p-6 rounded-lg text-center border border-slate-700 mb-4">
+                    <div id="rob-result-1" class="text-4xl font-black text-white">???</div>
+                </div>
+                <button id="start-rob-1" class="bg-orange-500 text-white w-full py-3 rounded-lg font-bold mb-2" onclick="window.startRobbery(1)">Spin Wheel</button>
+                <button id="exit-rob-1" class="bg-slate-700 text-white w-full py-2 rounded-lg font-bold" onclick="window.closePlayerModal(1)">Leave</button>
+            </div>
+            <div id="prompt-1" class="absolute bottom-[35%] left-3/4 -translate-x-1/2 text-center pointer-events-none opacity-0 transition-opacity">
+                <div class="font-bold text-white mb-1 text-sm prompt-lbl">Press SHIFT</div>
+                <div id="prompt-sub-1" class="text-[10px] text-blue-300 uppercase font-bold"></div>
+            </div>
+        </div>
+
+        <div id="minimap-container">
+            <canvas id="minimapCanvas"></canvas>
+        </div>
+
+        <div id="msg-box" class="fixed bottom-10 right-10 bg-blue-600 px-6 py-3 rounded-xl shadow-2xl font-bold transform translate-y-32 transition-transform duration-300 z-[300]">
+            Message
+        </div>
+
+        <!-- GOD PANEL UI (GODLY code or admin PIN) -->
+        <div id="god-panel-btn" class="hidden fixed top-4 right-4 bg-yellow-500 text-black font-black px-4 py-2 rounded-lg interactive z-[300] shadow-[0_0_15px_rgba(234,179,8,0.8)] border-2 border-white cursor-pointer">
+            GOD MODE
+        </div>
+
+        <div id="god-modal" class="fixed inset-0 bg-black/90 hidden flex-col items-center justify-center z-[400] interactive text-white overflow-y-auto py-10">
+            <h2 class="text-4xl font-black text-yellow-400 mb-6 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]">⚡ GOD SETTINGS ⚡</h2>
+            <div class="bg-slate-800 p-6 rounded-2xl border-2 border-slate-600 w-80 space-y-4 shadow-2xl">
+                <div>
+                    <label class="text-xs font-bold text-yellow-300 uppercase tracking-widest">Player Speed: <span id="god-speed-val">4</span></label>
+                    <input type="range" id="god-speed" min="1" max="50" value="4" class="w-full interactive">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-yellow-300 uppercase tracking-widest">Civilians: <span id="god-civ-val">20</span></label>
+                    <input type="range" id="god-civs" min="0" max="100" value="20" class="w-full interactive">
+                </div>
+                <button id="god-money-btn" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded font-black interactive shadow-lg">+ $1,000,000</button>
+                <button id="god-cops-btn" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-black interactive shadow-lg">Clear Police</button>
+                <button onclick="document.getElementById('god-modal').classList.add('hidden')" class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded font-black interactive mt-4">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlays -->
+    <div id="jail-overlay">
+        <h1 class="text-6xl font-black text-red-600 mb-4 text-center uppercase italic">Busted</h1>
+        <div id="jail-timer" class="text-4xl font-mono mb-8 text-yellow-500 text-center">10s</div>
+        <button id="pay-bail-btn" class="bg-yellow-500 text-black px-8 py-3 rounded-lg font-black interactive mx-auto block">Pay Bail</button>
+    </div>
+
+    <div id="game-over-overlay">
+        <h1 class="text-7xl font-black text-red-600 mb-4 text-center uppercase">Lost</h1>
+        <button onclick="window.restartGame()" class="btn bg-blue-500 text-white px-12 py-4 rounded-lg text-xl interactive mx-auto block">RESTART</button>
+    </div>
+
+    <div id="victory-overlay">
+        <h1 class="text-6xl font-black text-yellow-500 mb-2 text-center uppercase italic">President</h1>
+        <div class="bg-slate-900/90 border border-purple-500 p-6 rounded-xl mb-6 mx-auto max-w-sm text-center">
+            <h3 class="text-purple-400 font-black mb-3 uppercase tracking-widest text-sm">Secret Codes Unlocked</h3>
+            <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">SONIC</span> = 3x Walk Speed</p>
+            <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">RICH</span> = Start with $50k</p>
+            <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">GHOST</span> = Walk thru buildings</p>
+            <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">REALITY</span> = Hard mode + Grayscale</p>
+            <div id="murder-code-reveal" class="hidden mt-3 pt-3 border-t border-red-500/50">
+                <p class="text-red-400 text-xs font-mono font-black animate-pulse">⭐ ULTIMATE: MURDER ⭐</p>
+                <p class="text-slate-300 text-[10px]">Speed, Ghost, Rich + Assassinations!</p>
+            </div>
+            <div id="rarity-code-reveal" class="hidden mt-3 pt-3 border-t border-yellow-500/50">
+                <p class="text-yellow-400 text-xs font-mono font-black animate-pulse">👑 GOD TIER: RARITY DROP 👑</p>
+                <p class="text-slate-300 text-[10px]">99.999% chance for $100k Robberies!</p>
+            </div>
+            <div id="godly-code-reveal" class="hidden mt-3 pt-3 border-t border-cyan-500/50">
+                <p class="text-cyan-400 text-xs font-mono font-black animate-pulse">⚡ CREATOR: GODLY ⚡</p>
+                <p class="text-slate-300 text-[10px]">Custom speed, custom civs, infinite money!</p>
+            </div>
+        </div>
+        <button id="nuke-btn" onclick="window.dropNuke()" class="bg-red-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block mb-4 w-64 rounded-lg">DROP NUKE</button>
+        <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block w-64 rounded-lg">NEW RUN</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIG
+        const GRID_SIZE = 500;
+        const WORLD_SIZE = 4000;
+        const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
+        const JOBS = [{ id: 'shelves', name: 'Stock Shelves' }, { id: 'floor', name: 'Mop Floor' }, { id: 'customers', name: 'Cashier' }];
+        const VEHICLE_TYPES = [
+            { id: 'sedan', name: 'Standard Sedan', price: 400, topSpeed: 6, accel: 0.2, color: '#3b82f6' },
+            { id: 'truck', name: 'Ironclad Truck', price: 1500, topSpeed: 5, accel: 0.15, color: '#94a3b8' },
+            { id: 'sport', name: 'Phoenix GT', price: 2000, topSpeed: 50, accel: 1.5, color: '#facc15' },
+            { id: 'porsche', name: 'Porsche 911', price: 10000, topSpeed: 75, accel: 2.0, color: '#475569' },
+            { id: 'lambo', name: 'Aventador LAMBO', price: 100000, topSpeed: 150, accel: 4.0, color: '#fbbf24' }
+        ];
+
+        let savedWins = parseInt(localStorage.getItem('pixelCityWins') || '0');
+
+        const state = {
+            money: 0, 
+            bailPrice: 100,
+            arrestCount: 0,
+            isJailed: false,
+            jailTime: 0,
+            isGameOver: false,
+            isPresident: false,
+            isAdmin: false,
+            playerMode: 1, 
+            deviceMode: 'computer',
+            players: [],
+            cameras: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
+            camera: { x: 0, y: 0 },
+            keys: {},
+            buildings: [],
+            vehicles: [],
+            police: [],
+            civilians: [],
+            frameCount: 0,
+            wantedLevel: 0,
+            policeDelay: 0,
+            activeSecrets: [],
+            winCount: savedWins
+        };
+
+        function hasGodSettings() {
+            return state.activeSecrets.includes('GODLY') || state.isAdmin;
+        }
+
+        let auth, db;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimapCanvas');
+        const ctxM = minimapCanvas.getContext('2d');
+        const moneyEl = document.getElementById('money-display');
+        const msgBox = document.getElementById('msg-box');
+        const jailOverlay = document.getElementById('jail-overlay');
+        const joinBtn = document.getElementById('join-btn');
+        const modeSoloBtn = document.getElementById('mode-solo');
+        const modeDuoBtn = document.getElementById('mode-duo');
+        const devicePcBtn = document.getElementById('device-pc');
+        const devicePhoneBtn = document.getElementById('device-phone');
+        const payBailBtn = document.getElementById('pay-bail-btn');
+        const hintContainer = document.getElementById('control-hint');
+        const lobbyWinsDisplay = document.getElementById('lobby-wins-display');
+        
+        const activeTouches = {};
+
+        // CORE HELPERS
+        function dist(x1, y1, x2, y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+        function getRoadAt(x, y) { return (x % GRID_SIZE < 100 || x % GRID_SIZE > 400) || (y % GRID_SIZE < 100 || y % GRID_SIZE > 400); }
+        function isIntersection(x, y) { return (x % GRID_SIZE < 80 || x % GRID_SIZE > 420) && (y % GRID_SIZE < 80 || y % GRID_SIZE > 420); }
+        function updateMoneyUI() { if(moneyEl) moneyEl.innerText = `$${state.money.toLocaleString()}`; }
+        function showMessage(t) { if(!msgBox) return; msgBox.innerText = t; msgBox.style.transform = 'translateY(0)'; setTimeout(()=>msgBox.style.transform='translateY(128px)', 3000); }
+        function showSecretMsg(m) { const sm = document.getElementById('secret-applied-msg'); sm.innerText = m; setTimeout(()=>sm.innerText='', 3000); }
+
+        function triggerVictory() {
+            state.isPresident = true;
+            state.winCount++;
+            localStorage.setItem('pixelCityWins', state.winCount);
+            
+            if (state.winCount >= 10) {
+                document.getElementById('murder-code-reveal').classList.remove('hidden');
+            }
+            if (state.winCount >= 100) {
+                document.getElementById('rarity-code-reveal').classList.remove('hidden');
+            }
+            if (state.winCount >= 500) {
+                document.getElementById('godly-code-reveal').classList.remove('hidden');
+            }
+            
+            document.getElementById('victory-overlay').style.display = 'flex';
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            minimapCanvas.width = 140;
+            minimapCanvas.height = 140;
+        }
+
+        window.dropNuke = () => {
+            document.getElementById('victory-overlay').style.display = 'none';
+            const flash = document.getElementById('nuke-flash');
+            flash.style.display = 'block';
+            flash.style.opacity = '1';
+            
+            // Annihilate the City
+            state.buildings.forEach(b => {
+                b.type = 'ruins';
+                b.color = '#1f2937'; // Dark slate/ash color
+            });
+            state.vehicles = [];
+            state.police = [];
+            state.civilians = [];
+            state.players.forEach(p => { if (p) p.inVehicle = null; });
+            
+            // Fade out the flash slowly
+            let op = 1;
+            const fade = setInterval(() => {
+                op -= 0.02;
+                flash.style.opacity = op;
+                if (op <= 0) {
+                    clearInterval(fade);
+                    flash.style.display = 'none';
+                }
+            }, 50);
+            
+            showMessage("CITY DESTROYED.");
+        };
+
+        window.restartGame = () => {
+            state.money = 0;
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            state.arrestCount = 0;
+            state.police = [];
+            state.civilians = [];
+            state.vehicles = [];
+            state.isPresident = false;
+            state.isGameOver = false;
+            state.isJailed = false;
+            state.jailTime = 0;
+            
+            // Reapply starting funds if admin/rich
+            if (state.isAdmin || state.activeSecrets.includes('4789')) {
+                state.money = 10000000;
+            } else if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
+                state.money = 50000;
+            }
+            
+            // Reset player positions
+            state.players.forEach((p, i) => {
+                if (!p) return;
+                p.x = 2000 + (i * 40);
+                p.y = 2200;
+                p.angle = 0;
+                p.speed = 0;
+                p.inVehicle = null;
+                p.activeJob = null;
+                p.jobClicksDone = 0;
+                p.menuType = null;
+                p.menuSelection = 0;
+                window.closePlayerModal(i);
+            });
+            
+            // Re-roll the city map
+            generateCity();
+            updateMoneyUI();
+            
+            document.getElementById('victory-overlay').style.display = 'none';
+            document.getElementById('game-over-overlay').style.display = 'none';
+            document.getElementById('jail-overlay').style.display = 'none';
+        };
+
+        window.closePlayerModal = (pIdx) => {
+            document.querySelectorAll(`[id$="-${pIdx}"]`).forEach(m => {
+                if (m.classList.contains('modal')) m.style.display = 'none';
+            });
+            if (state.players[pIdx]) {
+                state.players[pIdx].activeJob = null;
+                state.players[pIdx].menuType = null;
+                state.players[pIdx].isRobbing = false;
+            }
+            const res = document.getElementById(`rob-result-${pIdx}`);
+            if(res) { 
+                res.innerText = "???"; 
+                res.classList.remove('text-green-400', 'text-red-400');
+                res.classList.add('text-white');
+            }
+            const startBtn = document.getElementById(`start-rob-${pIdx}`);
+            if(startBtn) startBtn.classList.remove('opacity-50', 'pointer-events-none');
+            
+            const exitBtn = document.getElementById(`exit-rob-${pIdx}`);
+            if(exitBtn) exitBtn.classList.remove('hidden');
+        };
+
+        window.handleWork = (pIdx) => {
+            const p = state.players[pIdx];
+            if (!p || p.activeJob === null) return;
+            state.money += 10;
+            p.jobClicksDone++;
+            updateMoneyUI();
+            const cnt = document.getElementById(`job-count-${pIdx}`);
+            if(cnt) cnt.innerText = `${p.jobClicksDone} taps this shift`;
+        };
+
+        window.startRobbery = (pIdx) => {
+            const p = state.players[pIdx];
+            if (!p || p.isRobbing) return;
+            p.isRobbing = true;
+            
+            const display = document.getElementById(`rob-result-${pIdx}`);
+            const startBtn = document.getElementById(`start-rob-${pIdx}`);
+            const exitBtn = document.getElementById(`exit-rob-${pIdx}`);
+            
+            if(startBtn) startBtn.classList.add('opacity-50', 'pointer-events-none');
+            if(exitBtn) exitBtn.classList.add('hidden');
+            
+            let ticks = 0;
+            display.classList.add('spin-anim');
+            
+            const interval = setInterval(() => {
+                const vals = [0, 20, 50, 100, 100000];
+                display.innerText = "$" + vals[Math.floor(Math.random() * vals.length)];
+                ticks++;
+                
+                if (ticks > 20) {
+                    clearInterval(interval);
+                    display.classList.remove('spin-anim');
+                    
+                    const roll = Math.random() * 100;
+                    let prize = 0;
+                    
+                    const jackpotChance = state.activeSecrets.includes('RARITY DROP') ? 99.999 : 0.1;
+                    
+                    if (roll < jackpotChance) prize = 100000; 
+                    else if (roll < 50) prize = 0;
+                    else if (roll < 80) prize = 20;
+                    else if (roll < 95) prize = 50;
+                    else prize = 100;
+
+                    display.innerText = `$${prize}`;
+                    
+                    // ALWAYS ALERT COPS ON ATTEMPT (3 seconds = 180 frames)
+                    state.wantedLevel = 1;
+                    state.policeDelay = 180; 
+                    const stars = document.getElementById('wanted-stars');
+                    if(stars) stars.classList.remove('hidden');
+
+                    if (prize > 0) {
+                        state.money += prize;
+                        updateMoneyUI();
+                        display.classList.remove('text-white');
+                        display.classList.add('text-green-400');
+                        
+                        if (prize === 100000) {
+                            const flash = document.getElementById('jackpot-flash');
+                            if(flash) {
+                                flash.style.display = 'flex';
+                                setTimeout(() => { flash.style.display = 'none'; }, 3000);
+                            }
+                            showMessage(`MEGA JACKPOT! Stole $100,000! POLICE ALERTED!`);
+                        } else {
+                            showMessage(`Stole $${prize}! POLICE ALERTED!`);
+                        }
+                    } else {
+                        display.classList.remove('text-white');
+                        display.classList.add('text-red-400');
+                        showMessage(`Attempted robbery failed! POLICE ALERTED!`);
+                    }
+
+                    setTimeout(() => {
+                        window.closePlayerModal(pIdx);
+                    }, 2000);
+                }
+            }, 60);
+        };
+
+        function updateMenuUI(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || !p.menuType) return;
+            
+            const storeList = document.querySelector(`#store-modal-${pIdx} .job-list`);
+            const dealerList = document.querySelector(`#dealer-modal-${pIdx} .car-list`);
+            
+            if (p.menuType === 'store' && storeList) {
+                storeList.innerHTML = '';
+                JOBS.forEach((j, i) => {
+                    const btn = document.createElement('div');
+                    btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
+                    btn.innerHTML = `<div class="font-bold uppercase text-sm">${j.name}</div><div class="text-green-400 font-bold text-xs">$10 / TAP</div>`;
+                    btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
+                    storeList.appendChild(btn);
+                });
+            } else if (p.menuType === 'dealer' && dealerList) {
+                dealerList.innerHTML = '';
+                VEHICLE_TYPES.forEach((v, i) => {
+                    const btn = document.createElement('div');
+                    btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
+                    btn.innerHTML = `<div class="font-bold uppercase text-sm">${v.name}</div><div class="text-blue-400 font-bold text-xs">$${v.price.toLocaleString()}</div>`;
+                    btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
+                    dealerList.appendChild(btn);
+                });
+            }
+        }
+
+        function selectMenuItem(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || !p.menuType) return;
+
+            if (p.menuType === 'store') {
+                p.activeJob = JOBS[p.menuSelection];
+                p.jobClicksDone = 0;
+                document.getElementById(`store-modal-${pIdx}`).style.display = 'none';
+                document.getElementById(`work-modal-${pIdx}`).style.display = 'block';
+                document.getElementById(`job-title-${pIdx}`).innerText = p.activeJob.name;
+                p.menuType = null;
+            } else if (p.menuType === 'dealer') {
+                const car = VEHICLE_TYPES[p.menuSelection];
+                if (state.money >= car.price) {
+                    state.money -= car.price;
+                    updateMoneyUI();
+                    
+                    state.vehicles.push({ x: 2000, y: 2100, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(car)), occupied: false });
+                    if (state.playerMode === 2 && car.id === 'lambo') {
+                        state.vehicles.push({ x: 2100, y: 2100, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(car)), occupied: false });
+                    }
+                    window.closePlayerModal(pIdx);
+                    
+                    if (car.id === 'lambo') {
+                        triggerVictory();
+                    } else {
+                        showMessage(`Purchased ${car.name}!`);
+                    }
+                } else showMessage("Insufficient Funds!");
+            } else if (p.menuType === 'rob') {
+                window.startRobbery(pIdx);
+            }
+        }
+
+        window.robBank = (pIdx) => { 
+            state.money += 500; updateMoneyUI(); state.wantedLevel = 1; state.policeDelay = 180; // 3 seconds
+            const stars = document.getElementById('wanted-stars');
+            if(stars) stars.classList.remove('hidden'); 
+            window.closePlayerModal(pIdx);
+            showMessage("BANK HEIST! RUN!"); 
+        };
+
+        function handleInteraction(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || p.isRobbing || state.isJailed) return;
+            if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
+            
+            const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
+            if (bNear) {
+                if (bNear.type === 'store') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
+                else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
+                else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
+                else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
+                else if (bNear.type === 'home' && state.wantedLevel > 0) { 
+                    state.wantedLevel = 0; state.police = []; 
+                    const stars = document.getElementById('wanted-stars');
+                    if(stars) stars.classList.add('hidden'); 
+                    showMessage("SAFE HOUSE REACHED!"); 
+                }
+            }
+            const vNear = state.vehicles.find(v => dist(p.x, p.y, v.x, v.y) < 80);
+            if (vNear && !vNear.occupied && !bNear) { p.inVehicle = vNear; vNear.occupied = true; p.x = vNear.x; p.y = vNear.y; }
+        }
+
+        async function initAuthAndData() {
+            try {
+                if (typeof __firebase_config !== 'undefined') {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                    else await signInAnonymously(auth);
+                }
+            } catch(e) {
+                console.log("Firebase setup skipped or unavailable.");
+            }
+            if(lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+        }
+
+        function setupFullTouch() {
+            window.addEventListener('touchstart', (e) => {
+                if (state.deviceMode !== 'phone' || document.getElementById('lobby-screen').style.display !== 'none') return;
+                if (e.target.closest('.interactive')) return; 
+
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    const pIdx = (state.playerMode === 2 && touch.clientX > window.innerWidth / 2) ? 1 : 0;
+                    
+                    activeTouches[touch.identifier] = {
+                        pIdx: pIdx,
+                        startX: touch.clientX,
+                        startY: touch.clientY,
+                        time: Date.now(),
+                        moved: false
+                    };
+                }
+            }, {passive: false});
+
+            window.addEventListener('touchmove', (e) => {
+                if (state.deviceMode !== 'phone' || document.getElementById('lobby-screen').style.display !== 'none') return;
+                
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    const data = activeTouches[touch.identifier];
+                    if (!data) continue;
+                    
+                    const dx = touch.clientX - data.startX;
+                    const dy = touch.clientY - data.startY;
+                    
+                    if (Math.abs(dx) > 15 || Math.abs(dy) > 15) data.moved = true;
+
+                    const keys = data.pIdx === 0 ? ['w','s','a','d'] : ['arrowup','arrowdown','arrowleft','arrowright'];
+                    state.keys[keys[0]] = dy < -25;
+                    state.keys[keys[1]] = dy > 25;
+                    state.keys[keys[2]] = dx < -25;
+                    state.keys[keys[3]] = dx > 25;
+                }
+            }, {passive: false});
+
+            window.addEventListener('touchend', (e) => {
+                if (state.deviceMode !== 'phone' || document.getElementById('lobby-screen').style.display !== 'none') return;
+                
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    const data = activeTouches[touch.identifier];
+                    if (!data) continue;
+
+                    const keys = data.pIdx === 0 ? ['w','s','a','d'] : ['arrowup','arrowdown','arrowleft','arrowright'];
+                    keys.forEach(k => state.keys[k] = false);
+
+                    // Detect a "Tap"
+                    if (!data.moved && Date.now() - data.time < 300) {
+                        const p = state.players[data.pIdx];
+                        if (p && !p.isRobbing && !state.isJailed) {
+                            if (p.activeJob) window.handleWork(data.pIdx);
+                            else if (!p.menuType) handleInteraction(data.pIdx);
+                        }
+                    }
+                    delete activeTouches[touch.identifier];
+                }
+            });
+        }
+
+        function joinRoom() {
+            document.getElementById('lobby-screen').style.display = 'none';
+            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
+            
+            if (state.playerMode === 2) {
+                state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
+                document.getElementById('p1-modals').classList.remove('hidden');
+            }
+            
+            if (state.deviceMode === 'phone') {
+                document.querySelectorAll('.nav-hint').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.prompt-lbl').forEach(el => el.innerText = "TAP SCREEN");
+                setupFullTouch();
+            }
+
+            // Apply Regular Secrets (Not Admin)
+            if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
+                state.money = 50000;
+            }
+            if (hasGodSettings()) {
+                document.getElementById('god-panel-btn').classList.remove('hidden');
+            }
+            if (state.isAdmin || state.activeSecrets.includes('4789')) {
+                state.money = 10000000;
+                updateMoneyUI();
+            }
+
+            initGameLoop();
+        }
+
+        function initGameLoop() {
+            generateCity();
+            updateMoneyUI();
+
+            window.onkeydown = e => {
+                if (e.repeat || state.isJailed) return;
+                const k = e.key.toLowerCase();
+                const code = e.code;
+                state.keys[k] = true;
+                
+                // PLAYER 1
+                if (k === 'e') { if(state.players[0].activeJob) window.handleWork(0); else if(state.players[0].menuType) selectMenuItem(0); else handleInteraction(0); }
+                if (state.players[0] && state.players[0].menuType) {
+                    if (k === 'w') { state.players[0].menuSelection = Math.max(0, state.players[0].menuSelection-1); updateMenuUI(0); }
+                    if (k === 's') { const m = state.players[0].menuType === 'store' ? JOBS.length-1 : (state.players[0].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[0].menuSelection = Math.min(m, state.players[0].menuSelection+1); updateMenuUI(0); }
+                }
+
+                // PLAYER 2
+                if (code === 'ShiftRight' && state.players[1]) { if(state.players[1].activeJob) window.handleWork(1); else if(state.players[1].menuType) selectMenuItem(1); else handleInteraction(1); }
+                if (state.players[1] && state.players[1].menuType) {
+                    if (k === 'arrowup') { state.players[1].menuSelection = Math.max(0, state.players[1].menuSelection-1); updateMenuUI(1); }
+                    if (k === 'arrowdown') { const m = state.players[1].menuType === 'store' ? JOBS.length-1 : (state.players[1].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
+                }
+            };
+            window.onkeyup = e => state.keys[e.key.toLowerCase()] = false;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function generateCity() {
+            state.buildings = [];
+            for(let x=0; x<WORLD_SIZE; x+=GRID_SIZE) {
+                for(let y=0; y<WORLD_SIZE; y+=GRID_SIZE) {
+                    let type = 'house', color = COLORS[Math.floor(Math.random()*COLORS.length)];
+                    if (x===2000 && y===2000) { type='home'; color='#000'; }
+                    else if (x===3500 && y===3500) { type='bank'; color='#fbbf24'; }
+                    else if (x===500 && y===500) { type='jail'; color='#475569'; }
+                    else if (x===500 && y===3500) { type='dealership'; color='#3b82f6'; }
+                    else if (Math.random()>0.85) { type='store'; color='#10b981'; }
+                    state.buildings.push({ x: x+100, y: y+100, w: 300, h: 300, type, color });
+                }
+            }
+        }
+
+        function update() {
+            if(state.isGameOver) return;
+            state.frameCount++;
+            
+            let customSpeed = 4;
+            if (hasGodSettings()) {
+                customSpeed = parseInt(document.getElementById('god-speed').value) || 4;
+            } else if (state.activeSecrets.includes('MURDER')) {
+                customSpeed = 20;
+            } else if (state.activeSecrets.includes('SONIC')) {
+                customSpeed = 12;
+            } else if (state.activeSecrets.includes('REALITY')) {
+                customSpeed = 2;
+            }
+            const pedSpeed = customSpeed;
+
+            // MURDER MODE & GOD MODE LOGIC (CIVILIANS)
+            let targetCivs = 0;
+            if (hasGodSettings()) targetCivs = parseInt(document.getElementById('god-civs').value) || 0;
+            else if (state.activeSecrets.includes('MURDER')) targetCivs = 20;
+
+            if (targetCivs > 0 && !state.isJailed) {
+                if (state.activeSecrets.includes('MURDER')) {
+                    state.wantedLevel = 1;
+                    state.policeDelay = 0;
+                }
+                
+                // Spawn Civilians
+                while (state.civilians.length < targetCivs) {
+                    state.civilians.push({
+                        x: Math.random() * WORLD_SIZE,
+                        y: Math.random() * WORLD_SIZE,
+                        angle: Math.random() * Math.PI * 2,
+                        speed: 3 + Math.random() * 4
+                    });
+                }
+                if (state.civilians.length > targetCivs) state.civilians.length = targetCivs; // Trim excess
+
+                // Move & Kill Civilians
+                for (let i = state.civilians.length - 1; i >= 0; i--) {
+                    let c = state.civilians[i];
+                    c.x += Math.cos(c.angle) * c.speed;
+                    c.y += Math.sin(c.angle) * c.speed;
+                    
+                    if (c.x < 10 || c.x > WORLD_SIZE-10 || c.y < 10 || c.y > WORLD_SIZE-10 || Math.random() < 0.02) {
+                        c.angle = Math.random() * Math.PI * 2;
+                    }
+                    c.x = Math.max(10, Math.min(WORLD_SIZE-10, c.x));
+                    c.y = Math.max(10, Math.min(WORLD_SIZE-10, c.y));
+
+                    let killed = false;
+                    state.players.forEach(p => {
+                        if (!killed && p && !p.inVehicle && dist(p.x, p.y, c.x, c.y) < 20) {
+                            state.civilians.splice(i, 1);
+                            killed = true;
+                            const bounty = Math.floor(Math.random() * 4000) + 1000;
+                            state.money += bounty;
+                            updateMoneyUI();
+                            showMessage(`ELIMINATED! +$${bounty}`);
+                        }
+                    });
+                }
+            } else if (targetCivs === 0) {
+                state.civilians = [];
+            }
+
+            state.players.forEach((p, idx) => {
+                if (!p || p.activeJob || p.menuType || p.isRobbing || state.isJailed) return;
+                const controls = idx === 0 ? { u:'w', d:'s', l:'a', r:'d' } : { u:'arrowup', d:'arrowdown', l:'arrowleft', r:'arrowright' };
+                if (p.inVehicle) {
+                    const v = p.inVehicle;
+                    if (state.keys[controls.u]) { if (v.angle !== 3*Math.PI/2) { if (isIntersection(v.x, v.y) || v.angle === Math.PI/2) { v.x = Math.round(v.x/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x, v.y-20)) v.angle = 3*Math.PI/2; } } }
+                    else if (state.keys[controls.d]) { if (v.angle !== Math.PI/2) { if (isIntersection(v.x, v.y) || v.angle === 3*Math.PI/2) { v.x = Math.round(v.x/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x, v.y+20)) v.angle = Math.PI/2; } } }
+                    else if (state.keys[controls.l]) { if (v.angle !== Math.PI) { if (isIntersection(v.x, v.y) || v.angle === 0) { v.y = Math.round(v.y/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x-20, v.y)) v.angle = Math.PI; } } }
+                    else if (state.keys[controls.r]) { if (v.angle !== 0) { if (isIntersection(v.x, v.y) || v.angle === Math.PI) { v.y = Math.round(v.y/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x+20, v.y)) v.angle = 0; } } }
+                    const nextX = v.x + Math.cos(v.angle) * v.type.topSpeed, nextY = v.y + Math.sin(v.angle) * v.type.topSpeed;
+                    
+                    const hitBuilding = state.buildings.some(b => nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
+                    if (!hitBuilding && getRoadAt(nextX, nextY)) { v.x = nextX; v.y = nextY; }
+                    v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
+                } else {
+                    let mx=0, my=0; 
+                    if(state.keys[controls.u]) my-=pedSpeed; 
+                    if(state.keys[controls.d]) my+=pedSpeed; 
+                    if(state.keys[controls.l]) mx-=pedSpeed; 
+                    if(state.keys[controls.r]) mx+=pedSpeed;
+                    
+                    const nx = p.x + mx, ny = p.y + my; 
+                    
+                    const isGhost = state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER');
+                    const hitBuilding = !isGhost && state.buildings.some(b => nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
+                    
+                    if (!hitBuilding) { p.x = nx; p.y = ny; }
+                    p.x = Math.max(20, Math.min(3980, p.x)); p.y = Math.max(20, Math.min(3980, p.y)); 
+                    if(mx!==0 || my!==0) p.angle = Math.atan2(my, mx);
+                }
+                const pr = document.getElementById(`prompt-${idx}`); if (pr) {
+                    const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
+                    const vNear = state.vehicles.find(v => dist(p.x, p.y, v.x, v.y) < 80 && !v.occupied);
+                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) { pr.style.opacity = "1"; document.getElementById(`prompt-sub-${idx}`).innerText = bNear ? bNear.type : (vNear ? vNear.type.name : ""); } else pr.style.opacity = "0";
+                }
+            });
+
+            // Handle Police Chases
+            if (state.wantedLevel > 0 && !state.isPresident) {
+                if (state.policeDelay > 0) { state.policeDelay--; state.police = []; }
+                else {
+                    if (state.police.length < 6) {
+                        const corners = [{x:0,y:0},{x:4000,y:0},{x:0,y:4000},{x:4000,y:4000}];
+                        corners.forEach(c => state.police.push({ x: c.x, y: c.y, angle: 0, speed: 0, type: { topSpeed: 14 } }));
+                    }
+                    state.police.forEach(v => {
+                        const target = state.players[Math.floor(Math.random()*state.players.length)]; if (!target) return;
+                        const angle = Math.atan2(target.y - v.y, target.x - v.x);
+                        let diff = angle - v.angle; while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
+                        v.angle += diff * 0.05; v.speed = v.type.topSpeed;
+                        v.x += Math.cos(v.angle) * v.speed; v.y += Math.sin(v.angle) * v.speed;
+                        state.players.forEach((p, pIdx) => { 
+                            if (p && dist(v.x, v.y, p.x, p.y) < 40) {
+                                state.arrestCount++; state.isJailed = true; state.jailTime = Math.min(60, state.arrestCount * 10); state.bailPrice = state.arrestCount * 100;
+                                state.police = []; window.closePlayerModal(pIdx);
+                                state.players.forEach(p => { if(p.inVehicle){ p.inVehicle.occupied=false; p.inVehicle=null; } p.speed=0; });
+                                const jail = state.buildings.find(b => b.type === 'jail');
+                                if (jail) state.players.forEach((p, i) => { if(p){p.x=jail.x+jail.w/2+(i*20); p.y=jail.y+jail.h/2;} });
+                                document.getElementById('pay-bail-btn').innerText = `Pay Bail ($${state.bailPrice})`;
+                                document.getElementById('jail-overlay').style.display = 'flex';
+                            }
+                        });
+                    });
+                }
+            }
+
+            if (state.isJailed && state.jailTime > 0) {
+                state.jailTime--; document.getElementById('jail-timer').innerText = `${Math.ceil(state.jailTime/60)}s`;
+                if (state.jailTime <= 0) {
+                    state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
+                    const h = state.buildings.find(b => b.type === 'home');
+                    state.players.forEach((p, i) => { if(p&&h) { p.x = h.x+h.w/2+(i*20); p.y = h.y+h.h+30; } });
+                    state.policeDelay = 3600; showMessage("RELEASED.");
+                }
+            }
+
+            if (state.playerMode === 1 && state.players[0]) state.camera = { x: state.players[0].x - canvas.width/2, y: state.players[0].y - canvas.height/2 };
+            else if (state.players.length > 1) { state.cameras[0] = { x: state.players[0].x - canvas.width/4, y: state.players[0].y - canvas.height/2 }; state.cameras[1] = { x: state.players[1].x - canvas.width/4, y: state.players[1].y - canvas.height/2 }; }
+            
+            // Apply Reality Visual Filter
+            canvas.style.filter = state.activeSecrets.includes('REALITY') ? 'grayscale(80%) contrast(0.8)' : 'none';
+        }
+
+        function renderScene(camera, clipX, clipY, clipW, clipH) {
+            ctx.save(); ctx.beginPath(); ctx.rect(clipX, clipY, clipW, clipH); ctx.clip();
+            ctx.translate(clipX - camera.x, clipY - camera.y);
+            ctx.fillStyle = '#14532d'; ctx.fillRect(0,0,4000,4000);
+            ctx.fillStyle = '#334155';
+            for(let i=0; i<4000; i+=GRID_SIZE) { ctx.fillRect(i-100, 0, 200, 4000); ctx.fillRect(0, i-100, 4000, 200); }
+            state.buildings.forEach(b => { ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = 'white'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; if(b.type !== 'house') ctx.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
+            
+            // Render Civilians
+            state.civilians.forEach(c => {
+                ctx.save(); ctx.translate(c.x, c.y); ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill(); ctx.restore();
+            });
+
+            state.vehicles.forEach(v => { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.angle); ctx.fillStyle = v.type.color; ctx.fillRect(-25, -15, 50, 30); ctx.restore(); });
+            state.police.forEach(v => { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.angle); ctx.fillStyle = '#fff'; ctx.fillRect(-25, -15, 50, 30); ctx.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; ctx.fillRect(0,-15,10,30); ctx.restore(); });
+            state.players.forEach(p => { 
+                if(!p.inVehicle) { 
+                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); 
+                    if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); 
+                    ctx.restore(); 
+                }
+            });
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            if (state.playerMode === 1) renderScene(state.camera, 0, 0, canvas.width, canvas.height);
+            else { renderScene(state.cameras[0], 0, 0, canvas.width/2, canvas.height); renderScene(state.cameras[1], canvas.width/2, 0, canvas.width/2, canvas.height); ctx.fillStyle = '#000'; ctx.fillRect(canvas.width/2-2, 0, 4, canvas.height); }
+            ctxM.clearRect(0,0,140,140); const s = 140/4000;
+            state.buildings.forEach(b => { if(b.type!=='house'){ ctxM.fillStyle = b.color; ctxM.fillRect(b.x*s, b.y*s, b.w*s, b.h*s); }});
+            state.civilians.forEach(c => { ctxM.fillStyle = '#f97316'; ctxM.beginPath(); ctxM.arc(c.x*s, c.y*s, 2, 0, Math.PI*2); ctxM.fill(); });
+            state.players.forEach(p => { if(p){ ctxM.fillStyle = p.color; ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2); ctxM.fill(); }});
+            if (state.wantedLevel > 0 && state.policeDelay <= 0) {
+                state.police.forEach(v => { const flash = Math.floor(state.frameCount / 5) % 2 === 0; ctxM.fillStyle = flash ? '#ff0000' : '#0000ff'; ctxM.beginPath(); ctxM.arc(v.x * s, v.y * s, 3, 0, Math.PI * 2); ctxM.fill(); });
+            }
+        }
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+
+        async function startApp() {
+            window.addEventListener('resize', resize);
+            resize();
+            const setPC = () => { state.deviceMode = 'computer'; document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.playerMode===1) hintContainer.innerHTML="<p class='text-white'>P1: WASD + E</p>"; else hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; };
+            const setPh = () => { state.deviceMode = 'phone'; document.getElementById('device-phone').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-pc').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; hintContainer.innerHTML="<p class='text-white'>Drag to Move, Tap to Interact</p>"; };
+            
+            document.getElementById('device-pc').onclick = setPC;
+            document.getElementById('device-phone').onclick = setPh;
+            
+            // Auto-detect phone
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                setPh();
+            }
+
+            document.getElementById('mode-solo').onclick = () => { state.playerMode = 1; document.getElementById('mode-solo').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('mode-duo').className = "text-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.deviceMode==='computer') hintContainer.innerHTML="<p class='text-white'>P1: WASD to Move, E to Interact</p>"; else hintContainer.innerHTML="<p class='text-white'>Drag to Move, Tap to Interact</p>"; };
+            document.getElementById('mode-duo').onclick = () => { state.playerMode = 2; document.getElementById('mode-duo').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('mode-solo').className = "text-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.deviceMode==='computer') hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; else hintContainer.innerHTML="<p class='text-white'>Drag Sides to Move, Tap to Interact</p>"; };
+            
+            // Player Cheat Codes
+            document.getElementById('secret-toggle-btn').onclick = () => { document.getElementById('secret-input-area').classList.toggle('hidden'); };
+            document.getElementById('secret-apply-btn').onclick = () => {
+                const code = document.getElementById('secret-code-input').value.trim().toUpperCase();
+                if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
+                else if (code === 'RICH') { if(!state.activeSecrets.includes('RICH')) state.activeSecrets.push('RICH'); showSecretMsg('RICH ACTIVATED'); }
+                else if (code === 'GHOST') { if(!state.activeSecrets.includes('GHOST')) state.activeSecrets.push('GHOST'); showSecretMsg('GHOST ACTIVATED'); }
+                else if (code === 'MURDER') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
+                else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
+                else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
+                else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && document.getElementById('lobby-screen').style.display === 'none') gpb.classList.remove('hidden'); }
+                else { showSecretMsg('INVALID CODE'); }
+                document.getElementById('secret-code-input').value = '';
+            };
+
+            // Dedicated Admin Login Logic
+            document.getElementById('admin-toggle-btn').onclick = () => { document.getElementById('admin-input-area').classList.toggle('hidden'); };
+            document.getElementById('admin-apply-btn').onclick = () => {
+                if (document.getElementById('admin-code-input').value === '4789') {
+                    state.isAdmin = true;
+                    document.getElementById('admin-msg').innerText = 'ACCESS GRANTED';
+                    document.getElementById('admin-msg').classList.replace('text-red-500', 'text-green-500');
+                    document.getElementById('admin-codes-list-display').classList.remove('hidden');
+                    document.getElementById('admin-input-area').classList.add('hidden');
+                    const gpb = document.getElementById('god-panel-btn');
+                    if (gpb && document.getElementById('lobby-screen').style.display === 'none') gpb.classList.remove('hidden');
+                } else {
+                    document.getElementById('admin-msg').innerText = 'DENIED';
+                    document.getElementById('admin-code-input').value = '';
+                }
+            };
+
+            // God/Admin Panel Listeners
+            const godPanel = document.getElementById('god-panel-btn');
+            const godModal = document.getElementById('god-modal');
+            if (godPanel) godPanel.onclick = () => godModal.classList.remove('hidden');
+            const speedSlider = document.getElementById('god-speed');
+            if (speedSlider) speedSlider.oninput = (e) => document.getElementById('god-speed-val').innerText = e.target.value;
+            const civSlider = document.getElementById('god-civs');
+            if (civSlider) civSlider.oninput = (e) => document.getElementById('god-civ-val').innerText = e.target.value;
+            const godMoney = document.getElementById('god-money-btn');
+            if (godMoney) godMoney.onclick = () => { state.money += 1000000; updateMoneyUI(); showMessage("GOD GAVE YOU $1M!"); };
+            const godCops = document.getElementById('god-cops-btn');
+            if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
+
+            document.getElementById('join-btn').onclick = joinRoom;
+            document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
+            
+            await initAuthAndData();
+        }
+        startApp();
+    </script>
+</body>
+</html>
