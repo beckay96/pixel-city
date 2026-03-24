@@ -388,6 +388,21 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block w-64 rounded-lg">NEW RUN</button>
     </div>
 
+    <div id="orb-hunt-modal" class="fixed inset-0 bg-black/85 hidden flex-col items-center justify-center z-[500] interactive text-white p-6">
+        <div class="bg-slate-900 border-2 border-cyan-500 rounded-2xl p-6 max-w-md shadow-[0_0_30px_rgba(34,211,238,0.4)]">
+            <h2 class="text-2xl font-black text-cyan-400 text-center mb-3 uppercase tracking-widest">The Orb</h2>
+            <p id="orb-hunt-instructions" class="text-sm text-slate-200 leading-relaxed text-center mb-4"></p>
+            <p class="text-xs text-slate-400 text-center mb-4">The orb sits where your <span class="text-white font-bold">safe house</span> used to be. Walk through the ruins to reach it.</p>
+            <button type="button" id="orb-hunt-dismiss" class="w-full bg-cyan-600 hover:bg-cyan-500 py-3 rounded-lg font-black interactive">GOT IT</button>
+        </div>
+    </div>
+
+    <div id="orb-win-overlay" class="fixed inset-0 bg-black/95 hidden flex-col items-center justify-center z-[550] interactive text-white p-6">
+        <h1 id="orb-win-title" class="text-5xl md:text-6xl font-black text-cyan-400 mb-2 text-center uppercase">You found it!</h1>
+        <p id="orb-win-sub" class="text-slate-300 text-center mb-8 max-w-sm"></p>
+        <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -438,8 +453,15 @@
             policeDelay: 0,
             activeSecrets: [],
             winCount: savedWins,
-            playerName: ''
+            playerName: '',
+            cityNuked: false,
+            orbHuntActive: false,
+            orbCollected: false,
+            orb: null
         };
+
+        const ORB_PICKUP_RADIUS = 38;
+        const ORB_VISUAL_RADIUS = 22;
 
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
@@ -542,11 +564,61 @@
             minimapCanvas.height = 140;
         }
 
+        function showOrbHuntIntro() {
+            const modal = document.getElementById('orb-hunt-modal');
+            const body = document.getElementById('orb-hunt-instructions');
+            if (!modal || !body) return;
+            if (state.playerMode === 2) {
+                body.textContent = 'The city is ash. A glowing Orb waits where your home stood. First player to walk into the Orb wins the hunt. Player 1: use E near the Orb. Player 2: use Shift near the Orb.';
+            } else {
+                body.textContent = 'The city is ash. A glowing Orb waits where your home used to be. Walk to the Orb and press E when you are close to claim it and win.';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function hideOrbHuntIntro() {
+            const modal = document.getElementById('orb-hunt-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function tryCollectOrb(pIdx) {
+            if (!state.orbHuntActive || state.orbCollected || !state.orb) return false;
+            const p = state.players[pIdx];
+            if (!p || p.inVehicle) return false;
+            if (dist(p.x, p.y, state.orb.x, state.orb.y) > ORB_PICKUP_RADIUS) return false;
+            state.orbCollected = true;
+            state.orbHuntActive = false;
+            state.isGameOver = true;
+            state.wantedLevel = 0;
+            state.police = [];
+            state.policeDelay = 0;
+            hideOrbHuntIntro();
+            const overlay = document.getElementById('orb-win-overlay');
+            const title = document.getElementById('orb-win-title');
+            const sub = document.getElementById('orb-win-sub');
+            if (overlay && title && sub) {
+                if (state.playerMode === 2) {
+                    title.textContent = pIdx === 0 ? 'Player 1 wins!' : 'Player 2 wins!';
+                    sub.textContent = 'Reached the Orb first.';
+                } else {
+                    title.textContent = 'You win!';
+                    sub.textContent = 'You found the Orb.';
+                }
+                overlay.style.display = 'flex';
+            }
+            return true;
+        }
+
         window.dropNuke = () => {
             document.getElementById('victory-overlay').style.display = 'none';
             const flash = document.getElementById('nuke-flash');
             flash.style.display = 'block';
             flash.style.opacity = '1';
+
+            const home = state.buildings.find(b => b.type === 'home');
+            const cx = home ? home.x + home.w / 2 : 2150;
+            const cy = home ? home.y + home.h / 2 : 2150;
+            state.orb = { x: cx, y: cy };
             
             // Annihilate the City
             state.buildings.forEach(b => {
@@ -556,7 +628,13 @@
             state.vehicles = [];
             state.police = [];
             state.civilians = [];
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
             state.players.forEach(p => { if (p) p.inVehicle = null; });
+            state.cityNuked = true;
+            state.orbHuntActive = true;
+            state.orbCollected = false;
+            state.isGameOver = false;
             
             // Fade out the flash slowly
             let op = 1;
@@ -569,7 +647,8 @@
                 }
             }, 50);
             
-            showMessage("CITY DESTROYED.");
+            showMessage("CITY DESTROYED. FIND THE ORB.");
+            showOrbHuntIntro();
         };
 
         window.restartGame = () => {
@@ -584,6 +663,13 @@
             state.isGameOver = false;
             state.isJailed = false;
             state.jailTime = 0;
+            state.cityNuked = false;
+            state.orbHuntActive = false;
+            state.orbCollected = false;
+            state.orb = null;
+            hideOrbHuntIntro();
+            const orbWin = document.getElementById('orb-win-overlay');
+            if (orbWin) orbWin.style.display = 'none';
             
             // Reapply starting funds if admin/rich
             if (state.isAdmin || state.activeSecrets.includes('4789')) {
@@ -793,10 +879,11 @@
         function handleInteraction(pIdx) {
             const p = state.players[pIdx];
             if (!p || p.isRobbing || state.isJailed) return;
+            if (tryCollectOrb(pIdx)) return;
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
             
             const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
-            if (bNear) {
+            if (bNear && bNear.type !== 'ruins') {
                 if (bNear.type === 'store') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
@@ -940,7 +1027,7 @@
                 }
 
                 // PLAYER 2
-                if (code === 'ShiftRight' && state.players[1]) { if(state.players[1].activeJob) window.handleWork(1); else if(state.players[1].menuType) selectMenuItem(1); else handleInteraction(1); }
+                if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) { if(state.players[1].activeJob) window.handleWork(1); else if(state.players[1].menuType) selectMenuItem(1); else handleInteraction(1); }
                 if (state.players[1] && state.players[1].menuType) {
                     if (k === 'arrowup') { state.players[1].menuSelection = Math.max(0, state.players[1].menuSelection-1); updateMenuUI(1); }
                     if (k === 'arrowdown') { const m = state.players[1].menuType === 'store' ? JOBS.length-1 : (state.players[1].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
@@ -963,6 +1050,11 @@
                     state.buildings.push({ x: x+100, y: y+100, w: 300, h: 300, type, color });
                 }
             }
+        }
+
+        function buildingBlocksMovement(b) {
+            if (b.type === 'ruins' && state.orbHuntActive) return false;
+            return true;
         }
 
         function update() {
@@ -1042,7 +1134,7 @@
                     else if (state.keys[controls.r]) { if (v.angle !== 0) { if (isIntersection(v.x, v.y) || v.angle === Math.PI) { v.y = Math.round(v.y/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x+20, v.y)) v.angle = 0; } } }
                     const nextX = v.x + Math.cos(v.angle) * v.type.topSpeed, nextY = v.y + Math.sin(v.angle) * v.type.topSpeed;
                     
-                    const hitBuilding = state.buildings.some(b => nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
+                    const hitBuilding = state.buildings.some(b => buildingBlocksMovement(b) && nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
                     if (!hitBuilding && getRoadAt(nextX, nextY)) { v.x = nextX; v.y = nextY; }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
                 } else {
@@ -1055,21 +1147,31 @@
                     const nx = p.x + mx, ny = p.y + my; 
                     
                     const isGhost = state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER');
-                    const hitBuilding = !isGhost && state.buildings.some(b => nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
+                    const hitBuilding = !isGhost && state.buildings.some(b => buildingBlocksMovement(b) && nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
                     
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
                     p.x = Math.max(20, Math.min(3980, p.x)); p.y = Math.max(20, Math.min(3980, p.y)); 
                     if(mx!==0 || my!==0) p.angle = Math.atan2(my, mx);
                 }
                 const pr = document.getElementById(`prompt-${idx}`); if (pr) {
-                    const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
+                    const subEl = document.getElementById(`prompt-sub-${idx}`);
+                    if (state.orbHuntActive && state.orb && !p.inVehicle && !p.activeJob && !p.menuType) {
+                        const dOrb = dist(p.x, p.y, state.orb.x, state.orb.y);
+                        pr.style.opacity = "1";
+                        if (subEl) {
+                            if (dOrb <= ORB_PICKUP_RADIUS) subEl.innerText = idx === 0 ? "ORB — press E" : "ORB — press Shift";
+                            else subEl.innerText = "Find the Orb";
+                        }
+                    } else {
+                    const bNear = state.buildings.find(b => b.type !== 'ruins' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
                     const vNear = state.vehicles.find(v => dist(p.x, p.y, v.x, v.y) < 80 && !v.occupied);
-                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) { pr.style.opacity = "1"; document.getElementById(`prompt-sub-${idx}`).innerText = bNear ? bNear.type : (vNear ? vNear.type.name : ""); } else pr.style.opacity = "0";
+                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) { pr.style.opacity = "1"; if (subEl) subEl.innerText = bNear ? bNear.type : (vNear ? vNear.type.name : ""); } else pr.style.opacity = "0";
+                    }
                 }
             });
 
             // Handle Police Chases
-            if (state.wantedLevel > 0 && !state.isPresident) {
+            if (state.wantedLevel > 0 && !state.isPresident && !state.cityNuked) {
                 if (state.policeDelay > 0) { state.policeDelay--; state.police = []; }
                 else {
                     if (state.police.length < 6) {
@@ -1121,6 +1223,28 @@
             ctx.fillStyle = '#334155';
             for(let i=0; i<4000; i+=GRID_SIZE) { ctx.fillRect(i-100, 0, 200, 4000); ctx.fillRect(0, i-100, 4000, 200); }
             state.buildings.forEach(b => { ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = 'white'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; if(b.type !== 'house') ctx.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
+
+            if (state.orbHuntActive && state.orb && !state.orbCollected) {
+                const ox = state.orb.x, oy = state.orb.y;
+                const pulse = 0.85 + 0.15 * Math.sin(state.frameCount * 0.08);
+                ctx.save();
+                ctx.translate(ox, oy);
+                ctx.globalAlpha = pulse;
+                const g = ctx.createRadialGradient(0, 0, 4, 0, 0, ORB_VISUAL_RADIUS + 12);
+                g.addColorStop(0, '#fff');
+                g.addColorStop(0.35, '#22d3ee');
+                g.addColorStop(0.7, '#a5f3fc');
+                g.addColorStop(1, 'rgba(34,211,238,0)');
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(0, 0, ORB_VISUAL_RADIUS + 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ecfeff';
+                ctx.beginPath();
+                ctx.arc(0, 0, ORB_VISUAL_RADIUS * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
             
             // Render Civilians
             state.civilians.forEach(c => {
@@ -1146,6 +1270,12 @@
             else { renderScene(state.cameras[0], 0, 0, canvas.width/2, canvas.height); renderScene(state.cameras[1], canvas.width/2, 0, canvas.width/2, canvas.height); ctx.fillStyle = '#000'; ctx.fillRect(canvas.width/2-2, 0, 4, canvas.height); }
             ctxM.clearRect(0,0,140,140); const s = 140/4000;
             state.buildings.forEach(b => { if(b.type!=='house'){ ctxM.fillStyle = b.color; ctxM.fillRect(b.x*s, b.y*s, b.w*s, b.h*s); }});
+            if (state.orbHuntActive && state.orb && !state.orbCollected) {
+                ctxM.fillStyle = '#22d3ee';
+                ctxM.beginPath();
+                ctxM.arc(state.orb.x * s, state.orb.y * s, 4, 0, Math.PI * 2);
+                ctxM.fill();
+            }
             state.civilians.forEach(c => { ctxM.fillStyle = '#f97316'; ctxM.beginPath(); ctxM.arc(c.x*s, c.y*s, 2, 0, Math.PI*2); ctxM.fill(); });
             state.players.forEach(p => { if(p){ ctxM.fillStyle = p.color; ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2); ctxM.fill(); }});
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
@@ -1271,6 +1401,8 @@
             if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
 
             document.getElementById('join-btn').onclick = joinRoom;
+            const orbDismiss = document.getElementById('orb-hunt-dismiss');
+            if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
             document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
             
             await initAuthAndData();
