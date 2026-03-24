@@ -15,6 +15,22 @@ python3 -m http.server 8080
 
 Then open [http://localhost:8080](http://localhost:8080).
 
+## Sign-in and the real $1 fee
+
+1. Everyone sees a **sign-in** screen first and must enter a **name**.
+2. If the name is exactly **`4789`**, the lobby opens with **no payment** (bypass).
+3. Any other name requires a **one-time real $1 USD** card payment before the lobby appears. The game stores access in `localStorage` on this browser after a successful return from checkout.
+
+### Stripe Payment Link (required for real charges)
+
+1. In [Stripe Dashboard](https://dashboard.stripe.com/) create a **Payment Link** for a **$1.00** product.
+2. Set **After payment → Redirect** to your live site URL **including** the query flag the game expects, for example:  
+   `https://pixelcity.quest/?access=paid`  
+   (Use your real domain or `http://localhost:8080/?access=paid` while testing.)
+3. In `index.html`, set `STRIPE_PAYMENT_LINK_URL` to the full Payment Link URL (the `https://buy.stripe.com/...` string).
+
+Until that constant is set, the **Pay $1 USD** button explains that checkout is not configured yet.
+
 ## Put it live on pixelcity.quest
 
 This repo cannot configure your domain or DNS for you. You connect **pixelcity.quest** where you host the files.
