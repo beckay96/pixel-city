@@ -84,12 +84,26 @@
         }
         #minimapCanvas { width: 100%; height: 100%; }
 
+        #sign-in-screen {
+            position: fixed;
+            inset: 0;
+            background: #0a0a0f;
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
         #lobby-screen {
             position: fixed;
             inset: 0;
             background: #111;
             z-index: 1000;
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -118,6 +132,24 @@
     </style>
 </head>
 <body>
+
+    <div id="sign-in-screen">
+        <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6">Sign in to continue</p>
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-4">
+            <div>
+                <label for="player-name-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Your name</label>
+                <input type="text" id="player-name-input" autocomplete="username" placeholder="Enter your name" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
+            <button type="button" id="sign-in-continue-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest">Continue</button>
+            <div id="payment-gate-block" class="hidden pt-4 border-t border-slate-600 space-y-3">
+                <p class="text-xs text-slate-300 leading-relaxed">This is <span class="text-white font-bold">real money</span>: pay <span class="text-green-400 font-black">$1.00 USD</span> with a credit or debit card to unlock the game. (Not in-game cash.)</p>
+                <button type="button" id="pay-usd1-btn" class="bg-green-600 hover:bg-green-500 text-white w-full py-3 rounded-lg font-bold interactive">Pay $1 USD with card</button>
+                <p id="pay-config-hint" class="text-[10px] text-slate-500 text-center">Site owner: set your Stripe Payment Link in the script (see README).</p>
+            </div>
+        </div>
+    </div>
 
     <div id="lobby-screen">
         <h1 class="text-4xl md:text-6xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
@@ -362,6 +394,12 @@
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // CONFIG
+        /** Real $1 USD: create a Stripe Payment Link for $1 and set success URL to this site with ?access=paid */
+        const STRIPE_PAYMENT_LINK_URL = '';
+        const LS_ACCESS_PAID = 'pixelCityAccessPaid';
+        const SS_PENDING_NAME = 'pixelCitySignInName';
+        const BYPASS_SIGNIN_NAME = '4789';
+
         const GRID_SIZE = 500;
         const WORLD_SIZE = 4000;
         const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
@@ -399,11 +437,57 @@
             wantedLevel: 0,
             policeDelay: 0,
             activeSecrets: [],
-            winCount: savedWins
+            winCount: savedWins,
+            playerName: ''
         };
 
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
+        }
+
+        function hasPaidAccess() {
+            return localStorage.getItem(LS_ACCESS_PAID) === '1';
+        }
+
+        function showLobbyFromSignIn() {
+            document.getElementById('sign-in-screen').style.display = 'none';
+            document.getElementById('lobby-screen').style.display = 'flex';
+        }
+
+        function isSignInScreenVisible() {
+            const el = document.getElementById('sign-in-screen');
+            return el && getComputedStyle(el).display !== 'none';
+        }
+
+        function isLobbyScreenVisible() {
+            const el = document.getElementById('lobby-screen');
+            return el && getComputedStyle(el).display !== 'none';
+        }
+
+        function isInGame() {
+            return !isSignInScreenVisible() && !isLobbyScreenVisible();
+        }
+
+        function handlePaymentReturnUrl() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('access') !== 'paid') return;
+            localStorage.setItem(LS_ACCESS_PAID, '1');
+            const pending = sessionStorage.getItem(SS_PENDING_NAME);
+            sessionStorage.removeItem(SS_PENDING_NAME);
+            params.delete('access');
+            const q = params.toString();
+            const path = window.location.pathname + (q ? '?' + q : '') + window.location.hash;
+            history.replaceState({}, '', path);
+            const msgEl = document.getElementById('sign-in-msg');
+            if (pending) {
+                state.playerName = pending;
+                const input = document.getElementById('player-name-input');
+                if (input) input.value = pending;
+                if (msgEl) msgEl.textContent = '';
+                showLobbyFromSignIn();
+            } else if (msgEl) {
+                msgEl.textContent = 'Payment received. Enter your name and tap Continue.';
+            }
         }
 
         let auth, db;
@@ -746,7 +830,7 @@
 
         function setupFullTouch() {
             window.addEventListener('touchstart', (e) => {
-                if (state.deviceMode !== 'phone' || document.getElementById('lobby-screen').style.display !== 'none') return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
                 if (e.target.closest('.interactive')) return; 
 
                 for (let i = 0; i < e.changedTouches.length; i++) {
@@ -764,7 +848,7 @@
             }, {passive: false});
 
             window.addEventListener('touchmove', (e) => {
-                if (state.deviceMode !== 'phone' || document.getElementById('lobby-screen').style.display !== 'none') return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -785,7 +869,7 @@
             }, {passive: false});
 
             window.addEventListener('touchend', (e) => {
-                if (state.deviceMode !== 'phone' || document.getElementById('lobby-screen').style.display !== 'none') return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -1072,6 +1156,59 @@
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
         async function startApp() {
+            handlePaymentReturnUrl();
+
+            const signInMsg = document.getElementById('sign-in-msg');
+            const nameInput = document.getElementById('player-name-input');
+            const paymentBlock = document.getElementById('payment-gate-block');
+            const payBtn = document.getElementById('pay-usd1-btn');
+            const payHint = document.getElementById('pay-config-hint');
+
+            if (payHint) payHint.classList.toggle('hidden', !!STRIPE_PAYMENT_LINK_URL);
+
+            function tryEnterLobbyFromSignIn() {
+                const raw = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+                if (!raw) {
+                    if (signInMsg) signInMsg.textContent = 'Enter your name.';
+                    return;
+                }
+                state.playerName = raw;
+                const bypass = raw === BYPASS_SIGNIN_NAME;
+                if (bypass || hasPaidAccess()) {
+                    if (signInMsg) signInMsg.textContent = '';
+                    if (paymentBlock) paymentBlock.classList.add('hidden');
+                    showLobbyFromSignIn();
+                    return;
+                }
+                if (signInMsg) signInMsg.textContent = 'Pay $1 USD (real card) once to play, or use the special name to skip.';
+                if (paymentBlock) paymentBlock.classList.remove('hidden');
+            }
+
+            document.getElementById('sign-in-continue-btn').onclick = tryEnterLobbyFromSignIn;
+            if (nameInput) {
+                nameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') tryEnterLobbyFromSignIn();
+                });
+            }
+            if (payBtn) {
+                payBtn.onclick = () => {
+                    const raw = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+                    if (!raw) {
+                        if (signInMsg) signInMsg.textContent = 'Enter your name first, then pay.';
+                        return;
+                    }
+                    state.playerName = raw;
+                    sessionStorage.setItem(SS_PENDING_NAME, raw);
+                    if (!STRIPE_PAYMENT_LINK_URL) {
+                        if (signInMsg) signInMsg.textContent = 'Payment link not configured yet. Ask the site owner to add Stripe Payment Link URL in index.html.';
+                        return;
+                    }
+                    const payUrl = new URL(STRIPE_PAYMENT_LINK_URL);
+                    payUrl.searchParams.set('client_reference_id', raw.slice(0, 200));
+                    window.location.href = payUrl.toString();
+                };
+            }
+
             window.addEventListener('resize', resize);
             resize();
             const setPC = () => { state.deviceMode = 'computer'; document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.playerMode===1) hintContainer.innerHTML="<p class='text-white'>P1: WASD + E</p>"; else hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; };
@@ -1098,7 +1235,7 @@
                 else if (code === 'MURDER') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
                 else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
                 else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
-                else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && document.getElementById('lobby-screen').style.display === 'none') gpb.classList.remove('hidden'); }
+                else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame()) gpb.classList.remove('hidden'); }
                 else { showSecretMsg('INVALID CODE'); }
                 document.getElementById('secret-code-input').value = '';
             };
@@ -1113,7 +1250,7 @@
                     document.getElementById('admin-codes-list-display').classList.remove('hidden');
                     document.getElementById('admin-input-area').classList.add('hidden');
                     const gpb = document.getElementById('god-panel-btn');
-                    if (gpb && document.getElementById('lobby-screen').style.display === 'none') gpb.classList.remove('hidden');
+                    if (gpb && isInGame()) gpb.classList.remove('hidden');
                 } else {
                     document.getElementById('admin-msg').innerText = 'DENIED';
                     document.getElementById('admin-code-input').value = '';
