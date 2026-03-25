@@ -432,6 +432,10 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
     </div>
 
+    <script>
+        if (!window.__SUPABASE_URL__) window.__SUPABASE_URL__ = 'https://kmzyxujxdhxblvwbxfvq.supabase.co'; // pragma: allowlist secret
+        if (!window.__SUPABASE_ANON_KEY__) window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imttenl4dWp4ZGh4Ymx2d2J4ZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MTc0OTYsImV4cCI6MjA4OTk5MzQ5Nn0.uc9BHHsuV1r4EnaPiupJHDOP5O3XJkh9zjnrSvNNPN8'; // pragma: allowlist secret
+    </script>
     <script type="module">
         import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
