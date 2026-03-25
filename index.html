@@ -254,6 +254,12 @@
     </div>
 
     <div id="ui-layer">
+        <!-- Online session code badge (top-left) -->
+        <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto">
+            <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Session Code</div>
+            <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
+        </div>
+
         <!-- Shared HUD -->
         <div class="flex justify-between items-start bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit mt-4">
             <div class="px-4 border-r border-slate-700">
@@ -727,6 +733,8 @@
             state.remotePlayer = null;
             state.onlineSessionCode = null;
             state.isOnlineHost = false;
+            const badge = document.getElementById('session-code-badge');
+            if (badge) badge.classList.add('hidden');
         }
 
         function disconnectRealtimeOnly() {
@@ -1378,6 +1386,12 @@
                 state.playerMode = 1;
                 document.getElementById('p1-modals').classList.add('hidden');
                 subscribeToSessionChannel(state.onlineSessionCode);
+                const badge = document.getElementById('session-code-badge');
+                const codeEl = document.getElementById('session-code-display');
+                if (badge && codeEl && state.onlineSessionCode) {
+                    codeEl.textContent = state.onlineSessionCode;
+                    badge.classList.remove('hidden');
+                }
             } else if (state.playerMode === 2) {
                 state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
                 document.getElementById('p1-modals').classList.remove('hidden');
