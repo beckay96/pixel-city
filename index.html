@@ -135,20 +135,20 @@
 
     <div id="sign-in-screen">
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
-        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account (Supabase)</p>
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center hidden">Add <span class="font-mono">window.__SUPABASE_URL__</span> and <span class="font-mono">window.__SUPABASE_ANON_KEY__</span> before this script to enable cloud save, friends, and online play.</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center hidden">Server not configured. Play offline or set up Supabase.</p>
             <div>
-                <label for="auth-email-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Email</label>
-                <input type="email" id="auth-email-input" autocomplete="email" placeholder="you@example.com" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+                <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
+                <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <div>
+                <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username</label>
+                <input type="text" id="auth-username-input" autocomplete="username" placeholder="Your username" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
             </div>
             <div>
                 <label for="auth-password-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Password</label>
                 <input type="password" id="auth-password-input" autocomplete="current-password" placeholder="••••••••" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
-            </div>
-            <div id="signup-username-row">
-                <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username <span class="text-slate-500 normal-case">(sign up only)</span></label>
-                <input type="text" id="auth-username-input" autocomplete="username" placeholder="Unique name for friends" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
             </div>
             <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
             <div class="flex gap-2">
@@ -193,7 +193,7 @@
 
             <div class="pt-2 border-t border-slate-700 text-left">
                 <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest text-center">Friends</h2>
-                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in with Supabase to sync friends. Offline play keeps a local list only.</p>
+                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in to sync friends. Offline play keeps a local list only.</p>
                 <div class="flex gap-2 mb-2">
                     <input type="text" id="friend-add-input" placeholder="Friend's username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive">
                     <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">ADD</button>
@@ -435,9 +435,9 @@
     <script type="module">
         import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-        // CONFIG — set on window before this module, or use env injection at deploy time
         const LS_FRIENDS = 'pixelCityFriends';
-        const LS_LAST_USER = 'pixelCitySupabaseUser';
+        const LS_LAST_USER = 'pixelCityLastUser';
+        const LS_SESSION = 'pixelCitySession';
         const ONLINE_BROADCAST_MS = 120;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -601,7 +601,7 @@
             const { data: rows, error } = await supabase.from('friends').select('friend_id').eq('user_id', state.supabaseUserId);
             if (error || !rows || rows.length === 0) return [];
             const ids = rows.map(r => r.friend_id);
-            const { data: profs } = await supabase.from('profiles').select('username').in('id', ids);
+            const { data: profs } = await supabase.from('users').select('username').in('id', ids);
             return (profs || []).map(p => p.username).filter(Boolean);
         }
 
@@ -644,11 +644,7 @@
                 rm.onclick = async () => {
                     saveLocalFriends(loadLocalFriends().filter(f => f !== name));
                     if (supabase && state.supabaseUserId) {
-                        const { data: row } = await supabase.from('profiles').select('id').eq('username', name).maybeSingle();
-                        if (row) {
-                            await supabase.from('friends').delete().eq('user_id', state.supabaseUserId).eq('friend_id', row.id);
-                            await supabase.from('friends').delete().eq('user_id', row.id).eq('friend_id', state.supabaseUserId);
-                        }
+                        await supabase.rpc('remove_friend', { p_user_id: state.supabaseUserId, p_friend_username: name });
                     }
                     delete friendOnlineStatus[name];
                     updateFriendsListUIAsync();
@@ -668,7 +664,7 @@
             friends.forEach(un => { friendOnlineStatus[un] = false; });
             if (friends.length === 0) return;
             const { data, error } = await supabase
-                .from('profiles')
+                .from('users')
                 .select('username, last_seen')
                 .in('username', friends);
             if (error || !data) return;
@@ -684,7 +680,7 @@
 
         async function upsertMyPresence() {
             if (!supabase || !state.supabaseUserId) return;
-            await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', state.supabaseUserId);
+            await supabase.rpc('user_heartbeat', { p_user_id: state.supabaseUserId });
         }
 
         async function addFriendByUsername(raw) {
@@ -699,9 +695,13 @@
                 return;
             }
             if (supabase && state.supabaseUserId) {
-                const { error } = await supabase.rpc('add_friend_by_username', { target_username: un });
+                const { data, error } = await supabase.rpc('add_friend_by_username', { p_user_id: state.supabaseUserId, p_target_username: un });
                 if (error) {
                     if (msg) msg.textContent = error.message || 'Could not add friend.';
+                    return;
+                }
+                if (data && !data.ok) {
+                    if (msg) msg.textContent = data.error || 'Could not add friend.';
                     return;
                 }
                 if (msg) msg.textContent = 'Friend added.';
@@ -771,7 +771,7 @@
         async function hostOnlineSession() {
             const el = document.getElementById('online-session-msg');
             if (!supabase || !state.supabaseUserId) {
-                if (el) el.textContent = 'Sign in with Supabase to host.';
+                if (el) el.textContent = 'Sign in to host an online game.';
                 return;
             }
             const seed = Math.floor(Math.random() * 9007199254740990);
@@ -820,7 +820,7 @@
         async function startOnlineWithFriend(username) {
             const un = normalizeUsername(username);
             if (!supabase || !state.supabaseUserId) return;
-            const { data: row } = await supabase.from('profiles').select('id').eq('username', un).maybeSingle();
+            const { data: row } = await supabase.from('users').select('id').eq('username', un).maybeSingle();
             if (!row) return;
             document.getElementById('mode-online').click();
             const msg = document.getElementById('online-session-msg');
@@ -1226,26 +1226,42 @@
 
         async function loadMyProfile() {
             if (!supabase || !state.supabaseUserId) return;
-            const { data, error } = await supabase.from('profiles').select('username').eq('id', state.supabaseUserId).maybeSingle();
+            const { data, error } = await supabase.from('users').select('username').eq('id', state.supabaseUserId).maybeSingle();
             if (!error && data && data.username) {
                 state.profileUsername = data.username;
                 state.playerName = data.username;
             }
         }
 
-        async function ensureProfileUsername(usernameNorm) {
-            if (!supabase || !state.supabaseUserId || !usernameNorm) return { ok: false };
-            const { data: taken } = await supabase.from('profiles').select('id').eq('username', usernameNorm).neq('id', state.supabaseUserId).maybeSingle();
-            if (taken) return { ok: false, err: 'Username taken.' };
-            const { error } = await supabase.from('profiles').upsert({
-                id: state.supabaseUserId,
-                username: usernameNorm,
-                last_seen: new Date().toISOString()
-            }, { onConflict: 'id' });
-            if (error) return { ok: false, err: error.message };
-            state.profileUsername = usernameNorm;
-            state.playerName = usernameNorm;
-            return { ok: true };
+        function saveSession(userId, username) {
+            localStorage.setItem(LS_SESSION, JSON.stringify({ userId, username }));
+            localStorage.setItem(LS_LAST_USER, username);
+        }
+
+        function loadSession() {
+            try {
+                const raw = localStorage.getItem(LS_SESSION);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function clearSession() {
+            localStorage.removeItem(LS_SESSION);
+            state.supabaseUserId = null;
+            state.profileUsername = '';
+            state.playerName = '';
+        }
+
+        function startPresenceLoop() {
+            if (presenceInterval) clearInterval(presenceInterval);
+            presenceInterval = setInterval(async () => {
+                await upsertMyPresence();
+                await refreshFriendPresence();
+                updateFriendsListUIAsync();
+            }, 25000);
+            upsertMyPresence();
+            refreshFriendPresence();
+            updateFriendsListUIAsync();
         }
 
         async function initSupabaseAndSession() {
@@ -1257,51 +1273,14 @@
             } else {
                 if (hint) hint.classList.add('hidden');
                 supabase = createClient(cfg.url, cfg.key, {
-                    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+                    auth: { persistSession: false, autoRefreshToken: false }
                 });
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    state.supabaseUserId = session.user.id;
-                    await loadMyProfile();
-                    const em = session.user.email || '';
-                    if (em) localStorage.setItem(LS_LAST_USER, em);
-                    const emailInput = document.getElementById('auth-email-input');
-                    if (emailInput && em) emailInput.value = em;
-                }
-                supabase.auth.onAuthStateChange(async (_event, session) => {
-                    if (session?.user) {
-                        state.supabaseUserId = session.user.id;
-                        await loadMyProfile();
-                        if (presenceInterval) clearInterval(presenceInterval);
-                        presenceInterval = setInterval(async () => {
-                            await upsertMyPresence();
-                            await refreshFriendPresence();
-                            updateFriendsListUIAsync();
-                        }, 25000);
-                        await upsertMyPresence();
-                        await refreshFriendPresence();
-                        updateFriendsListUIAsync();
-                    } else {
-                        state.supabaseUserId = null;
-                        state.profileUsername = '';
-                        if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; }
-                        teardownOnlineRealtime();
-                        updateFriendsListUIAsync();
-                    }
-                    const netMsg = document.getElementById('friends-network-msg');
-                    const c = getSupabaseConfig();
-                    if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!session?.user);
-                });
-                if (session?.user) {
-                    if (presenceInterval) clearInterval(presenceInterval);
-                    presenceInterval = setInterval(async () => {
-                        await upsertMyPresence();
-                        await refreshFriendPresence();
-                        updateFriendsListUIAsync();
-                    }, 25000);
-                    await upsertMyPresence();
-                    await refreshFriendPresence();
-                    updateFriendsListUIAsync();
+                const saved = loadSession();
+                if (saved && saved.userId) {
+                    state.supabaseUserId = saved.userId;
+                    state.profileUsername = saved.username || '';
+                    state.playerName = saved.username || '';
+                    startPresenceLoop();
                 }
             }
             const netMsg = document.getElementById('friends-network-msg');
@@ -1756,48 +1735,56 @@
             await initSupabaseAndSession();
 
             const signInMsg = document.getElementById('sign-in-msg');
-            const emailInput = document.getElementById('auth-email-input');
-            const passInput = document.getElementById('auth-password-input');
+            const gatewayInput = document.getElementById('auth-gateway-input');
             const userInput = document.getElementById('auth-username-input');
+            const passInput = document.getElementById('auth-password-input');
 
-            if (emailInput && localStorage.getItem(LS_LAST_USER)) emailInput.value = localStorage.getItem(LS_LAST_USER);
+            if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
 
             document.getElementById('auth-signin-btn').onclick = async () => {
-                const email = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+                const gateway = gatewayInput ? gatewayInput.value : '';
+                const username = normalizeUsername(userInput && userInput.value);
                 const password = passInput ? passInput.value : '';
-                if (!email || !password) { if (signInMsg) signInMsg.textContent = 'Email and password required.'; return; }
-                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Supabase not configured.'; return; }
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
+                if (!username || !password) { if (signInMsg) signInMsg.textContent = 'Username and password required.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Server not configured.'; return; }
+                const { data, error } = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
                 if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
+                state.supabaseUserId = data.user_id;
+                state.profileUsername = data.username;
+                state.playerName = data.username;
+                saveSession(data.user_id, data.username);
+                startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
             };
 
             document.getElementById('auth-signup-btn').onclick = async () => {
-                const email = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+                const gateway = gatewayInput ? gatewayInput.value : '';
+                const username = normalizeUsername(userInput && userInput.value);
                 const password = passInput ? passInput.value : '';
-                const usernameNorm = normalizeUsername(userInput && userInput.value);
-                if (!email || !password) { if (signInMsg) signInMsg.textContent = 'Email and password required.'; return; }
-                if (!usernameNorm || usernameNorm.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
-                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Supabase not configured.'; return; }
-                const { data, error } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: { data: { username: usernameNorm } }
-                });
+                if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
+                if (!username || username.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
+                if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be 6+ characters.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Server not configured.'; return; }
+                const { data, error } = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
                 if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
-                if (signInMsg) signInMsg.textContent = data.session ? 'Account ready.' : 'Check your email to confirm, then sign in.';
-                if (data.session) {
-                    state.supabaseUserId = data.user.id;
-                    await ensureProfileUsername(usernameNorm);
-                    showLobbyFromSignIn();
-                }
+                if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
+                state.supabaseUserId = data.user_id;
+                state.profileUsername = data.username;
+                state.playerName = data.username;
+                saveSession(data.user_id, data.username);
+                startPresenceLoop();
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
             };
 
             document.getElementById('auth-guest-btn').onclick = () => {
                 state.playerName = 'Guest';
                 state.profileUsername = '';
                 state.supabaseUserId = null;
+                clearSession();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
             };
@@ -1907,10 +1894,8 @@
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
             document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
             
-            if (supabase) {
-                const { data: { session: s0 } } = await supabase.auth.getSession();
-                if (s0?.user) showLobbyFromSignIn();
-                else updateFriendsListUIAsync();
+            if (supabase && state.supabaseUserId) {
+                showLobbyFromSignIn();
             } else {
                 updateFriendsListUIAsync();
             }
