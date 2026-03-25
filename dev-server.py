@@ -15,7 +15,7 @@ import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 SUPABASE_URL = os.environ.get("SUPABASE_PROJECT_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "") or os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
 
 INJECT_SNIPPET = f"""<script>
   window.__SUPABASE_URL__ = '{SUPABASE_URL}';

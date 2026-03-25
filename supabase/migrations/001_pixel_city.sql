@@ -11,7 +11,7 @@ create table if not exists public.profiles (
   updated_at timestamptz default now()
 );
 
-create index if not exists idx_profiles_username lower(username);
+create index if not exists idx_profiles_username on public.profiles (lower(username));
 
 -- Symmetric friendship: one row per direction so "my friends" is a simple query
 create table if not exists public.friends (
