@@ -1546,7 +1546,8 @@
                     const hitBuilding = !isGhost && state.buildings.some(b => buildingBlocksMovement(b) && nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
                     
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
-                    p.x = Math.max(20, Math.min(3980, p.x)); p.y = Math.max(20, Math.min(3980, p.y)); 
+                    p.x = Math.max(20, Math.min(3980, Math.round(p.x)));
+                    p.y = Math.max(20, Math.min(3980, Math.round(p.y)));
                     if(mx!==0 || my!==0) p.angle = Math.atan2(my, mx);
                 }
                 const pr = document.getElementById(`prompt-${idx}`); if (pr) {
@@ -1605,8 +1606,25 @@
                 }
             }
 
-            if (state.playerMode === 1 && state.players[0]) state.camera = { x: state.players[0].x - canvas.width/2, y: state.players[0].y - canvas.height/2 };
-            else if (state.players.length > 1) { state.cameras[0] = { x: state.players[0].x - canvas.width/4, y: state.players[0].y - canvas.height/2 }; state.cameras[1] = { x: state.players[1].x - canvas.width/4, y: state.players[1].y - canvas.height/2 }; }
+            const CAM_LERP = 0.12;
+            if (state.playerMode === 1 && state.players[0]) {
+                const tx = state.players[0].x - canvas.width/2, ty = state.players[0].y - canvas.height/2;
+                state.camera.x += (tx - state.camera.x) * CAM_LERP;
+                state.camera.y += (ty - state.camera.y) * CAM_LERP;
+                state.camera.x = Math.round(state.camera.x);
+                state.camera.y = Math.round(state.camera.y);
+            } else if (state.players.length > 1) {
+                const tx0 = state.players[0].x - canvas.width/4, ty0 = state.players[0].y - canvas.height/2;
+                state.cameras[0].x += (tx0 - state.cameras[0].x) * CAM_LERP;
+                state.cameras[0].y += (ty0 - state.cameras[0].y) * CAM_LERP;
+                state.cameras[0].x = Math.round(state.cameras[0].x);
+                state.cameras[0].y = Math.round(state.cameras[0].y);
+                const tx1 = state.players[1].x - canvas.width/4, ty1 = state.players[1].y - canvas.height/2;
+                state.cameras[1].x += (tx1 - state.cameras[1].x) * CAM_LERP;
+                state.cameras[1].y += (ty1 - state.cameras[1].y) * CAM_LERP;
+                state.cameras[1].x = Math.round(state.cameras[1].x);
+                state.cameras[1].y = Math.round(state.cameras[1].y);
+            }
 
             if (state.playMode === 'online' && supabaseRealtimeChannel && state.players[0]) broadcastMyPosition();
             
