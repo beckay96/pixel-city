@@ -6,19 +6,24 @@
 
 Pixel City is a single-file browser game (`index.html`) with zero build steps, no package manager, and no installable dependencies. All external libraries (Tailwind CSS, Supabase JS) are loaded from CDNs at runtime.
 
-### Running locally
+### Running locally (with Supabase)
 
-Start a static file server from the repo root:
+Use the dev server which injects Supabase credentials from environment variables:
 
 ```bash
-python3 -m http.server 8080
+python3 dev-server.py 8080
 ```
 
-Then open `http://localhost:8080`. The game works in offline/guest mode without any Supabase credentials.
+Requires `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` env vars (configured as Cursor secrets). The server injects `window.__SUPABASE_URL__` and `window.__SUPABASE_ANON_KEY__` into `index.html` before serving.
 
-### Supabase (optional)
+Without these env vars, `python3 -m http.server 8080` works for offline/guest mode.
 
-Online features (auth, friends, multiplayer) require a Supabase project. See `README.md` for setup. Without Supabase credentials the game still runs fully in offline mode — the main menu simply offers "Play offline" / local split-screen.
+### Supabase project
+
+- **Project ref:** `kmzyxujxdhxblvwbxfvq`
+- **MCP config:** `.cursor/mcp.json` (project-scoped, not committed)
+- **Migration:** `supabase/migrations/001_pixel_city.sql` — creates `profiles`, `friends`, `game_sessions` tables, RLS policies, triggers, and the `add_friend_by_username` function
+- **Auth:** Email provider enabled, `mailer_autoconfirm` is off (signups require email confirmation unless changed in dashboard)
 
 ### Linting / Tests / Build
 
