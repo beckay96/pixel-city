@@ -135,19 +135,27 @@
 
     <div id="sign-in-screen">
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
-        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6">Sign in to continue</p>
-        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-4">
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account (Supabase)</p>
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center hidden">Add <span class="font-mono">window.__SUPABASE_URL__</span> and <span class="font-mono">window.__SUPABASE_ANON_KEY__</span> before this script to enable cloud save, friends, and online play.</p>
             <div>
-                <label for="player-name-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Your name</label>
-                <input type="text" id="player-name-input" autocomplete="username" placeholder="Enter your name" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+                <label for="auth-email-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Email</label>
+                <input type="email" id="auth-email-input" autocomplete="email" placeholder="you@example.com" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <div>
+                <label for="auth-password-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Password</label>
+                <input type="password" id="auth-password-input" autocomplete="current-password" placeholder="••••••••" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <div id="signup-username-row">
+                <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username <span class="text-slate-500 normal-case">(sign up only)</span></label>
+                <input type="text" id="auth-username-input" autocomplete="username" placeholder="Unique name for friends" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
             </div>
             <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
-            <button type="button" id="sign-in-continue-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest">Continue</button>
-            <div id="payment-gate-block" class="hidden pt-4 border-t border-slate-600 space-y-3">
-                <p class="text-xs text-slate-300 leading-relaxed">This is <span class="text-white font-bold">real money</span>: pay <span class="text-green-400 font-black">$1.00 USD</span> with a credit or debit card to unlock the game. (Not in-game cash.)</p>
-                <button type="button" id="pay-usd1-btn" class="bg-green-600 hover:bg-green-500 text-white w-full py-3 rounded-lg font-bold interactive">Pay $1 USD with card</button>
-                <p id="pay-config-hint" class="text-[10px] text-slate-500 text-center">Site owner: set your Stripe Payment Link in the script (see README).</p>
+            <div class="flex gap-2">
+                <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white flex-1 py-3 rounded-lg font-bold interactive text-sm">Sign in</button>
+                <button type="button" id="auth-signup-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white flex-1 py-3 rounded-lg font-bold interactive text-sm">Sign up</button>
             </div>
+            <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive">Play offline (no account)</button>
         </div>
     </div>
 
@@ -167,10 +175,31 @@
 
             <div>
                 <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Mode</h2>
-                <div class="flex gap-2">
-                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
-                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">2 PLAYERS</button>
+                <div class="flex gap-2 flex-wrap justify-center">
+                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
+                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
+                    <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">ONLINE</button>
                 </div>
+                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden">Online uses Supabase: same map seed + live friend position (phone or PC).</p>
+                <div id="online-lobby-panel" class="hidden mt-2 space-y-2 text-left">
+                    <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — create code</button>
+                    <div class="flex gap-2">
+                        <input type="text" id="online-join-code-input" placeholder="Friend code" maxlength="8" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 uppercase interactive">
+                        <button type="button" id="online-join-btn" class="bg-slate-600 hover:bg-slate-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">Join</button>
+                    </div>
+                    <p id="online-session-msg" class="text-[10px] text-cyan-300/90 min-h-[1rem]"></p>
+                </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-700 text-left">
+                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest text-center">Friends</h2>
+                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in with Supabase to sync friends. Offline play keeps a local list only.</p>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="friend-add-input" placeholder="Friend's username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive">
+                    <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">ADD</button>
+                </div>
+                <p id="friend-add-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem]"></p>
+                <ul id="friends-list-ul" class="max-h-36 overflow-y-auto space-y-1 text-xs"></ul>
             </div>
 
             <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest mt-2">Start Game</button>
@@ -404,16 +433,13 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-        // CONFIG
-        /** Real $1 USD: create a Stripe Payment Link for $1 and set success URL to this site with ?access=paid */
-        const STRIPE_PAYMENT_LINK_URL = '';
-        const LS_ACCESS_PAID = 'pixelCityAccessPaid';
-        const SS_PENDING_NAME = 'pixelCitySignInName';
-        const BYPASS_SIGNIN_NAME = '4789';
+        // CONFIG — set on window before this module, or use env injection at deploy time
+        const LS_FRIENDS = 'pixelCityFriends';
+        const LS_LAST_USER = 'pixelCitySupabaseUser';
+        const ONLINE_BROADCAST_MS = 120;
+        const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
         const GRID_SIZE = 500;
         const WORLD_SIZE = 4000;
@@ -454,21 +480,28 @@
             activeSecrets: [],
             winCount: savedWins,
             playerName: '',
+            profileUsername: '',
+            supabaseUserId: null,
+            playMode: 'solo',
+            worldSeed: null,
+            onlineSessionCode: null,
+            isOnlineHost: false,
+            remotePlayer: null,
             cityNuked: false,
             orbHuntActive: false,
             orbCollected: false,
             orb: null
         };
 
+        let supabase = null;
+        let supabaseRealtimeChannel = null;
+        let lastOnlineBroadcast = 0;
+
         const ORB_PICKUP_RADIUS = 38;
         const ORB_VISUAL_RADIUS = 22;
 
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
-        }
-
-        function hasPaidAccess() {
-            return localStorage.getItem(LS_ACCESS_PAID) === '1';
         }
 
         function showLobbyFromSignIn() {
@@ -490,29 +523,313 @@
             return !isSignInScreenVisible() && !isLobbyScreenVisible();
         }
 
-        function handlePaymentReturnUrl() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('access') !== 'paid') return;
-            localStorage.setItem(LS_ACCESS_PAID, '1');
-            const pending = sessionStorage.getItem(SS_PENDING_NAME);
-            sessionStorage.removeItem(SS_PENDING_NAME);
-            params.delete('access');
-            const q = params.toString();
-            const path = window.location.pathname + (q ? '?' + q : '') + window.location.hash;
-            history.replaceState({}, '', path);
-            const msgEl = document.getElementById('sign-in-msg');
-            if (pending) {
-                state.playerName = pending;
-                const input = document.getElementById('player-name-input');
-                if (input) input.value = pending;
-                if (msgEl) msgEl.textContent = '';
-                showLobbyFromSignIn();
-            } else if (msgEl) {
-                msgEl.textContent = 'Payment received. Enter your name and tap Continue.';
+        function getSupabaseConfig() {
+            const url = typeof window.__SUPABASE_URL__ === 'string' ? window.__SUPABASE_URL__.trim() : '';
+            const key = typeof window.__SUPABASE_ANON_KEY__ === 'string' ? window.__SUPABASE_ANON_KEY__.trim() : '';
+            return { url, key, ok: !!(url && key) };
+        }
+
+        function normalizeUsername(s) {
+            return (s || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 32);
+        }
+
+        function loadLocalFriends() {
+            try {
+                const raw = localStorage.getItem(LS_FRIENDS);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr.filter(x => typeof x === 'string') : [];
+            } catch { return []; }
+        }
+
+        function saveLocalFriends(list) {
+            localStorage.setItem(LS_FRIENDS, JSON.stringify([...new Set(list)]));
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        const friendOnlineStatus = {};
+
+        function mulberry32(a) {
+            return function () {
+                let t = (a += 0x6d2b79f5);
+                t = Math.imul(t ^ (t >>> 15), t | 1);
+                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function hashWorldSeed(s) {
+            const str = String(s);
+            let h = 2166136261 >>> 0;
+            for (let i = 0; i < str.length; i++) {
+                h ^= str.charCodeAt(i);
+                h = Math.imul(h, 16777619) >>> 0;
+            }
+            return h;
+        }
+
+        function rngForWorld() {
+            const s = state.worldSeed;
+            let hi;
+            if (s != null && s !== '') hi = hashWorldSeed(s);
+            else hi = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+            return mulberry32(hi);
+        }
+
+        function generateCity() {
+            const rnd = rngForWorld();
+            state.buildings = [];
+            for (let x = 0; x < WORLD_SIZE; x += GRID_SIZE) {
+                for (let y = 0; y < WORLD_SIZE; y += GRID_SIZE) {
+                    let type = 'house', color = COLORS[Math.floor(rnd() * COLORS.length)];
+                    if (x === 2000 && y === 2000) { type = 'home'; color = '#000'; }
+                    else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }
+                    else if (x === 500 && y === 500) { type = 'jail'; color = '#475569'; }
+                    else if (x === 500 && y === 3500) { type = 'dealership'; color = '#3b82f6'; }
+                    else if (rnd() > 0.85) { type = 'store'; color = '#10b981'; }
+                    state.buildings.push({ x: x + 100, y: y + 100, w: 300, h: 300, type, color });
+                }
             }
         }
 
-        let auth, db;
+        async function fetchCloudFriendnames() {
+            if (!supabase || !state.supabaseUserId) return [];
+            const { data: rows, error } = await supabase.from('friends').select('friend_id').eq('user_id', state.supabaseUserId);
+            if (error || !rows || rows.length === 0) return [];
+            const ids = rows.map(r => r.friend_id);
+            const { data: profs } = await supabase.from('profiles').select('username').in('id', ids);
+            return (profs || []).map(p => p.username).filter(Boolean);
+        }
+
+        async function getMergedFriendnames() {
+            const local = loadLocalFriends();
+            if (!supabase || !state.supabaseUserId) return local;
+            const cloud = await fetchCloudFriendnames();
+            return [...new Set([...cloud, ...local])];
+        }
+
+        async function updateFriendsListUIAsync() {
+            const ul = document.getElementById('friends-list-ul');
+            if (!ul) return;
+            ul.innerHTML = '';
+            const friends = await getMergedFriendnames();
+            if (friends.length === 0) {
+                ul.innerHTML = '<li class="text-slate-500 text-center py-2">No friends yet</li>';
+                return;
+            }
+            await refreshFriendPresence();
+            friends.forEach(name => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between gap-2 bg-slate-900/80 px-2 py-1.5 rounded border border-slate-700';
+                const online = friendOnlineStatus[name];
+                const dot = online ? '🟢' : '⚪';
+                li.innerHTML = `<span class="text-slate-200">${dot} ${escapeHtml(name)}</span><div class="flex gap-1 shrink-0"></div>`;
+                const wrap = li.querySelector('div');
+                if (state.playMode === 'online' && supabase && state.supabaseUserId) {
+                    const j = document.createElement('button');
+                    j.type = 'button';
+                    j.className = 'text-[10px] bg-cyan-800 hover:bg-cyan-700 px-2 py-0.5 rounded font-bold interactive';
+                    j.textContent = 'Join';
+                    j.onclick = () => startOnlineWithFriend(name);
+                    wrap.appendChild(j);
+                }
+                const rm = document.createElement('button');
+                rm.type = 'button';
+                rm.className = 'text-[10px] text-red-400 hover:text-red-300 interactive';
+                rm.textContent = '✕';
+                rm.onclick = async () => {
+                    saveLocalFriends(loadLocalFriends().filter(f => f !== name));
+                    if (supabase && state.supabaseUserId) {
+                        const { data: row } = await supabase.from('profiles').select('id').eq('username', name).maybeSingle();
+                        if (row) {
+                            await supabase.from('friends').delete().eq('user_id', state.supabaseUserId).eq('friend_id', row.id);
+                            await supabase.from('friends').delete().eq('user_id', row.id).eq('friend_id', state.supabaseUserId);
+                        }
+                    }
+                    delete friendOnlineStatus[name];
+                    updateFriendsListUIAsync();
+                };
+                wrap.appendChild(rm);
+                ul.appendChild(li);
+            });
+        }
+
+        function updateFriendsListUI() {
+            updateFriendsListUIAsync();
+        }
+
+        async function refreshFriendPresence() {
+            if (!supabase || !state.supabaseUserId) return;
+            const friends = await getMergedFriendnames();
+            friends.forEach(un => { friendOnlineStatus[un] = false; });
+            if (friends.length === 0) return;
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('username, last_seen')
+                .in('username', friends);
+            if (error || !data) return;
+            const now = Date.now();
+            data.forEach(row => {
+                const un = row.username;
+                const seen = row.last_seen ? new Date(row.last_seen).getTime() : 0;
+                friendOnlineStatus[un] = now - seen < 90000;
+            });
+        }
+
+        let presenceInterval = null;
+
+        async function upsertMyPresence() {
+            if (!supabase || !state.supabaseUserId) return;
+            await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', state.supabaseUserId);
+        }
+
+        async function addFriendByUsername(raw) {
+            const un = normalizeUsername(raw);
+            const msg = document.getElementById('friend-add-msg');
+            if (!un || un.length < 2) {
+                if (msg) msg.textContent = 'Enter a valid username.';
+                return;
+            }
+            if (state.profileUsername && un === state.profileUsername) {
+                if (msg) msg.textContent = "You can't add yourself.";
+                return;
+            }
+            if (supabase && state.supabaseUserId) {
+                const { error } = await supabase.rpc('add_friend_by_username', { target_username: un });
+                if (error) {
+                    if (msg) msg.textContent = error.message || 'Could not add friend.';
+                    return;
+                }
+                if (msg) msg.textContent = 'Friend added.';
+            } else {
+                const list = loadLocalFriends();
+                if (!list.includes(un)) list.push(un);
+                saveLocalFriends(list);
+                if (msg) msg.textContent = 'Saved locally (sign in to sync).';
+            }
+            document.getElementById('friend-add-input').value = '';
+            updateFriendsListUIAsync();
+        }
+
+        function teardownOnlineRealtime() {
+            if (supabaseRealtimeChannel && supabase) {
+                supabase.removeChannel(supabaseRealtimeChannel);
+                supabaseRealtimeChannel = null;
+            }
+            state.remotePlayer = null;
+            state.onlineSessionCode = null;
+            state.isOnlineHost = false;
+        }
+
+        function disconnectRealtimeOnly() {
+            if (supabaseRealtimeChannel && supabase) {
+                supabase.removeChannel(supabaseRealtimeChannel);
+                supabaseRealtimeChannel = null;
+            }
+            state.remotePlayer = null;
+        }
+
+        function subscribeToSessionChannel(code) {
+            if (!supabase || !code) return;
+            disconnectRealtimeOnly();
+            const topic = `pixel-city-${code}`;
+            const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
+            ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
+                if (!payload || payload.uid === state.supabaseUserId) return;
+                state.remotePlayer = {
+                    x: payload.x, y: payload.y, angle: payload.angle || 0,
+                    inVehicle: !!payload.inVehicle,
+                    username: payload.u || 'Friend'
+                };
+            });
+            ch.subscribe();
+            supabaseRealtimeChannel = ch;
+        }
+
+        function broadcastMyPosition() {
+            if (!supabaseRealtimeChannel || !state.players[0] || !state.supabaseUserId) return;
+            const now = performance.now();
+            if (now - lastOnlineBroadcast < ONLINE_BROADCAST_MS) return;
+            lastOnlineBroadcast = now;
+            const p = state.players[0];
+            supabaseRealtimeChannel.send({
+                type: 'broadcast',
+                event: 'pos',
+                payload: {
+                    uid: state.supabaseUserId,
+                    u: state.profileUsername || state.playerName || 'player',
+                    x: p.x, y: p.y, angle: p.angle,
+                    inVehicle: !!p.inVehicle
+                }
+            });
+        }
+
+        async function hostOnlineSession() {
+            const el = document.getElementById('online-session-msg');
+            if (!supabase || !state.supabaseUserId) {
+                if (el) el.textContent = 'Sign in with Supabase to host.';
+                return;
+            }
+            const seed = Math.floor(Math.random() * 9007199254740990);
+            let code = '';
+            for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+            const { error } = await supabase.from('game_sessions').upsert({
+                code,
+                host_id: state.supabaseUserId,
+                world_seed: seed,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'code' });
+            if (error) {
+                if (el) el.textContent = error.message;
+                return;
+            }
+            state.onlineSessionCode = code;
+            state.isOnlineHost = true;
+            state.worldSeed = seed;
+            subscribeToSessionChannel(code);
+            if (el) el.textContent = `Your code: ${code} — share with friend`;
+        }
+
+        async function joinOnlineSession(rawCode) {
+            const el = document.getElementById('online-session-msg');
+            const code = (rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+            if (!code) {
+                if (el) el.textContent = 'Enter a code.';
+                return;
+            }
+            if (!supabase) {
+                if (el) el.textContent = 'Supabase not configured.';
+                return;
+            }
+            const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id').eq('code', code).maybeSingle();
+            if (error || !data) {
+                if (el) el.textContent = 'Invalid or expired code.';
+                return;
+            }
+            state.onlineSessionCode = code;
+            state.isOnlineHost = data.host_id === state.supabaseUserId;
+            state.worldSeed = data.world_seed;
+            subscribeToSessionChannel(code);
+            if (el) el.textContent = `Joined ${code}`;
+        }
+
+        async function startOnlineWithFriend(username) {
+            const un = normalizeUsername(username);
+            if (!supabase || !state.supabaseUserId) return;
+            const { data: row } = await supabase.from('profiles').select('id').eq('username', un).maybeSingle();
+            if (!row) return;
+            document.getElementById('mode-online').click();
+            const msg = document.getElementById('online-session-msg');
+            if (state.isOnlineHost && state.onlineSessionCode) {
+                if (msg) msg.textContent = `Tell ${un} to join code: ${state.onlineSessionCode}`;
+                return;
+            }
+            if (msg) msg.textContent = `Ask ${un} for their host code, then enter it above.`;
+        }
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const minimapCanvas = document.getElementById('minimapCanvas');
@@ -570,6 +887,8 @@
             if (!modal || !body) return;
             if (state.playerMode === 2) {
                 body.textContent = 'The city is ash. A glowing Orb waits where your home stood. First player to walk into the Orb wins the hunt. Player 1: use E near the Orb. Player 2: use Shift near the Orb.';
+            } else if (state.playMode === 'online') {
+                body.textContent = 'The city is ash. The Orb is at the old safe house. First player (you or your online friend) to reach it and press E wins. Your friend appears as a magenta dot.';
             } else {
                 body.textContent = 'The city is ash. A glowing Orb waits where your home used to be. Walk to the Orb and press E when you are close to claim it and win.';
             }
@@ -600,6 +919,9 @@
                 if (state.playerMode === 2) {
                     title.textContent = pIdx === 0 ? 'Player 1 wins!' : 'Player 2 wins!';
                     sub.textContent = 'Reached the Orb first.';
+                } else if (state.playMode === 'online') {
+                    title.textContent = 'You win!';
+                    sub.textContent = 'You reached the Orb first.';
                 } else {
                     title.textContent = 'You win!';
                     sub.textContent = 'You found the Orb.';
@@ -667,6 +989,9 @@
             state.orbHuntActive = false;
             state.orbCollected = false;
             state.orb = null;
+            state.remotePlayer = null;
+            if (state.playMode !== 'online') teardownOnlineRealtime();
+            else if (state.onlineSessionCode) subscribeToSessionChannel(state.onlineSessionCode);
             hideOrbHuntIntro();
             const orbWin = document.getElementById('orb-win-overlay');
             if (orbWin) orbWin.style.display = 'none';
@@ -899,30 +1224,100 @@
             if (vNear && !vNear.occupied && !bNear) { p.inVehicle = vNear; vNear.occupied = true; p.x = vNear.x; p.y = vNear.y; }
         }
 
-        async function initAuthAndData() {
-            try {
-                if (typeof __firebase_config !== 'undefined') {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                    else await signInAnonymously(auth);
-                }
-            } catch(e) {
-                console.log("Firebase setup skipped or unavailable.");
+        async function loadMyProfile() {
+            if (!supabase || !state.supabaseUserId) return;
+            const { data, error } = await supabase.from('profiles').select('username').eq('id', state.supabaseUserId).maybeSingle();
+            if (!error && data && data.username) {
+                state.profileUsername = data.username;
+                state.playerName = data.username;
             }
-            if(lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+        }
+
+        async function ensureProfileUsername(usernameNorm) {
+            if (!supabase || !state.supabaseUserId || !usernameNorm) return { ok: false };
+            const { data: taken } = await supabase.from('profiles').select('id').eq('username', usernameNorm).neq('id', state.supabaseUserId).maybeSingle();
+            if (taken) return { ok: false, err: 'Username taken.' };
+            const { error } = await supabase.from('profiles').upsert({
+                id: state.supabaseUserId,
+                username: usernameNorm,
+                last_seen: new Date().toISOString()
+            }, { onConflict: 'id' });
+            if (error) return { ok: false, err: error.message };
+            state.profileUsername = usernameNorm;
+            state.playerName = usernameNorm;
+            return { ok: true };
+        }
+
+        async function initSupabaseAndSession() {
+            const cfg = getSupabaseConfig();
+            const hint = document.getElementById('supabase-config-hint');
+            if (!cfg.ok) {
+                if (hint) hint.classList.remove('hidden');
+                supabase = null;
+            } else {
+                if (hint) hint.classList.add('hidden');
+                supabase = createClient(cfg.url, cfg.key, {
+                    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+                });
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    state.supabaseUserId = session.user.id;
+                    await loadMyProfile();
+                    const em = session.user.email || '';
+                    if (em) localStorage.setItem(LS_LAST_USER, em);
+                    const emailInput = document.getElementById('auth-email-input');
+                    if (emailInput && em) emailInput.value = em;
+                }
+                supabase.auth.onAuthStateChange(async (_event, session) => {
+                    if (session?.user) {
+                        state.supabaseUserId = session.user.id;
+                        await loadMyProfile();
+                        if (presenceInterval) clearInterval(presenceInterval);
+                        presenceInterval = setInterval(async () => {
+                            await upsertMyPresence();
+                            await refreshFriendPresence();
+                            updateFriendsListUIAsync();
+                        }, 25000);
+                        await upsertMyPresence();
+                        await refreshFriendPresence();
+                        updateFriendsListUIAsync();
+                    } else {
+                        state.supabaseUserId = null;
+                        state.profileUsername = '';
+                        if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; }
+                        teardownOnlineRealtime();
+                        updateFriendsListUIAsync();
+                    }
+                    const netMsg = document.getElementById('friends-network-msg');
+                    const c = getSupabaseConfig();
+                    if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!session?.user);
+                });
+                if (session?.user) {
+                    if (presenceInterval) clearInterval(presenceInterval);
+                    presenceInterval = setInterval(async () => {
+                        await upsertMyPresence();
+                        await refreshFriendPresence();
+                        updateFriendsListUIAsync();
+                    }, 25000);
+                    await upsertMyPresence();
+                    await refreshFriendPresence();
+                    updateFriendsListUIAsync();
+                }
+            }
+            const netMsg = document.getElementById('friends-network-msg');
+            const c = getSupabaseConfig();
+            if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!state.supabaseUserId);
+            if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
         }
 
         function setupFullTouch() {
             window.addEventListener('touchstart', (e) => {
-                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 if (e.target.closest('.interactive')) return; 
 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
-                    const pIdx = (state.playerMode === 2 && touch.clientX > window.innerWidth / 2) ? 1 : 0;
+                    const pIdx = (state.playerMode === 2 && state.playMode !== 'online' && touch.clientX > window.innerWidth / 2) ? 1 : 0;
                     
                     activeTouches[touch.identifier] = {
                         pIdx: pIdx,
@@ -935,7 +1330,7 @@
             }, {passive: false});
 
             window.addEventListener('touchmove', (e) => {
-                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -956,7 +1351,7 @@
             }, {passive: false});
 
             window.addEventListener('touchend', (e) => {
-                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -980,12 +1375,31 @@
         }
 
         function joinRoom() {
+            if (state.playMode === 'online') {
+                if (!supabase || !state.supabaseUserId) {
+                    showMessage('Sign in to play online.');
+                    return;
+                }
+                if (!state.onlineSessionCode) {
+                    showMessage('Host or join with a code first.');
+                    return;
+                }
+            } else {
+                state.worldSeed = null;
+            }
+
             document.getElementById('lobby-screen').style.display = 'none';
             state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
-            if (state.playerMode === 2) {
+            if (state.playMode === 'online') {
+                state.playerMode = 1;
+                document.getElementById('p1-modals').classList.add('hidden');
+                subscribeToSessionChannel(state.onlineSessionCode);
+            } else if (state.playerMode === 2) {
                 state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
                 document.getElementById('p1-modals').classList.remove('hidden');
+            } else {
+                document.getElementById('p1-modals').classList.add('hidden');
             }
             
             if (state.deviceMode === 'phone') {
@@ -1035,21 +1449,6 @@
             };
             window.onkeyup = e => state.keys[e.key.toLowerCase()] = false;
             requestAnimationFrame(gameLoop);
-        }
-
-        function generateCity() {
-            state.buildings = [];
-            for(let x=0; x<WORLD_SIZE; x+=GRID_SIZE) {
-                for(let y=0; y<WORLD_SIZE; y+=GRID_SIZE) {
-                    let type = 'house', color = COLORS[Math.floor(Math.random()*COLORS.length)];
-                    if (x===2000 && y===2000) { type='home'; color='#000'; }
-                    else if (x===3500 && y===3500) { type='bank'; color='#fbbf24'; }
-                    else if (x===500 && y===500) { type='jail'; color='#475569'; }
-                    else if (x===500 && y===3500) { type='dealership'; color='#3b82f6'; }
-                    else if (Math.random()>0.85) { type='store'; color='#10b981'; }
-                    state.buildings.push({ x: x+100, y: y+100, w: 300, h: 300, type, color });
-                }
-            }
         }
 
         function buildingBlocksMovement(b) {
@@ -1211,6 +1610,8 @@
 
             if (state.playerMode === 1 && state.players[0]) state.camera = { x: state.players[0].x - canvas.width/2, y: state.players[0].y - canvas.height/2 };
             else if (state.players.length > 1) { state.cameras[0] = { x: state.players[0].x - canvas.width/4, y: state.players[0].y - canvas.height/2 }; state.cameras[1] = { x: state.players[1].x - canvas.width/4, y: state.players[1].y - canvas.height/2 }; }
+
+            if (state.playMode === 'online' && supabaseRealtimeChannel && state.players[0]) broadcastMyPosition();
             
             // Apply Reality Visual Filter
             canvas.style.filter = state.activeSecrets.includes('REALITY') ? 'grayscale(80%) contrast(0.8)' : 'none';
@@ -1261,6 +1662,24 @@
                     ctx.restore(); 
                 }
             });
+            const rp = state.remotePlayer;
+            if (rp && state.playMode === 'online') {
+                ctx.save();
+                ctx.translate(rp.x, rp.y);
+                ctx.rotate(rp.angle || 0);
+                ctx.fillStyle = '#d946ef';
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(rp.username || 'Friend', 0, -16);
+                ctx.restore();
+            }
             ctx.restore();
         }
 
@@ -1278,6 +1697,13 @@
             }
             state.civilians.forEach(c => { ctxM.fillStyle = '#f97316'; ctxM.beginPath(); ctxM.arc(c.x*s, c.y*s, 2, 0, Math.PI*2); ctxM.fill(); });
             state.players.forEach(p => { if(p){ ctxM.fillStyle = p.color; ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2); ctxM.fill(); }});
+            if (state.remotePlayer && state.playMode === 'online') {
+                const rp = state.remotePlayer;
+                ctxM.fillStyle = '#d946ef';
+                ctxM.beginPath();
+                ctxM.arc(rp.x * s, rp.y * s, 3, 0, Math.PI * 2);
+                ctxM.fill();
+            }
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
                 state.police.forEach(v => { const flash = Math.floor(state.frameCount / 5) % 2 === 0; ctxM.fillStyle = flash ? '#ff0000' : '#0000ff'; ctxM.beginPath(); ctxM.arc(v.x * s, v.y * s, 3, 0, Math.PI * 2); ctxM.fill(); });
             }
@@ -1285,64 +1711,122 @@
 
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
+        function applyModeButtonStyles() {
+            const solo = document.getElementById('mode-solo');
+            const duo = document.getElementById('mode-duo');
+            const onl = document.getElementById('mode-online');
+            const active = 'bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            const inactiveBlue = 'border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            const inactiveCyan = 'border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            const activeCyan = 'bg-cyan-600 border-2 border-cyan-400 text-white flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            if (state.playMode === 'online') {
+                solo.className = inactiveBlue;
+                duo.className = inactiveBlue;
+                onl.className = activeCyan;
+            } else if (state.playerMode === 2) {
+                solo.className = inactiveBlue;
+                duo.className = active;
+                onl.className = inactiveCyan;
+            } else {
+                solo.className = active;
+                duo.className = inactiveBlue;
+                onl.className = inactiveCyan;
+            }
+        }
+
+        function updateLobbyHints() {
+            const onlineHint = document.getElementById('online-mode-hint');
+            const panel = document.getElementById('online-lobby-panel');
+            if (onlineHint) onlineHint.classList.toggle('hidden', state.playMode !== 'online');
+            if (panel) panel.classList.toggle('hidden', state.playMode !== 'online');
+            if (state.playMode === 'online') {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>Online: WASD + E (friend sees you live)</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Online: drag to move, tap to interact</p>";
+            } else if (state.playerMode === 2) {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
+            } else {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD to Move, E to Interact</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Drag to Move, Tap to Interact</p>";
+            }
+            updateFriendsListUIAsync();
+        }
+
         async function startApp() {
-            handlePaymentReturnUrl();
+            await initSupabaseAndSession();
 
             const signInMsg = document.getElementById('sign-in-msg');
-            const nameInput = document.getElementById('player-name-input');
-            const paymentBlock = document.getElementById('payment-gate-block');
-            const payBtn = document.getElementById('pay-usd1-btn');
-            const payHint = document.getElementById('pay-config-hint');
+            const emailInput = document.getElementById('auth-email-input');
+            const passInput = document.getElementById('auth-password-input');
+            const userInput = document.getElementById('auth-username-input');
 
-            if (payHint) payHint.classList.toggle('hidden', !!STRIPE_PAYMENT_LINK_URL);
+            if (emailInput && localStorage.getItem(LS_LAST_USER)) emailInput.value = localStorage.getItem(LS_LAST_USER);
 
-            function tryEnterLobbyFromSignIn() {
-                const raw = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
-                if (!raw) {
-                    if (signInMsg) signInMsg.textContent = 'Enter your name.';
-                    return;
-                }
-                state.playerName = raw;
-                const bypass = raw === BYPASS_SIGNIN_NAME;
-                if (bypass || hasPaidAccess()) {
-                    if (signInMsg) signInMsg.textContent = '';
-                    if (paymentBlock) paymentBlock.classList.add('hidden');
-                    showLobbyFromSignIn();
-                    return;
-                }
-                if (signInMsg) signInMsg.textContent = 'Pay $1 USD (real card) once to play, or use the special name to skip.';
-                if (paymentBlock) paymentBlock.classList.remove('hidden');
-            }
+            document.getElementById('auth-signin-btn').onclick = async () => {
+                const email = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+                const password = passInput ? passInput.value : '';
+                if (!email || !password) { if (signInMsg) signInMsg.textContent = 'Email and password required.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Supabase not configured.'; return; }
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
+            };
 
-            document.getElementById('sign-in-continue-btn').onclick = tryEnterLobbyFromSignIn;
-            if (nameInput) {
-                nameInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') tryEnterLobbyFromSignIn();
+            document.getElementById('auth-signup-btn').onclick = async () => {
+                const email = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+                const password = passInput ? passInput.value : '';
+                const usernameNorm = normalizeUsername(userInput && userInput.value);
+                if (!email || !password) { if (signInMsg) signInMsg.textContent = 'Email and password required.'; return; }
+                if (!usernameNorm || usernameNorm.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Supabase not configured.'; return; }
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { username: usernameNorm } }
                 });
-            }
-            if (payBtn) {
-                payBtn.onclick = () => {
-                    const raw = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
-                    if (!raw) {
-                        if (signInMsg) signInMsg.textContent = 'Enter your name first, then pay.';
-                        return;
-                    }
-                    state.playerName = raw;
-                    sessionStorage.setItem(SS_PENDING_NAME, raw);
-                    if (!STRIPE_PAYMENT_LINK_URL) {
-                        if (signInMsg) signInMsg.textContent = 'Payment link not configured yet. Ask the site owner to add Stripe Payment Link URL in index.html.';
-                        return;
-                    }
-                    const payUrl = new URL(STRIPE_PAYMENT_LINK_URL);
-                    payUrl.searchParams.set('client_reference_id', raw.slice(0, 200));
-                    window.location.href = payUrl.toString();
-                };
-            }
+                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                if (signInMsg) signInMsg.textContent = data.session ? 'Account ready.' : 'Check your email to confirm, then sign in.';
+                if (data.session) {
+                    state.supabaseUserId = data.user.id;
+                    await ensureProfileUsername(usernameNorm);
+                    showLobbyFromSignIn();
+                }
+            };
+
+            document.getElementById('auth-guest-btn').onclick = () => {
+                state.playerName = 'Guest';
+                state.profileUsername = '';
+                state.supabaseUserId = null;
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
+            };
+
+            document.getElementById('friend-add-btn').onclick = () => {
+                const v = document.getElementById('friend-add-input');
+                addFriendByUsername(v ? v.value : '');
+            };
+
+            document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
+            document.getElementById('online-join-btn').onclick = () => {
+                const v = document.getElementById('online-join-code-input');
+                joinOnlineSession(v ? v.value : '');
+            };
 
             window.addEventListener('resize', resize);
             resize();
-            const setPC = () => { state.deviceMode = 'computer'; document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.playerMode===1) hintContainer.innerHTML="<p class='text-white'>P1: WASD + E</p>"; else hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; };
-            const setPh = () => { state.deviceMode = 'phone'; document.getElementById('device-phone').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-pc').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; hintContainer.innerHTML="<p class='text-white'>Drag to Move, Tap to Interact</p>"; };
+            const setPC = () => {
+                state.deviceMode = 'computer';
+                document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                updateLobbyHints();
+            };
+            const setPh = () => {
+                state.deviceMode = 'phone';
+                document.getElementById('device-phone').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                document.getElementById('device-pc').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                updateLobbyHints();
+            };
             
             document.getElementById('device-pc').onclick = setPC;
             document.getElementById('device-phone').onclick = setPh;
@@ -1352,8 +1836,26 @@
                 setPh();
             }
 
-            document.getElementById('mode-solo').onclick = () => { state.playerMode = 1; document.getElementById('mode-solo').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('mode-duo').className = "text-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.deviceMode==='computer') hintContainer.innerHTML="<p class='text-white'>P1: WASD to Move, E to Interact</p>"; else hintContainer.innerHTML="<p class='text-white'>Drag to Move, Tap to Interact</p>"; };
-            document.getElementById('mode-duo').onclick = () => { state.playerMode = 2; document.getElementById('mode-duo').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('mode-solo').className = "text-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.deviceMode==='computer') hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; else hintContainer.innerHTML="<p class='text-white'>Drag Sides to Move, Tap to Interact</p>"; };
+            document.getElementById('mode-solo').onclick = () => {
+                state.playMode = 'solo';
+                state.playerMode = 1;
+                applyModeButtonStyles();
+                updateLobbyHints();
+            };
+            document.getElementById('mode-duo').onclick = () => {
+                state.playMode = 'solo';
+                state.playerMode = 2;
+                applyModeButtonStyles();
+                updateLobbyHints();
+            };
+            document.getElementById('mode-online').onclick = () => {
+                state.playMode = 'online';
+                state.playerMode = 1;
+                applyModeButtonStyles();
+                updateLobbyHints();
+            };
+            applyModeButtonStyles();
+            updateLobbyHints();
             
             // Player Cheat Codes
             document.getElementById('secret-toggle-btn').onclick = () => { document.getElementById('secret-input-area').classList.toggle('hidden'); };
@@ -1405,7 +1907,13 @@
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
             document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
             
-            await initAuthAndData();
+            if (supabase) {
+                const { data: { session: s0 } } = await supabase.auth.getSession();
+                if (s0?.user) showLobbyFromSignIn();
+                else updateFriendsListUIAsync();
+            } else {
+                updateFriendsListUIAsync();
+            }
         }
         startApp();
     </script>
