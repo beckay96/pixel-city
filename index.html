@@ -599,13 +599,14 @@
                     <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
                     <span class="text-white font-bold text-sm">Web</span>
                 </div>
-                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">Strict safe search • stay on trusted results</p>
+                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">DuckDuckGo safe search (<span class="font-mono">kp=1</span>) opens in a <span class="text-white font-bold">new tab</span> — sites block in-phone iframes.</p>
                 <div class="flex gap-1 p-2 shrink-0">
                     <input type="search" id="phone-web-search" placeholder="Search…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
                     <button type="button" id="phone-web-go" class="bg-sky-600 text-white px-3 rounded-lg font-bold text-xs interactive">Go</button>
                 </div>
-                <div class="phone-iframe-wrap flex-1 min-h-[240px]">
-                    <iframe id="phone-web-frame" title="Safe web" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" src="about:blank"></iframe>
+                <div class="flex-1 min-h-[200px] flex flex-col items-center justify-center p-4 text-center bg-slate-900/80 m-2 rounded-xl border border-slate-700">
+                    <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> to open results in your browser.</p>
+                    <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open DuckDuckGo home</button>
                 </div>
             </div>
             <div id="phone-view-game" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
@@ -2214,16 +2215,34 @@
             render();
         }
 
-        function openSafeWebSearch(q) {
-            const frame = document.getElementById('phone-web-frame');
-            if (!frame) return;
-            const term = (q || '').trim().slice(0, 120);
-            if (!term) {
-                frame.src = 'https://duckduckgo.com/?kp=1';
-                return;
+        function safeSearchUrl(query) {
+            const term = (query || '').trim().slice(0, 200);
+            const base = 'https://duckduckgo.com/';
+            const params = new URLSearchParams({ kp: '1' });
+            if (term) params.set('q', term);
+            return `${base}?${params.toString()}`;
+        }
+
+        function openSafeWebInNewTab(query) {
+            const status = document.getElementById('phone-web-status');
+            const url = safeSearchUrl(query);
+            const w = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!w) {
+                if (status) status.innerHTML = '<span class="text-red-400 font-bold">Popup blocked.</span> Allow popups for this site, then tap Go again.';
+                return false;
             }
-            const url = 'https://duckduckgo.com/?q=' + encodeURIComponent(term) + '&kp=1';
-            frame.src = url;
+            if (status) {
+                const term = (query || '').trim();
+                status.textContent = term ? `Opened search for “${term.slice(0, 40)}${term.length > 40 ? '…' : ''}” in a new tab.` : 'Opened DuckDuckGo in a new tab.';
+            }
+            return true;
+        }
+
+        function openSafeWebSearch(q) {
+            const status = document.getElementById('phone-web-status');
+            if (status && !(q || '').trim()) {
+                status.textContent = 'Enter a topic and tap Go, or open DuckDuckGo home below.';
+            }
         }
 
         let cosmicState = { count: 0, perSec: 0, cost: 10 };
@@ -2462,8 +2481,17 @@
 
             document.getElementById('phone-web-go').onclick = () => {
                 const v = document.getElementById('phone-web-search');
-                openSafeWebSearch(v ? v.value : '');
+                openSafeWebInNewTab(v ? v.value : '');
             };
+            document.getElementById('phone-web-search')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    openSafeWebInNewTab(e.target.value || '');
+                }
+            });
+            document.getElementById('phone-web-open-home')?.addEventListener('click', () => {
+                openSafeWebInNewTab('');
+            });
 
             window.addEventListener('keydown', (e) => {
                 const game = document.getElementById('mini-game-pixel');
