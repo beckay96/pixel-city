@@ -129,6 +129,91 @@
         
         .spin-anim { animation: pulse 0.1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+
+        #in-game-phone-btn {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 350;
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #38bdf8;
+            box-shadow: 0 4px 20px rgba(56, 189, 248, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        #in-game-phone-btn:active { transform: scale(0.95); }
+        #smartphone-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 360;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            pointer-events: auto;
+        }
+        #smartphone-overlay.open { display: flex; }
+        .phone-bezel {
+            width: 100%;
+            max-width: 360px;
+            height: min(85vh, 640px);
+            background: #020617;
+            border-radius: 28px;
+            border: 4px solid #334155;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .phone-notch {
+            height: 22px;
+            background: #020617;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #64748b;
+            font-weight: bold;
+        }
+        .phone-body-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        .phone-iframe-wrap {
+            flex: 1;
+            min-height: 200px;
+            background: #000;
+        }
+        .phone-iframe-wrap iframe {
+            width: 100%;
+            height: 100%;
+            min-height: 220px;
+            border: 0;
+        }
+        .calc-btn {
+            min-height: 44px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            border-radius: 10px;
+            background: #334155;
+            color: white;
+            border: none;
+        }
+        .calc-btn.op { background: #7c3aed; }
+        .calc-btn.eq { background: #059669; }
+        #mini-game-cosmic, #mini-game-zombie, #mini-game-pixel {
+            touch-action: manipulation;
+        }
     </style>
 </head>
 <body>
@@ -328,6 +413,13 @@
             Message
         </div>
 
+        <button type="button" id="in-game-phone-btn" class="interactive" title="Smartphone" aria-label="Open smartphone">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="2" width="12" height="20" rx="2"/>
+                <path d="M12 18h.01"/>
+            </svg>
+        </button>
+
         <!-- GOD PANEL UI (GODLY code or admin PIN) -->
         <div id="god-panel-btn" class="hidden fixed top-4 right-4 bg-yellow-500 text-black font-black px-4 py-2 rounded-lg interactive z-[300] shadow-[0_0_15px_rgba(234,179,8,0.8)] border-2 border-white cursor-pointer">
             GOD MODE
@@ -363,6 +455,150 @@
         <button onclick="window.restartGame()" class="btn bg-blue-500 text-white px-12 py-4 rounded-lg text-xl interactive mx-auto block">RESTART</button>
     </div>
 
+    <div id="smartphone-overlay" class="interactive">
+        <div class="phone-bezel relative">
+            <div class="phone-notch"><span id="phone-clock">12:00</span></div>
+            <div id="phone-view-home" class="phone-body-scroll flex flex-col bg-gradient-to-b from-slate-900 to-slate-950">
+                <div class="p-3 border-b border-slate-800">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">PixelPhone</p>
+                    <p class="text-lg font-black text-white">Apps</p>
+                </div>
+                <div class="grid grid-cols-4 gap-3 p-4">
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="messages">
+                        <span class="w-12 h-12 rounded-2xl bg-green-600 flex items-center justify-center text-xl">💬</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Messages</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="store">
+                        <span class="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center text-xl">🛒</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Store</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="vidking">
+                        <span class="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-xl">▶</span>
+                        <span class="text-[9px] text-slate-300 font-bold">VidKing</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="calc">
+                        <span class="w-12 h-12 rounded-2xl bg-amber-600 flex items-center justify-center text-xl font-black text-white">+</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Calc</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="web">
+                        <span class="w-12 h-12 rounded-2xl bg-sky-600 flex items-center justify-center text-xl">🌐</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Web</span>
+                    </button>
+                </div>
+                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Kid-safe web uses DuckDuckGo strict safe search. VidKing: curated family videos only.</p>
+            </div>
+            <div id="phone-view-messages" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
+                <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Messages</span>
+                </div>
+                <div id="phone-chat-log" class="flex-1 overflow-y-auto p-2 space-y-2 text-sm min-h-[200px]"></div>
+                <div class="p-2 border-t border-slate-800 flex gap-2 bg-slate-900">
+                    <input type="text" id="phone-chat-input" placeholder="Text players..." class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-base interactive">
+                    <button type="button" id="phone-chat-send" class="bg-green-600 text-white px-3 rounded-lg font-bold text-sm interactive">Send</button>
+                </div>
+            </div>
+            <div id="phone-view-store" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
+                <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">App Store</span>
+                </div>
+                <div class="p-3 space-y-2">
+                    <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="cosmic">
+                        <div class="font-bold text-white">Cosmic Clicker</div>
+                        <div class="text-[10px] text-slate-400">Tap stars • buy upgrades</div>
+                    </button>
+                    <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="zombie">
+                        <div class="font-bold text-white">Zombie Dash</div>
+                        <div class="text-[10px] text-slate-400">Swipe lanes • survive</div>
+                    </button>
+                    <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="pixel">
+                        <div class="font-bold text-white">Pixel Jump</div>
+                        <div class="text-[10px] text-slate-400">Tap to hop obstacles</div>
+                    </button>
+                </div>
+            </div>
+            <div id="phone-view-vidking" class="hidden flex flex-col bg-black h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">VidKing</span>
+                </div>
+                <div class="flex-1 flex flex-col min-h-0 p-2">
+                    <select id="vidking-picker" class="bg-slate-800 text-white text-xs rounded-lg p-2 mb-2 interactive"></select>
+                    <div class="phone-iframe-wrap flex-1 rounded-lg overflow-hidden">
+                        <iframe id="vidking-frame" title="VidKing video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+            <div id="phone-view-calc" class="phone-body-scroll hidden flex flex-col bg-slate-950 p-3 h-full">
+                <div class="flex items-center gap-2 mb-3">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Calculator</span>
+                </div>
+                <div id="calc-display" class="bg-slate-800 text-right text-2xl font-mono text-white p-4 rounded-xl mb-2 min-h-[3rem]">0</div>
+                <div class="grid grid-cols-4 gap-2 flex-1">
+                    <button type="button" class="calc-btn interactive" data-c="C">C</button>
+                    <button type="button" class="calc-btn interactive" data-c="(">(</button>
+                    <button type="button" class="calc-btn interactive" data-c=")">)</button>
+                    <button type="button" class="calc-btn op interactive" data-c="/">÷</button>
+                    <button type="button" class="calc-btn interactive" data-c="7">7</button>
+                    <button type="button" class="calc-btn interactive" data-c="8">8</button>
+                    <button type="button" class="calc-btn interactive" data-c="9">9</button>
+                    <button type="button" class="calc-btn op interactive" data-c="*">×</button>
+                    <button type="button" class="calc-btn interactive" data-c="4">4</button>
+                    <button type="button" class="calc-btn interactive" data-c="5">5</button>
+                    <button type="button" class="calc-btn interactive" data-c="6">6</button>
+                    <button type="button" class="calc-btn op interactive" data-c="-">−</button>
+                    <button type="button" class="calc-btn interactive" data-c="1">1</button>
+                    <button type="button" class="calc-btn interactive" data-c="2">2</button>
+                    <button type="button" class="calc-btn interactive" data-c="3">3</button>
+                    <button type="button" class="calc-btn op interactive" data-c="+">+</button>
+                    <button type="button" class="calc-btn interactive col-span-2" data-c="0">0</button>
+                    <button type="button" class="calc-btn interactive" data-c=".">.</button>
+                    <button type="button" class="calc-btn eq interactive" data-c="=">=</button>
+                </div>
+            </div>
+            <div id="phone-view-web" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0 flex-wrap">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Web</span>
+                </div>
+                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">Strict safe search • stay on trusted results</p>
+                <div class="flex gap-1 p-2 shrink-0">
+                    <input type="search" id="phone-web-search" placeholder="Search…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
+                    <button type="button" id="phone-web-go" class="bg-sky-600 text-white px-3 rounded-lg font-bold text-xs interactive">Go</button>
+                </div>
+                <div class="phone-iframe-wrap flex-1 min-h-[240px]">
+                    <iframe id="phone-web-frame" title="Safe web" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" src="about:blank"></iframe>
+                </div>
+            </div>
+            <div id="phone-view-game" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" id="phone-game-close" class="text-cyan-400 text-sm font-bold interactive px-2">← Store</button>
+                    <span id="phone-game-title" class="text-white font-bold text-sm">Game</span>
+                </div>
+                <div id="mini-game-cosmic" class="hidden flex-1 flex flex-col items-center justify-center p-4 text-center">
+                    <p class="text-cyan-400 font-black text-xl mb-2">Cosmic Clicker</p>
+                    <p id="cosmic-count" class="text-4xl font-black text-white mb-2">0</p>
+                    <p id="cosmic-rate" class="text-xs text-slate-400 mb-4">per second: 0</p>
+                    <button type="button" id="cosmic-tap" class="bg-indigo-600 text-white text-lg font-black px-8 py-6 rounded-2xl interactive mb-4">TAP</button>
+                    <button type="button" id="cosmic-buy" class="bg-violet-700 text-white text-sm font-bold px-4 py-2 rounded-lg interactive">Buy +1/s (cost <span id="cosmic-cost">10</span>)</button>
+                </div>
+                <div id="mini-game-zombie" class="hidden flex-1 flex flex-col p-2 relative bg-slate-900">
+                    <p class="text-center text-xs text-slate-400 mb-1">Tap left / right side to switch lane</p>
+                    <p class="text-center font-mono text-green-400 mb-2">Score: <span id="zombie-score">0</span></p>
+                    <canvas id="zombie-canvas" width="300" height="360" class="mx-auto rounded-lg bg-slate-800 max-w-full interactive"></canvas>
+                </div>
+                <div id="mini-game-pixel" class="hidden flex-1 flex flex-col p-2 bg-slate-900">
+                    <p class="text-center text-xs text-slate-400 mb-1">Tap / Space to jump</p>
+                    <p class="text-center font-mono text-amber-400 mb-2">Score: <span id="pixel-score">0</span></p>
+                    <canvas id="pixel-canvas" width="300" height="320" class="mx-auto rounded-lg bg-sky-950 max-w-full interactive"></canvas>
+                </div>
+            </div>
+        </div>
+        <button type="button" id="smartphone-close-x" class="absolute top-3 right-3 text-white/80 text-2xl font-light interactive w-10 h-10" aria-label="Close phone">×</button>
+    </div>
+
     <div id="victory-overlay">
         <h1 class="text-6xl font-black text-yellow-500 mb-2 text-center uppercase italic">President</h1>
         <div class="bg-slate-900/90 border border-purple-500 p-6 rounded-xl mb-6 mx-auto max-w-sm text-center">
@@ -391,7 +627,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // CONFIG
         /** Real $1 USD: create a Stripe Payment Link for $1 and set success URL to this site with ?access=paid */
@@ -452,6 +688,7 @@
         function showLobbyFromSignIn() {
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
+            setInGamePhoneVisible(false);
         }
 
         function isSignInScreenVisible() {
@@ -508,6 +745,17 @@
         const lobbyWinsDisplay = document.getElementById('lobby-wins-display');
         
         const activeTouches = {};
+
+        const VIDKING_VIDEOS = [
+            { id: 'v1', title: 'NASA: Our Solar System (kids)', src: 'https://www.youtube-nocookie.com/embed/libKVRa01L8?rel=0&modestbranding=1' },
+            { id: 'v2', title: 'SciShow Kids: Why is the sky blue?', src: 'https://www.youtube-nocookie.com/embed/ojXN5C9T2W8?rel=0&modestbranding=1' },
+            { id: 'v3', title: 'National Geographic Kids: Animals', src: 'https://www.youtube-nocookie.com/embed/3QcuBOUoX8Q?rel=0&modestbranding=1' },
+            { id: 'v4', title: 'Numberblocks-style counting (PBS)', src: 'https://www.youtube-nocookie.com/embed/DR-cfDsHCGA?rel=0&modestbranding=1' }
+        ];
+
+        let phoneChatUnsub = null;
+        let zombieRaf = null;
+        let pixelRaf = null;
 
         // CORE HELPERS
         function dist(x1, y1, x2, y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
@@ -894,6 +1142,7 @@
 
         function joinRoom() {
             document.getElementById('lobby-screen').style.display = 'none';
+            setInGamePhoneVisible(true);
             state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
             if (state.playerMode === 2) {
@@ -1155,6 +1404,432 @@
 
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
+        function isPhoneGameViewOpen() {
+            const g = document.getElementById('phone-view-game');
+            return g && !g.classList.contains('hidden');
+        }
+
+        function setInGamePhoneVisible(show) {
+            const b = document.getElementById('in-game-phone-btn');
+            if (b) b.style.display = show ? 'flex' : 'none';
+        }
+
+        function phoneShowView(name) {
+            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-game'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const show = id === `phone-view-${name}`;
+                el.classList.toggle('hidden', !show);
+                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-game'));
+            });
+        }
+
+        function phoneGoHome() {
+            stopMiniGames();
+            phoneShowView('home');
+        }
+
+        function stopMiniGames() {
+            if (zombieRaf) { cancelAnimationFrame(zombieRaf); zombieRaf = null; }
+            if (pixelRaf) { cancelAnimationFrame(pixelRaf); pixelRaf = null; }
+        }
+
+        function phoneAppendChatLine(from, text, self) {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            const row = document.createElement('div');
+            row.className = `rounded-lg px-2 py-1 max-w-[92%] ${self ? 'bg-green-800 ml-auto text-right' : 'bg-slate-800 text-slate-100'}`;
+            row.innerHTML = `<span class="text-[10px] text-slate-400 block">${from}</span><span>${escapePhoneText(text)}</span>`;
+            log.appendChild(row);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function escapePhoneText(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        const LS_PHONE_CHAT = 'pixelCityPhoneChat';
+
+        function loadLocalPhoneChat() {
+            try {
+                const raw = localStorage.getItem(LS_PHONE_CHAT);
+                return raw ? JSON.parse(raw) : [];
+            } catch { return []; }
+        }
+
+        function saveLocalPhoneChat(entries) {
+            localStorage.setItem(LS_PHONE_CHAT, JSON.stringify(entries.slice(-80)));
+        }
+
+        function renderLocalPhoneChat() {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            log.innerHTML = '';
+            const me = state.playerName || 'You';
+            loadLocalPhoneChat().forEach(e => {
+                phoneAppendChatLine(e.from, e.text, e.from === me);
+            });
+        }
+
+        function subscribePhoneChat() {
+            if (phoneChatUnsub) { phoneChatUnsub(); phoneChatUnsub = null; }
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            log.innerHTML = '';
+            if (!db) {
+                renderLocalPhoneChat();
+                return;
+            }
+            try {
+                const colRef = collection(db, 'pixelCityPhoneChat');
+                const qy = query(colRef, orderBy('t', 'asc'), limit(60));
+                phoneChatUnsub = onSnapshot(qy, (snap) => {
+                    log.innerHTML = '';
+                    snap.forEach(docu => {
+                        const d = docu.data();
+                        const from = d.from || 'Player';
+                        const text = d.text || '';
+                        const self = from === (state.playerName || 'You');
+                        phoneAppendChatLine(from, text, self);
+                    });
+                }, () => {
+                    renderLocalPhoneChat();
+                });
+            } catch {
+                renderLocalPhoneChat();
+            }
+        }
+
+        async function sendPhoneChat() {
+            const input = document.getElementById('phone-chat-input');
+            const text = (input && input.value) ? input.value.trim() : '';
+            if (!text || text.length > 500) return;
+            const from = state.playerName || 'Player';
+            input.value = '';
+            if (db) {
+                try {
+                    await addDoc(collection(db, 'pixelCityPhoneChat'), { from, text, t: serverTimestamp() });
+                    return;
+                } catch (_) { /* fall through */ }
+            }
+            const arr = loadLocalPhoneChat();
+            arr.push({ from, text, t: Date.now() });
+            saveLocalPhoneChat(arr);
+            phoneAppendChatLine(from, text, true);
+        }
+
+        function initVidKing() {
+            const sel = document.getElementById('vidking-picker');
+            const frame = document.getElementById('vidking-frame');
+            if (!sel || !frame) return;
+            if (sel.options.length === 0) {
+                VIDKING_VIDEOS.forEach((v, i) => {
+                    const o = document.createElement('option');
+                    o.value = String(i);
+                    o.textContent = v.title;
+                    sel.appendChild(o);
+                });
+                sel.onchange = () => {
+                    const v = VIDKING_VIDEOS[parseInt(sel.value, 10) || 0];
+                    if (v) frame.src = v.src;
+                };
+            }
+            const v = VIDKING_VIDEOS[parseInt(sel.value, 10) || 0];
+            if (v) frame.src = v.src;
+        }
+
+        function initCalculator() {
+            const root = document.getElementById('phone-view-calc');
+            if (root?.dataset.calcInit === '1') return;
+            if (root) root.dataset.calcInit = '1';
+            const disp = document.getElementById('calc-display');
+            let cur = '0';
+            const render = () => { if (disp) disp.textContent = cur || '0'; };
+            document.querySelectorAll('#phone-view-calc .calc-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const c = btn.getAttribute('data-c');
+                    if (c === 'C') cur = '0';
+                    else if (c === '=') {
+                        try {
+                            const safe = cur.replace(/[^0-9+\-*/().\s]/g, '');
+                            if (!safe) return;
+                            const v = Function('"use strict"; return (' + safe + ')')();
+                            cur = String(typeof v === 'number' && isFinite(v) ? Math.round(v * 1e9) / 1e9 : 'Err');
+                        } catch { cur = 'Err'; }
+                    } else {
+                        if (cur === '0' && /[0-9.]/.test(c)) cur = c;
+                        else if (cur === 'Err') cur = c;
+                        else cur += c;
+                    }
+                    render();
+                };
+            });
+            cur = '0';
+            render();
+        }
+
+        function openSafeWebSearch(q) {
+            const frame = document.getElementById('phone-web-frame');
+            if (!frame) return;
+            const term = (q || '').trim().slice(0, 120);
+            if (!term) {
+                frame.src = 'https://duckduckgo.com/?kp=1';
+                return;
+            }
+            const url = 'https://duckduckgo.com/?q=' + encodeURIComponent(term) + '&kp=1';
+            frame.src = url;
+        }
+
+        let cosmicState = { count: 0, perSec: 0, cost: 10 };
+
+        function resetCosmic() {
+            cosmicState = { count: 0, perSec: 0, cost: 10 };
+            const c = document.getElementById('cosmic-count');
+            const r = document.getElementById('cosmic-rate');
+            const co = document.getElementById('cosmic-cost');
+            if (c) c.textContent = '0';
+            if (r) r.textContent = 'per second: 0';
+            if (co) co.textContent = '10';
+        }
+
+        function tickCosmic() {
+            if (cosmicState.perSec <= 0) return;
+            cosmicState.count += cosmicState.perSec / 10;
+            const el = document.getElementById('cosmic-count');
+            if (el) el.textContent = String(Math.floor(cosmicState.count));
+        }
+        setInterval(tickCosmic, 100);
+
+        function initCosmicGame() {
+            resetCosmic();
+            const tap = document.getElementById('cosmic-tap');
+            const buy = document.getElementById('cosmic-buy');
+            if (tap) tap.onclick = () => {
+                cosmicState.count += 1;
+                const el = document.getElementById('cosmic-count');
+                if (el) el.textContent = String(Math.floor(cosmicState.count));
+            };
+            if (buy) buy.onclick = () => {
+                if (cosmicState.count >= cosmicState.cost) {
+                    cosmicState.count -= cosmicState.cost;
+                    cosmicState.perSec += 1;
+                    cosmicState.cost = Math.floor(cosmicState.cost * 1.35);
+                    document.getElementById('cosmic-count').textContent = String(Math.floor(cosmicState.count));
+                    document.getElementById('cosmic-rate').textContent = 'per second: ' + cosmicState.perSec;
+                    document.getElementById('cosmic-cost').textContent = String(cosmicState.cost);
+                }
+            };
+        }
+
+        let zombie = { lane: 1, obs: [], score: 0, last: 0 };
+
+        function runZombie(ts) {
+            const c = document.getElementById('zombie-canvas');
+            if (!c || !isPhoneGameViewOpen()) { zombieRaf = null; return; }
+            const ctxZ = c.getContext('2d');
+            const w = c.width, h = c.height;
+            if (!zombie.last) zombie.last = ts;
+            const dt = Math.min(32, ts - zombie.last);
+            zombie.last = ts;
+            if (Math.random() < 0.02) zombie.obs.push({ lane: Math.floor(Math.random() * 3), y: -30 });
+            zombie.obs.forEach(o => { o.y += dt * 0.15; });
+            zombie.obs = zombie.obs.filter(o => o.y < h + 40);
+            let hit = false;
+            zombie.obs.forEach(o => {
+                if (o.y > h - 100 && o.y < h - 40 && o.lane === zombie.lane) hit = true;
+            });
+            if (hit) {
+                zombie.score = 0;
+                zombie.obs = [];
+            }
+            zombie.score += Math.floor(dt / 200);
+            document.getElementById('zombie-score').textContent = String(zombie.score);
+            ctxZ.fillStyle = '#1e293b';
+            ctxZ.fillRect(0, 0, w, h);
+            for (let i = 0; i < 3; i++) {
+                ctxZ.strokeStyle = '#334155';
+                ctxZ.strokeRect(10 + i * 90, 0, 80, h);
+            }
+            ctxZ.fillStyle = '#22c55e';
+            ctxZ.fillRect(10 + zombie.lane * 90 + 25, h - 55, 30, 40);
+            zombie.obs.forEach(o => {
+                ctxZ.fillStyle = '#ef4444';
+                ctxZ.fillRect(10 + o.lane * 90 + 20, o.y, 40, 28);
+            });
+            zombieRaf = requestAnimationFrame(runZombie);
+        }
+
+        function initZombieGame() {
+            const c = document.getElementById('zombie-canvas');
+            if (!c) return;
+            zombie = { lane: 1, obs: [], score: 0, last: 0 };
+            c.onclick = (e) => {
+                const r = c.getBoundingClientRect();
+                const x = e.clientX - r.left;
+                zombie.lane = x < r.width / 2 ? Math.max(0, zombie.lane - 1) : Math.min(2, zombie.lane + 1);
+            };
+            if (zombieRaf) cancelAnimationFrame(zombieRaf);
+            zombieRaf = requestAnimationFrame(runZombie);
+        }
+
+        let pixel = { y: 0, vy: 0, ground: 260, obs: [], score: 0, last: 0, jumping: false };
+
+        function runPixel(ts) {
+            const c = document.getElementById('pixel-canvas');
+            if (!c || !isPhoneGameViewOpen()) { pixelRaf = null; return; }
+            const ctxP = c.getContext('2d');
+            const w = c.width, h = c.height;
+            if (!pixel.last) pixel.last = ts;
+            const dt = Math.min(30, ts - pixel.last);
+            pixel.last = ts;
+            pixel.vy += 0.35 * (dt / 16);
+            pixel.y += pixel.vy * (dt / 16);
+            if (pixel.y >= pixel.ground) { pixel.y = pixel.ground; pixel.vy = 0; pixel.jumping = false; }
+            pixel.obs.forEach(o => { o.x -= dt * 0.12; });
+            pixel.obs = pixel.obs.filter(o => o.x > -40);
+            if (Math.random() < 0.015) pixel.obs.push({ x: w + 20, w: 24, h: 40 });
+            let dead = false;
+            pixel.obs.forEach(o => {
+                if (o.x < 68 && o.x + o.w > 40 && pixel.y + 36 > pixel.ground - o.h) dead = true;
+            });
+            if (dead) {
+                pixel.score = 0;
+                pixel.obs = [];
+            } else pixel.score += Math.floor(dt / 100);
+            document.getElementById('pixel-score').textContent = String(pixel.score);
+            ctxP.fillStyle = '#0c4a6e';
+            ctxP.fillRect(0, 0, w, h);
+            ctxP.fillStyle = '#78350f';
+            ctxP.fillRect(0, pixel.ground + 36, w, h - pixel.ground);
+            ctxP.fillStyle = '#fbbf24';
+            ctxP.fillRect(44, pixel.y, 32, 36);
+            pixel.obs.forEach(o => {
+                ctxP.fillStyle = '#b91c1c';
+                ctxP.fillRect(o.x, pixel.ground + 36 - o.h, o.w, o.h);
+            });
+            pixelRaf = requestAnimationFrame(runPixel);
+        }
+
+        function pixelJump() {
+            if (!pixel.jumping && pixel.y >= pixel.ground - 1) {
+                pixel.vy = -9;
+                pixel.jumping = true;
+            }
+        }
+
+        function initPixelGame() {
+            const c = document.getElementById('pixel-canvas');
+            if (!c) return;
+            pixel = { y: 260, vy: 0, ground: 260, obs: [], score: 0, last: 0, jumping: false };
+            c.onclick = () => pixelJump();
+            if (pixelRaf) cancelAnimationFrame(pixelRaf);
+            pixelRaf = requestAnimationFrame(runPixel);
+        }
+
+        function openMiniGame(id) {
+            document.getElementById('mini-game-cosmic').classList.add('hidden');
+            document.getElementById('mini-game-zombie').classList.add('hidden');
+            document.getElementById('mini-game-pixel').classList.add('hidden');
+            const title = document.getElementById('phone-game-title');
+            phoneShowView('game');
+            if (id === 'cosmic') {
+                document.getElementById('mini-game-cosmic').classList.remove('hidden');
+                if (title) title.textContent = 'Cosmic Clicker';
+                initCosmicGame();
+            } else if (id === 'zombie') {
+                document.getElementById('mini-game-zombie').classList.remove('hidden');
+                if (title) title.textContent = 'Zombie Dash';
+                initZombieGame();
+            } else {
+                document.getElementById('mini-game-pixel').classList.remove('hidden');
+                if (title) title.textContent = 'Pixel Jump';
+                initPixelGame();
+            }
+        }
+
+        function initSmartphoneUI() {
+            const overlay = document.getElementById('smartphone-overlay');
+            const fab = document.getElementById('in-game-phone-btn');
+            const closeX = document.getElementById('smartphone-close-x');
+
+            const tickClock = () => {
+                const el = document.getElementById('phone-clock');
+                if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            };
+            tickClock();
+            setInterval(tickClock, 30000);
+
+            if (fab) fab.onclick = () => {
+                if (!overlay) return;
+                overlay.classList.add('open');
+                phoneGoHome();
+            };
+            if (closeX) closeX.onclick = () => {
+                if (overlay) overlay.classList.remove('open');
+                stopMiniGames();
+                if (phoneChatUnsub) { phoneChatUnsub(); phoneChatUnsub = null; }
+            };
+            overlay?.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('open');
+                    stopMiniGames();
+                    if (phoneChatUnsub) { phoneChatUnsub(); phoneChatUnsub = null; }
+                }
+            });
+
+            document.querySelectorAll('.phone-app-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const app = btn.getAttribute('data-phone-app');
+                    if (app === 'messages') {
+                        phoneShowView('messages');
+                        subscribePhoneChat();
+                    } else if (app === 'store') phoneShowView('store');
+                    else if (app === 'vidking') {
+                        phoneShowView('vidking');
+                        initVidKing();
+                    } else if (app === 'calc') {
+                        phoneShowView('calc');
+                        initCalculator();
+                    } else if (app === 'web') {
+                        phoneShowView('web');
+                        openSafeWebSearch('');
+                    }
+                };
+            });
+
+            document.querySelectorAll('.phone-back').forEach(btn => {
+                btn.onclick = () => phoneGoHome();
+            });
+
+            document.getElementById('phone-chat-send').onclick = () => sendPhoneChat();
+            document.getElementById('phone-chat-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendPhoneChat();
+            });
+
+            document.querySelectorAll('.phone-open-game').forEach(btn => {
+                btn.onclick = () => openMiniGame(btn.getAttribute('data-game'));
+            });
+            document.getElementById('phone-game-close').onclick = () => {
+                stopMiniGames();
+                phoneShowView('store');
+            };
+
+            document.getElementById('phone-web-go').onclick = () => {
+                const v = document.getElementById('phone-web-search');
+                openSafeWebSearch(v ? v.value : '');
+            };
+
+            window.addEventListener('keydown', (e) => {
+                const game = document.getElementById('mini-game-pixel');
+                if (game && !game.classList.contains('hidden') && (e.code === 'Space' || e.key === ' ')) {
+                    e.preventDefault();
+                    pixelJump();
+                }
+            });
+        }
+
         async function startApp() {
             handlePaymentReturnUrl();
 
@@ -1273,6 +1948,7 @@
             document.getElementById('join-btn').onclick = joinRoom;
             document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
             
+            initSmartphoneUI();
             await initAuthAndData();
         }
         startApp();
