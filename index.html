@@ -599,14 +599,14 @@
                     <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
                     <span class="text-white font-bold text-sm">Web</span>
                 </div>
-                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">DuckDuckGo safe search (<span class="font-mono">kp=1</span>) opens in a <span class="text-white font-bold">new tab</span> — sites block in-phone iframes.</p>
+                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">Opens in a <span class="text-white font-bold">new tab</span>. Type a <span class="text-white">URL</span> (e.g. <span class="font-mono text-[8px]">wikipedia.org</span>) or <span class="text-white">search words</span> (Google, safe search on).</p>
                 <div class="flex gap-1 p-2 shrink-0">
-                    <input type="search" id="phone-web-search" placeholder="Search…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
+                    <input type="search" id="phone-web-search" placeholder="URL or search…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
                     <button type="button" id="phone-web-go" class="bg-sky-600 text-white px-3 rounded-lg font-bold text-xs interactive">Go</button>
                 </div>
                 <div class="flex-1 min-h-[200px] flex flex-col items-center justify-center p-4 text-center bg-slate-900/80 m-2 rounded-xl border border-slate-700">
-                    <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> to open results in your browser.</p>
-                    <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open DuckDuckGo home</button>
+                    <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> to open the web in your browser.</p>
+                    <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open start page</button>
                 </div>
             </div>
             <div id="phone-view-game" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
@@ -2215,17 +2215,44 @@
             render();
         }
 
-        function safeSearchUrl(query) {
-            const term = (query || '').trim().slice(0, 200);
-            const base = 'https://duckduckgo.com/';
-            const params = new URLSearchParams({ kp: '1' });
-            if (term) params.set('q', term);
-            return `${base}?${params.toString()}`;
+        const WEB_START_URL = 'https://www.google.com/?safe=active';
+
+        function googleSafeSearchUrl(query) {
+            const q = (query || '').trim().slice(0, 500);
+            return `https://www.google.com/search?q=${encodeURIComponent(q)}&safe=active`;
         }
 
-        function openSafeWebInNewTab(query) {
+        function resolveWebOpenUrl(raw) {
+            const s = (raw || '').trim().slice(0, 2000);
+            if (!s) return WEB_START_URL;
+
+            if (/^https?:\/\//i.test(s)) {
+                try {
+                    const u = new URL(s);
+                    if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+                } catch (_) { /* fall through */ }
+                return googleSafeSearchUrl(s);
+            }
+
+            const noSpaces = !/\s/.test(s);
+            const looksLikeHost = /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}(:\d+)?(\/[^\s]*)?$/i.test(s);
+
+            if (noSpaces && looksLikeHost) {
+                try {
+                    return new URL('https://' + s).href;
+                } catch (_) { /* search */ }
+            }
+
+            if (noSpaces && /^www\./i.test(s)) {
+                try { return new URL('https://' + s).href; } catch (_) { /* search */ }
+            }
+
+            return googleSafeSearchUrl(s);
+        }
+
+        function openWebInNewTab(query) {
             const status = document.getElementById('phone-web-status');
-            const url = safeSearchUrl(query);
+            const url = resolveWebOpenUrl(query);
             const w = window.open(url, '_blank', 'noopener,noreferrer');
             if (!w) {
                 if (status) status.innerHTML = '<span class="text-red-400 font-bold">Popup blocked.</span> Allow popups for this site, then tap Go again.';
@@ -2233,16 +2260,15 @@
             }
             if (status) {
                 const term = (query || '').trim();
-                status.textContent = term ? `Opened search for “${term.slice(0, 40)}${term.length > 40 ? '…' : ''}” in a new tab.` : 'Opened DuckDuckGo in a new tab.';
+                const short = url.length > 56 ? url.slice(0, 54) + '…' : url;
+                status.textContent = term ? `Opened: ${short}` : 'Opened start page in a new tab.';
             }
             return true;
         }
 
-        function openSafeWebSearch(q) {
+        function resetWebAppHint() {
             const status = document.getElementById('phone-web-status');
-            if (status && !(q || '').trim()) {
-                status.textContent = 'Enter a topic and tap Go, or open DuckDuckGo home below.';
-            }
+            if (status) status.textContent = 'Enter a URL or search, tap Go, or use Start page below.';
         }
 
         let cosmicState = { count: 0, perSec: 0, cost: 10 };
@@ -2457,7 +2483,7 @@
                         initCalculator();
                     } else if (app === 'web') {
                         phoneShowView('web');
-                        openSafeWebSearch('');
+                        resetWebAppHint();
                     }
                 };
             });
@@ -2481,16 +2507,16 @@
 
             document.getElementById('phone-web-go').onclick = () => {
                 const v = document.getElementById('phone-web-search');
-                openSafeWebInNewTab(v ? v.value : '');
+                openWebInNewTab(v ? v.value : '');
             };
             document.getElementById('phone-web-search')?.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    openSafeWebInNewTab(e.target.value || '');
+                    openWebInNewTab(e.target.value || '');
                 }
             });
             document.getElementById('phone-web-open-home')?.addEventListener('click', () => {
-                openSafeWebInNewTab('');
+                openWebInNewTab('');
             });
 
             window.addEventListener('keydown', (e) => {
