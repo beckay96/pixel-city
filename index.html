@@ -7,6 +7,7 @@
     <meta name="description" content="Pixel City — multiplayer city game. Self-hosted CSS; Supabase client bundled. Sign in for online play.">
     <link rel="stylesheet" href="assets/tailwind.css">
     <script src="supabase-config.js"></script>
+    <!--SUPABASE_BUILD_INJECT-->
     <script src="config.js"></script>
     <style>
         body {
@@ -222,10 +223,10 @@
 <body>
 
     <div id="sign-in-screen">
-        <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
+        <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden">Online accounts aren’t wired up on this site yet. Use <span class="text-white font-bold">Play offline</span>, or ask whoever published the game to add Supabase keys (steps are in the repo README).</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden">Supabase is not configured here (empty URL/key). Use <span class="text-white font-bold">Play offline</span>, or set GitHub Actions secrets and redeploy, or upload <span class="font-mono text-[9px]">supabase-config.js</span> with your project URL and anon key. Custom domains need the full site or a deploy with secrets. See README.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
                 <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">

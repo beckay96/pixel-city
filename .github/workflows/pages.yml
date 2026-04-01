@@ -37,17 +37,19 @@ jobs:
           cp index.html _site/
           cp -r assets vendor _site/
           cp config.js supabase-config.js _site/
-      - name: Write supabase-config.js (multiplayer — same secrets as dev-server)
+      - name: Write supabase-config.js + embed keys in index.html (works even if only HTML is mirrored)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/write-supabase-config.mjs _site/supabase-config.js
+        run: |
+          node scripts/write-supabase-config.mjs _site/supabase-config.js
+          node scripts/inject-supabase-inline.mjs _site/index.html
       - name: Warn if Supabase keys missing
         run: |
           if grep -qF "window.__SUPABASE_ANON_KEY__ = \"\"" _site/supabase-config.js; then
-            echo "::warning::Supabase keys missing. Add Repository or github-pages Environment secrets: SUPABASE_PROJECT_URL + SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY). Then re-run Deploy."
+            echo "::warning::Supabase secrets empty. Add to Repository secrets AND/OR Environment secrets for \"github-pages\": SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY). Re-run Deploy. Custom domains (e.g. pixelcity.best) must use this workflow output or paste keys into supabase-config.js on the host."
           fi
       - uses: actions/upload-pages-artifact@v3
         with:

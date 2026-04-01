@@ -31,7 +31,7 @@ Open [http://localhost:8080](http://localhost:8080). Do not use `file://` for th
 
 ## Deploy (GitHub Pages)
 
-The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supabase-config.js`** in the deploy folder from GitHub Actions secrets (so **`window.__SUPABASE_*`** is set before the game loads — reliable multiplayer wiring). No `cdn.tailwindcss.com` or `esm.sh`.
+The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supabase-config.js`** **and embeds the same keys inside `index.html`** (marker `<!--SUPABASE_BUILD_INJECT-->`). So sign-in works even if a host only syncs **`index.html`** (e.g. some custom-domain setups). No `cdn.tailwindcss.com` or `esm.sh`.
 
 ### Fix “server not configured” / wire multiplayer
 
@@ -43,9 +43,11 @@ The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supa
 
 3. **Actions** → **Deploy to GitHub Pages** → **Run workflow** (or push to `main`).
 
-4. Hard-refresh the site. **View source** of **`/supabase-config.js`** — it should show your project URL and a non-empty key string (not `""` for both).
+4. Hard-refresh the site. **View page source** of the homepage: you should see a `<script>window.__SUPABASE_URL__=...` line (not only empty `supabase-config.js`). Also check **`/supabase-config.js`**.
 
-**Manual static host:** copy **`supabase-config.js`** from the repo, paste your URL and anon key into the two `window.__SUPABASE_*` lines, upload with **`index.html`**, **`assets/`**, **`vendor/`**. Do **not** commit real keys to a **public** repo.
+**Custom domain (e.g. pixelcity.best):** Either point DNS at **GitHub Pages** and use the Actions deploy above (secrets on **github-pages** environment if needed), **or** if you upload by hand you must upload **`assets/`**, **`vendor/`**, **`supabase-config.js`**, and **`index.html`** — or use an **`index.html`** produced by the workflow (keys are inside it after deploy).
+
+**Manual static host:** fill **`supabase-config.js`** with your URL + anon key; upload the full folder. Do **not** commit real keys to a **public** repo.
 
 **Security:** use only the **anon** / **publishable** key; never the **service_role** key in the browser.
 
