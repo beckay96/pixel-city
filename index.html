@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel City - Evolution 6.16</title>
+    <title>Pixel City — School Edition</title>
+    <meta name="description" content="Classroom-friendly city maze game. No payments. Web app uses an allowlist and a kids search page.">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -220,9 +221,10 @@
 
     <div id="sign-in-screen">
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
-        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account</p>
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or play offline</p>
+        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3">School edition: free, no card payments. Ask a teacher before using online chat or multiplayer.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center hidden">Server not configured. Play offline or set up Supabase.</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center hidden">Class server not configured — use Play offline or ask IT for Supabase keys.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
                 <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
@@ -321,7 +323,7 @@
                     <li><span class="text-yellow-400 font-bold">SONIC</span> = 3x Speed</li>
                     <li><span class="text-yellow-400 font-bold">RICH</span> = $50k Start</li>
                     <li><span class="text-yellow-400 font-bold">GHOST</span> = Thru walls</li>
-                    <li><span class="text-yellow-400 font-bold">MURDER</span> = Chaos mode</li>
+                    <li><span class="text-yellow-400 font-bold">CHAOS</span> (or MURDER) = Bonus runner mode</li>
                     <li><span class="text-yellow-400 font-bold">REALITY</span> = Hard mode</li>
                     <li><span class="text-yellow-400 font-bold">RARITY DROP</span> = 99% $100k</li>
                     <li><span class="text-yellow-400 font-bold">GODLY</span> = God Settings</li>
@@ -382,11 +384,11 @@
             </div>
             <div id="bank-modal-0" class="modal interactive">
                 <h2 class="text-2xl font-bold mb-4 text-center text-yellow-400 uppercase">🏦 Bank</h2>
-                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(0)">Rob Vault ($500)</button>
+                <button class="bg-amber-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(0)">Bank bonus round (+$500)</button>
                 <button class="bg-slate-700 text-white w-full py-3 rounded-lg font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
             <div id="rob-modal-0" class="modal interactive">
-                <h2 class="text-2xl font-bold mb-2 text-center text-orange-400 uppercase">🏠 Robbery</h2>
+                <h2 class="text-2xl font-bold mb-2 text-center text-orange-400 uppercase">🏠 Lucky spin</h2>
                 <div class="bg-slate-900 p-6 rounded-lg text-center border border-slate-700 mb-4">
                     <div id="rob-result-0" class="text-4xl font-black text-white">???</div>
                 </div>
@@ -424,11 +426,11 @@
             </div>
             <div id="bank-modal-1" class="modal interactive">
                 <h2 class="text-2xl font-bold mb-4 text-center text-yellow-400 uppercase">🏦 Bank</h2>
-                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(1)">Rob Vault ($500)</button>
+                <button class="bg-amber-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(1)">Bank bonus round (+$500)</button>
                 <button class="bg-slate-700 text-white w-full py-3 rounded-lg font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="rob-modal-1" class="modal interactive">
-                <h2 class="text-2xl font-bold mb-2 text-center text-orange-400 uppercase">🏠 Robbery</h2>
+                <h2 class="text-2xl font-bold mb-2 text-center text-orange-400 uppercase">🏠 Lucky spin</h2>
                 <div class="bg-slate-900 p-6 rounded-lg text-center border border-slate-700 mb-4">
                     <div id="rob-result-1" class="text-4xl font-black text-white">???</div>
                 </div>
@@ -521,7 +523,7 @@
                         <span class="text-[9px] text-slate-300 font-bold">Web</span>
                     </button>
                 </div>
-                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Kid-safe web uses DuckDuckGo strict safe search. VidKing: curated family videos only.</p>
+                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web: teacher-approved sites + kids search only. VidKing: curated family videos.</p>
             </div>
             <div id="phone-view-messages" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
                 <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
@@ -545,8 +547,8 @@
                         <div class="text-[10px] text-slate-400">Tap stars • buy upgrades</div>
                     </button>
                     <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="zombie">
-                        <div class="font-bold text-white">Zombie Dash</div>
-                        <div class="text-[10px] text-slate-400">Swipe lanes • survive</div>
+                        <div class="font-bold text-white">Runner Dash</div>
+                        <div class="text-[10px] text-slate-400">Switch lanes • dodge obstacles</div>
                     </button>
                     <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="pixel">
                         <div class="font-bold text-white">Pixel Jump</div>
@@ -599,14 +601,14 @@
                     <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
                     <span class="text-white font-bold text-sm">Web</span>
                 </div>
-                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">Opens in a <span class="text-white font-bold">new tab</span>. Type a <span class="text-white">URL</span> (e.g. <span class="font-mono text-[8px]">wikipedia.org</span>) or <span class="text-white">search words</span> (Google, safe search on).</p>
+                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">Opens in a <span class="text-white font-bold">new tab</span>. Only <span class="text-white">allowed school sites</span> or <span class="text-white">Kids Search</span> — random URLs are blocked.</p>
                 <div class="flex gap-1 p-2 shrink-0">
-                    <input type="search" id="phone-web-search" placeholder="URL or search…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
+                    <input type="search" id="phone-web-search" placeholder="Allowed site or search words…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
                     <button type="button" id="phone-web-go" class="bg-sky-600 text-white px-3 rounded-lg font-bold text-xs interactive">Go</button>
                 </div>
                 <div class="flex-1 min-h-[200px] flex flex-col items-center justify-center p-4 text-center bg-slate-900/80 m-2 rounded-xl border border-slate-700">
-                    <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> to open the web in your browser.</p>
-                    <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open start page</button>
+                    <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> for Kids Search or an allowed site (e.g. Wikipedia).</p>
+                    <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open Kids Search</button>
                 </div>
             </div>
             <div id="phone-view-game" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
@@ -644,9 +646,9 @@
             <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">RICH</span> = Start with $50k</p>
             <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">GHOST</span> = Walk thru buildings</p>
             <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">REALITY</span> = Hard mode + Grayscale</p>
-            <div id="murder-code-reveal" class="hidden mt-3 pt-3 border-t border-red-500/50">
-                <p class="text-red-400 text-xs font-mono font-black animate-pulse">⭐ ULTIMATE: MURDER ⭐</p>
-                <p class="text-slate-300 text-[10px]">Speed, Ghost, Rich + Assassinations!</p>
+            <div id="murder-code-reveal" class="hidden mt-3 pt-3 border-t border-sky-500/50">
+                <p class="text-sky-400 text-xs font-mono font-black animate-pulse">⭐ BONUS: CHAOS ⭐</p>
+                <p class="text-slate-300 text-[10px]">Extra speed, ghost walk, rich start + tag-the-runners mini-game!</p>
             </div>
             <div id="rarity-code-reveal" class="hidden mt-3 pt-3 border-t border-yellow-500/50">
                 <p class="text-yellow-400 text-xs font-mono font-black animate-pulse">👑 GOD TIER: RARITY DROP 👑</p>
@@ -657,7 +659,7 @@
                 <p class="text-slate-300 text-[10px]">Custom speed, custom civs, infinite money!</p>
             </div>
         </div>
-        <button id="nuke-btn" onclick="window.dropNuke()" class="bg-red-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block mb-4 w-64 rounded-lg">DROP NUKE</button>
+        <button id="nuke-btn" onclick="window.dropNuke()" class="bg-slate-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block mb-4 w-64 rounded-lg">RESET CITY MAP</button>
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block w-64 rounded-lg">NEW RUN</button>
     </div>
 
@@ -676,10 +678,7 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
     </div>
 
-    <script>
-        if (!window.__SUPABASE_URL__) window.__SUPABASE_URL__ = 'https://kmzyxujxdhxblvwbxfvq.supabase.co'; // pragma: allowlist secret
-        if (!window.__SUPABASE_ANON_KEY__) window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imttenl4dWp4ZGh4Ymx2d2J4ZnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MTc0OTYsImV4cCI6MjA4OTk5MzQ5Nn0.uc9BHHsuV1r4EnaPiupJHDOP5O3XJkh9zjnrSvNNPN8'; // pragma: allowlist secret
-    </script>
+    <!-- Optional Supabase: set window.__SUPABASE_URL__ and window.__SUPABASE_ANON_KEY__ before the module (never commit secrets). -->
     <script type="module">
         import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -1235,7 +1234,7 @@
                 }
             }, 50);
             
-            showMessage("CITY DESTROYED. FIND THE ORB.");
+            showMessage("New map layout! Find the glowing orb where your home was.");
             showOrbHuntIntro();
         };
 
@@ -1380,14 +1379,14 @@
                                 flash.style.display = 'flex';
                                 setTimeout(() => { flash.style.display = 'none'; }, 3000);
                             }
-                            showMessage(`MEGA JACKPOT! Stole $100,000! POLICE ALERTED!`);
+                            showMessage(`Lucky spin! +$100,000! Police are on the way — head home!`);
                         } else {
-                            showMessage(`Stole $${prize}! POLICE ALERTED!`);
+                            showMessage(`Nice! +$${prize}! Police are on the way — head home!`);
                         }
                     } else {
                         display.classList.remove('text-white');
                         display.classList.add('text-red-400');
-                        showMessage(`Attempted robbery failed! POLICE ALERTED!`);
+                        showMessage(`No bonus this time. Police are on the way — head home!`);
                     }
 
                     setTimeout(() => {
@@ -1464,7 +1463,7 @@
             const stars = document.getElementById('wanted-stars');
             if(stars) stars.classList.remove('hidden'); 
             window.closePlayerModal(pIdx);
-            showMessage("BANK HEIST! RUN!"); 
+            showMessage("Bank bonus! Police are on the way — head home!"); 
         };
 
         function handleInteraction(pIdx) {
@@ -1766,7 +1765,7 @@
                             const bounty = Math.floor(Math.random() * 4000) + 1000;
                             state.money += bounty;
                             updateMoneyUI();
-                            showMessage(`ELIMINATED! +$${bounty}`);
+                            showMessage(`Tagged a runner! Bonus +$${bounty}`);
                         }
                     });
                 }
@@ -2215,23 +2214,48 @@
             render();
         }
 
-        const WEB_START_URL = 'https://www.google.com/?safe=active';
+        const KIDDLE_HOME = 'https://www.kiddle.co/';
+        const KIDDLE_SEARCH = 'https://www.kiddle.co/search?q=';
 
-        function googleSafeSearchUrl(query) {
+        function kidsSearchUrl(query) {
             const q = (query || '').trim().slice(0, 500);
-            return `https://www.google.com/search?q=${encodeURIComponent(q)}&safe=active`;
+            if (!q) return KIDDLE_HOME;
+            return KIDDLE_SEARCH + encodeURIComponent(q);
         }
 
-        function resolveWebOpenUrl(raw) {
+        function schoolWebHostAllowed(hostname) {
+            const h = (hostname || '').toLowerCase();
+            if (!h) return false;
+            const exact = new Set([
+                'www.wikipedia.org', 'wikipedia.org', 'en.wikipedia.org', 'simple.wikipedia.org',
+                'www.khanacademy.org', 'khanacademy.org',
+                'scratch.mit.edu', 'www.scratch.mit.edu',
+                'kids.britannica.com', 'www.natgeokids.com',
+                'www.nasa.gov', 'spaceplace.nasa.gov', 'climatekids.nasa.gov'
+            ]);
+            if (exact.has(h)) return true;
+            if (h.endsWith('.wikipedia.org')) return true;
+            if (h.endsWith('.khanacademy.org')) return true;
+            if (h.endsWith('.nasa.gov')) return true;
+            return false;
+        }
+
+        /** @returns {{ ok: boolean, url?: string, reason?: string }} */
+        function resolveSchoolWebOpen(raw) {
             const s = (raw || '').trim().slice(0, 2000);
-            if (!s) return WEB_START_URL;
+            if (!s) return { ok: true, url: KIDDLE_HOME };
 
             if (/^https?:\/\//i.test(s)) {
                 try {
                     const u = new URL(s);
-                    if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
-                } catch (_) { /* fall through */ }
-                return googleSafeSearchUrl(s);
+                    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+                        return { ok: false, reason: 'Only http(s) links are allowed.' };
+                    }
+                    if (schoolWebHostAllowed(u.hostname)) return { ok: true, url: u.href };
+                    return { ok: false, reason: 'That site is not on the school allow list. Use Kids Search or try Wikipedia / NASA / Khan Academy.' };
+                } catch (_) {
+                    return { ok: true, url: kidsSearchUrl(s) };
+                }
             }
 
             const noSpaces = !/\s/.test(s);
@@ -2239,20 +2263,31 @@
 
             if (noSpaces && looksLikeHost) {
                 try {
-                    return new URL('https://' + s).href;
-                } catch (_) { /* search */ }
+                    const u = new URL('https://' + s);
+                    if (schoolWebHostAllowed(u.hostname)) return { ok: true, url: u.href };
+                    return { ok: false, reason: 'That site is not on the allow list. Ask a teacher to add it, or use Kids Search.' };
+                } catch (_) { /* fall through to search */ }
             }
 
             if (noSpaces && /^www\./i.test(s)) {
-                try { return new URL('https://' + s).href; } catch (_) { /* search */ }
+                try {
+                    const u = new URL('https://' + s);
+                    if (schoolWebHostAllowed(u.hostname)) return { ok: true, url: u.href };
+                    return { ok: false, reason: 'That site is not on the allow list.' };
+                } catch (_) { /* search */ }
             }
 
-            return googleSafeSearchUrl(s);
+            return { ok: true, url: kidsSearchUrl(s) };
         }
 
         function openWebInNewTab(query) {
             const status = document.getElementById('phone-web-status');
-            const url = resolveWebOpenUrl(query);
+            const resolved = resolveSchoolWebOpen(query);
+            if (!resolved.ok) {
+                if (status) status.textContent = resolved.reason || 'Blocked.';
+                return false;
+            }
+            const url = resolved.url;
             const w = window.open(url, '_blank', 'noopener,noreferrer');
             if (!w) {
                 if (status) status.innerHTML = '<span class="text-red-400 font-bold">Popup blocked.</span> Allow popups for this site, then tap Go again.';
@@ -2261,14 +2296,14 @@
             if (status) {
                 const term = (query || '').trim();
                 const short = url.length > 56 ? url.slice(0, 54) + '…' : url;
-                status.textContent = term ? `Opened: ${short}` : 'Opened start page in a new tab.';
+                status.textContent = term ? `Opened: ${short}` : 'Opened Kids Search in a new tab.';
             }
             return true;
         }
 
         function resetWebAppHint() {
             const status = document.getElementById('phone-web-status');
-            if (status) status.textContent = 'Enter a URL or search, tap Go, or use Start page below.';
+            if (status) status.innerHTML = 'Tap <span class="text-sky-400 font-bold">Go</span> for Kids Search or an allowed site (e.g. Wikipedia).';
         }
 
         let cosmicState = { count: 0, perSec: 0, cost: 10 };
@@ -2429,7 +2464,7 @@
                 initCosmicGame();
             } else if (id === 'zombie') {
                 document.getElementById('mini-game-zombie').classList.remove('hidden');
-                if (title) title.textContent = 'Zombie Dash';
+                if (title) title.textContent = 'Runner Dash';
                 initZombieGame();
             } else {
                 document.getElementById('mini-game-pixel').classList.remove('hidden');
@@ -2648,7 +2683,7 @@
                 if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
                 else if (code === 'RICH') { if(!state.activeSecrets.includes('RICH')) state.activeSecrets.push('RICH'); showSecretMsg('RICH ACTIVATED'); }
                 else if (code === 'GHOST') { if(!state.activeSecrets.includes('GHOST')) state.activeSecrets.push('GHOST'); showSecretMsg('GHOST ACTIVATED'); }
-                else if (code === 'MURDER') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
+                else if (code === 'MURDER' || code === 'CHAOS') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('CHAOS MODE ON'); }
                 else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
                 else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
                 else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame()) gpb.classList.remove('hidden'); }
