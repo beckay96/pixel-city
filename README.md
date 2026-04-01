@@ -23,14 +23,28 @@ Opening `index.html` as a `file://` URL may block module scripts; use a local se
 
 ## Deploy (GitHub Pages)
 
-The workflow `.github/workflows/pages.yml` runs `npm ci`, builds CSS, and copies **`index.html`**, **`assets/`**, and **`vendor/`** to the site root. No `cdn.tailwindcss.com` or `esm.sh` on the live page.
+The workflow `.github/workflows/pages.yml` runs `npm ci`, builds CSS, copies **`index.html`**, **`assets/`**, and **`vendor/`**, then **injects Supabase** from GitHub Actions secrets into the published HTML. No `cdn.tailwindcss.com` or `esm.sh` on the live page.
+
+### Fix “server not configured” today (about 5 minutes)
+
+The live site only knows your Supabase project if you add **two repository secrets** (keys stay out of git).
+
+1. Open your repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+2. Add **`SUPABASE_URL`** — value = your Supabase **Project URL** (e.g. `https://abcdefgh.supabase.co`) from **Project Settings → API**.
+3. Add **`SUPABASE_ANON_KEY`** — value = the **anon public** key (long `eyJ...` JWT) from the same page.
+4. Trigger a new deploy: **Actions** → **Deploy to GitHub Pages** → **Run workflow**, or push any commit to **`main`**.
+
+After the workflow finishes, reload your Pages URL: the amber “server not configured” line should stay **hidden** and sign-in / online should work (assuming your Supabase project has migrations applied).
+
+**Security:** the anon key is **meant** to be in the browser; it is still gated by **Row Level Security** in Supabase. Never commit it inside `index.html` in the repo.
 
 ## Supabase (sign up / sign in, friends, online)
 
 1. Create a [Supabase](https://supabase.com/) project.
 2. Run SQL from `supabase/migrations/` in the **SQL Editor** as documented in your migrations.
 3. Copy **Project URL** and **anon public** key from **Project Settings → API**.
-4. On the deployed page, set (inject before the game scripts; **never commit keys**):
+4. **Production (GitHub Pages):** use the two Action secrets above — no manual HTML edit.
+5. **Local only:** either run `dev-server.py` with `SUPABASE_PROJECT_URL` + `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` env vars, or temporarily add a snippet before `</head>` (do not commit):
 
 ```html
 <script>
