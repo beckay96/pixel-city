@@ -337,6 +337,7 @@
                 </ul>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">Enter these in the "Secret Modes" box.</p>
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
+                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: type <span class="text-amber-400 font-mono">/help</span> for admin slash commands.</p>
             </div>
         </div>
     </div>
@@ -539,7 +540,7 @@
                 </div>
                 <div id="phone-chat-log" class="flex-1 overflow-y-auto p-2 space-y-2 text-sm min-h-[200px]"></div>
                 <div class="p-2 border-t border-slate-800 flex gap-2 bg-slate-900">
-                    <input type="text" id="phone-chat-input" placeholder="Text players..." class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-base interactive">
+                    <input type="text" id="phone-chat-input" placeholder="Message… /help if admin" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-base interactive">
                     <button type="button" id="phone-chat-send" class="bg-green-600 text-white px-3 rounded-lg font-bold text-sm interactive">Send</button>
                 </div>
             </div>
@@ -2172,6 +2173,85 @@
             log.scrollTop = log.scrollHeight;
         }
 
+        function phoneAppendSystemLine(text) {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            const row = document.createElement('div');
+            row.className = 'rounded-lg px-2 py-1 max-w-[95%] mx-auto bg-amber-950/80 border border-amber-600/60 text-amber-100 text-xs text-center';
+            row.innerHTML = escapePhoneText(text);
+            log.appendChild(row);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        /** Lobby Admin Login (PIN) only — slash commands in Messages */
+        function canUsePhoneSlashCommands() {
+            return !!state.isAdmin;
+        }
+
+        function runPhoneSlashCommand(raw) {
+            const t = raw.trim();
+            const lower = t.toLowerCase();
+            if (lower === '/help' || lower === '/codes' || lower === '/admin') {
+                return {
+                    ok: true,
+                    lines: [
+                        'Admin slash commands:',
+                        '/give $N or /give N — add cash',
+                        '/spawn — teleport to safe house',
+                        '/event — quick on-screen event',
+                        '/server — show supabase / online / code',
+                        '/connect — refresh multiplayer channel'
+                    ]
+                };
+            }
+            const giveM = t.match(/^\/give\s*\$?\s*([\d,]+)/i);
+            if (giveM) {
+                const n = parseInt(String(giveM[1]).replace(/,/g, ''), 10);
+                if (Number.isFinite(n) && n > 0 && n <= 1e12) {
+                    state.money += n;
+                    updateMoneyUI();
+                    return { ok: true, lines: [`+ $${n.toLocaleString()} (wallet updated)`] };
+                }
+                return { ok: false, lines: ['Invalid amount for /give'] };
+            }
+            if (lower === '/event') {
+                const flash = document.getElementById('jackpot-flash');
+                if (flash) {
+                    flash.style.display = 'flex';
+                    setTimeout(() => { flash.style.display = 'none'; }, 900);
+                }
+                showMessage('EVENT!');
+                return { ok: true, lines: ['Event fired.'] };
+            }
+            if (lower === '/spawn') {
+                const h = state.buildings.find(b => b.type === 'home');
+                if (h && state.players[0]) {
+                    state.players[0].x = h.x + h.w / 2;
+                    state.players[0].y = h.y + h.h + 30;
+                    state.players[0].inVehicle = null;
+                }
+                return { ok: true, lines: ['Spawned at safe house.'] };
+            }
+            if (lower === '/server') {
+                const sup = !!supabase;
+                const onl = state.playMode === 'online';
+                const code = state.onlineSessionCode || '—';
+                const rt = typeof onlineRealtimeReady !== 'undefined' && onlineRealtimeReady;
+                return {
+                    ok: true,
+                    lines: [`supabase=${sup} online=${onl} code=${code} realtime=${rt}`]
+                };
+            }
+            if (lower === '/connect') {
+                if (state.playMode === 'online' && state.onlineSessionCode && supabase) {
+                    void subscribeToSessionChannelAsync(state.onlineSessionCode);
+                    return { ok: true, lines: ['Refreshing session channel…'] };
+                }
+                return { ok: true, lines: ['Use MULTIPLAYER + join/host first.'] };
+            }
+            return { ok: false, lines: ['Unknown command. Try /help'] };
+        }
+
         function escapePhoneText(t) {
             const d = document.createElement('div');
             d.textContent = t;
@@ -2238,6 +2318,17 @@
             if (!text || text.length > 500) return;
             const from = state.playerName || state.profileUsername || 'Player';
             input.value = '';
+
+            if (text.startsWith('/')) {
+                if (!canUsePhoneSlashCommands()) {
+                    phoneAppendSystemLine('Slash commands are admin-only. Use Admin Login in the lobby first.');
+                    return;
+                }
+                const r = runPhoneSlashCommand(text);
+                (r.lines || []).forEach(line => phoneAppendSystemLine(line));
+                return;
+            }
+
             if (phoneChatChannel) {
                 try {
                     await phoneChatChannel.send({
