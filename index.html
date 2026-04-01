@@ -267,16 +267,21 @@
                 <div class="flex gap-2 flex-wrap justify-center">
                     <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
                     <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
-                    <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">ONLINE</button>
+                    <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
                 </div>
-                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden">Online uses Supabase: same map seed + live friend position (phone or PC).</p>
+                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden">True multiplayer: same city for both players + live positions (sign in, host or join code).</p>
                 <div id="online-lobby-panel" class="hidden mt-2 space-y-2 text-left">
-                    <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — create code</button>
+                    <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — get invite link</button>
                     <div class="flex gap-2">
                         <input type="text" id="online-join-code-input" placeholder="Friend code" maxlength="8" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 uppercase interactive">
                         <button type="button" id="online-join-btn" class="bg-slate-600 hover:bg-slate-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">Join</button>
                     </div>
                     <p id="online-session-msg" class="text-[10px] text-cyan-300/90 min-h-[1rem]"></p>
+                    <div id="online-invite-block" class="hidden space-y-1">
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Invite link</p>
+                        <a id="online-invite-link" href="#" class="text-[9px] text-sky-400 break-all underline interactive block"></a>
+                        <button type="button" id="online-copy-invite-btn" class="w-full bg-slate-700 text-white text-[10px] font-bold py-2 rounded interactive">Copy invite link</button>
+                    </div>
                 </div>
             </div>
 
@@ -291,7 +296,7 @@
                 <ul id="friends-list-ul" class="max-h-36 overflow-y-auto space-y-1 text-xs"></ul>
             </div>
 
-            <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest mt-2">Start Game</button>
+            <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest mt-2">Start game</button>
             
             <div class="pt-2 border-t border-slate-700">
                 <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300">Secret Modes</button>
@@ -344,8 +349,8 @@
 
     <div id="ui-layer">
         <!-- Online session code badge (top-left) -->
-        <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto">
-            <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Session Code</div>
+            <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto">
+            <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer</div>
             <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
             <div id="session-player-count" class="text-[9px] text-cyan-300 font-bold"></div>
         </div>
@@ -749,6 +754,8 @@
         let supabase = null;
         let supabaseRealtimeChannel = null;
         let lastOnlineBroadcast = 0;
+        let pendingJoinCodeFromUrl = null;
+        let onlineRealtimeReady = false;
 
         const ORB_PICKUP_RADIUS = 38;
         const ORB_VISUAL_RADIUS = 22;
@@ -970,6 +977,7 @@
         }
 
         function teardownOnlineRealtime() {
+            onlineRealtimeReady = false;
             if (supabaseRealtimeChannel && supabase) {
                 supabase.removeChannel(supabaseRealtimeChannel);
                 supabaseRealtimeChannel = null;
@@ -979,9 +987,12 @@
             state.isOnlineHost = false;
             const badge = document.getElementById('session-code-badge');
             if (badge) badge.classList.add('hidden');
+            const invite = document.getElementById('online-invite-block');
+            if (invite) invite.classList.add('hidden');
         }
 
         function disconnectRealtimeOnly() {
+            onlineRealtimeReady = false;
             if (supabaseRealtimeChannel && supabase) {
                 supabase.removeChannel(supabaseRealtimeChannel);
                 supabaseRealtimeChannel = null;
@@ -990,7 +1001,11 @@
         }
 
         function subscribeToSessionChannel(code) {
-            if (!supabase || !code) return;
+            return subscribeToSessionChannelAsync(code);
+        }
+
+        function subscribeToSessionChannelAsync(code) {
+            if (!supabase || !code) return Promise.resolve();
             disconnectRealtimeOnly();
             const topic = `pixel-city-${code}`;
             const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
@@ -1006,12 +1021,70 @@
             ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
                 if (payload && payload.uid) delete state.remotePlayers[payload.uid];
             });
-            ch.subscribe();
             supabaseRealtimeChannel = ch;
+            return new Promise((resolve) => {
+                ch.subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        onlineRealtimeReady = true;
+                        resolve();
+                    }
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') resolve();
+                });
+            });
+        }
+
+        function buildJoinInviteUrl(code) {
+            try {
+                const u = new URL(window.location.href);
+                u.searchParams.set('join', code);
+                return u.toString();
+            } catch {
+                return `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(code)}`;
+            }
+        }
+
+        function updateOnlineInviteUI(code) {
+            const block = document.getElementById('online-invite-block');
+            const a = document.getElementById('online-invite-link');
+            if (!block || !a) return;
+            if (!code || !state.isOnlineHost) {
+                block.classList.add('hidden');
+                return;
+            }
+            const href = buildJoinInviteUrl(code);
+            a.href = href;
+            a.textContent = href;
+            block.classList.remove('hidden');
+        }
+
+        function consumeJoinFromUrl() {
+            try {
+                const p = new URLSearchParams(window.location.search);
+                const raw = (p.get('join') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                if (raw.length >= 4) pendingJoinCodeFromUrl = raw;
+                if (p.has('join')) {
+                    p.delete('join');
+                    const q = p.toString();
+                    history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash);
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        async function tryApplyPendingJoinFromUrl() {
+            if (!pendingJoinCodeFromUrl || !supabase || !state.supabaseUserId) return;
+            const code = pendingJoinCodeFromUrl;
+            pendingJoinCodeFromUrl = null;
+            state.playMode = 'online';
+            state.playerMode = 1;
+            applyModeButtonStyles();
+            updateLobbyHints();
+            const inp = document.getElementById('online-join-code-input');
+            if (inp) inp.value = code;
+            await joinOnlineSession(code);
         }
 
         function broadcastMyPosition() {
-            if (!supabaseRealtimeChannel || !state.players[0] || !state.supabaseUserId) return;
+            if (!onlineRealtimeReady || !supabaseRealtimeChannel || !state.players[0] || !state.supabaseUserId) return;
             const now = performance.now();
             if (now - lastOnlineBroadcast < ONLINE_BROADCAST_MS) return;
             lastOnlineBroadcast = now;
@@ -1050,8 +1123,9 @@
             state.onlineSessionCode = code;
             state.isOnlineHost = true;
             state.worldSeed = seed;
-            subscribeToSessionChannel(code);
-            if (el) el.textContent = `Your code: ${code} — share with friend`;
+            await subscribeToSessionChannelAsync(code);
+            if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
+            updateOnlineInviteUI(code);
         }
 
         async function joinOnlineSession(rawCode) {
@@ -1073,8 +1147,12 @@
             state.onlineSessionCode = code;
             state.isOnlineHost = data.host_id === state.supabaseUserId;
             state.worldSeed = data.world_seed;
-            subscribeToSessionChannel(code);
-            if (el) el.textContent = `Joined ${code}`;
+            await subscribeToSessionChannelAsync(code);
+            if (el) el.textContent = `Joined ${code} — same map as host. Press Start game.`;
+            if (!state.isOnlineHost) {
+                const block = document.getElementById('online-invite-block');
+                if (block) block.classList.add('hidden');
+            }
         }
 
         async function startOnlineWithFriend(username) {
@@ -1262,7 +1340,7 @@
             state.orb = null;
             state.remotePlayers = {};
             if (state.playMode !== 'online') teardownOnlineRealtime();
-            else if (state.onlineSessionCode) subscribeToSessionChannel(state.onlineSessionCode);
+            else if (state.onlineSessionCode) void subscribeToSessionChannelAsync(state.onlineSessionCode);
             hideOrbHuntIntro();
             const orbWin = document.getElementById('orb-win-overlay');
             if (orbWin) orbWin.style.display = 'none';
@@ -1630,10 +1708,10 @@
             });
         }
 
-        function joinRoom() {
+        async function joinRoom() {
             if (state.playMode === 'online') {
                 if (!supabase || !state.supabaseUserId) {
-                    showMessage('Sign in to play online.');
+                    showMessage('Sign in for multiplayer.');
                     return;
                 }
                 if (!state.onlineSessionCode) {
@@ -1651,7 +1729,7 @@
             if (state.playMode === 'online') {
                 state.playerMode = 1;
                 document.getElementById('p1-modals').classList.add('hidden');
-                subscribeToSessionChannel(state.onlineSessionCode);
+                await subscribeToSessionChannelAsync(state.onlineSessionCode);
                 const badge = document.getElementById('session-code-badge');
                 const codeEl = document.getElementById('session-code-display');
                 if (badge && codeEl && state.onlineSessionCode) {
@@ -2540,7 +2618,9 @@
         }
 
         async function startApp() {
+            consumeJoinFromUrl();
             await initSupabaseAndSession();
+            await tryApplyPendingJoinFromUrl();
 
             const signInMsg = document.getElementById('sign-in-msg');
             const gatewayInput = document.getElementById('auth-gateway-input');
@@ -2566,6 +2646,7 @@
                 startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
+                await tryApplyPendingJoinFromUrl();
             };
 
             document.getElementById('auth-signup-btn').onclick = async () => {
@@ -2586,6 +2667,7 @@
                 startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
+                await tryApplyPendingJoinFromUrl();
             };
 
             document.getElementById('auth-guest-btn').onclick = () => {
@@ -2603,10 +2685,22 @@
             };
 
             document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
-            document.getElementById('online-join-btn').onclick = () => {
+            document.getElementById('online-join-btn').onclick = async () => {
                 const v = document.getElementById('online-join-code-input');
-                joinOnlineSession(v ? v.value : '');
+                await joinOnlineSession(v ? v.value : '');
             };
+
+            document.getElementById('online-copy-invite-btn')?.addEventListener('click', async () => {
+                const code = state.onlineSessionCode;
+                if (!code) return;
+                const text = buildJoinInviteUrl(code);
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showMessage('Invite link copied!');
+                } catch {
+                    showMessage('Copy failed — tap the link to share');
+                }
+            });
 
             window.addEventListener('resize', resize);
             resize();
@@ -2634,18 +2728,21 @@
             document.getElementById('mode-solo').onclick = () => {
                 state.playMode = 'solo';
                 state.playerMode = 1;
+                document.getElementById('online-invite-block')?.classList.add('hidden');
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
             document.getElementById('mode-duo').onclick = () => {
                 state.playMode = 'solo';
                 state.playerMode = 2;
+                document.getElementById('online-invite-block')?.classList.add('hidden');
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
             document.getElementById('mode-online').onclick = () => {
                 state.playMode = 'online';
                 state.playerMode = 1;
+                if (state.onlineSessionCode && state.isOnlineHost) updateOnlineInviteUI(state.onlineSessionCode);
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
@@ -2697,7 +2794,7 @@
             const godCops = document.getElementById('god-cops-btn');
             if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
 
-            document.getElementById('join-btn').onclick = joinRoom;
+            document.getElementById('join-btn').onclick = () => { void joinRoom(); };
             const orbDismiss = document.getElementById('orb-hunt-dismiss');
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
             document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };

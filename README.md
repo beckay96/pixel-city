@@ -2,7 +2,7 @@
 
 Browser game with **self-hosted UI** (no Tailwind CDN at runtime) and a **vendored Supabase client** (no `esm.sh`). **No payment** in this project.
 
-**Multiplayer:** sign in with Supabase → **ONLINE** → host/join code → same map + live positions (Realtime **broadcast**). **Play offline** works for local 1–2 players without Supabase.
+**Multiplayer:** sign in → **MULTIPLAYER** → **Host — get invite link** (share URL with `?join=CODE`) or type a friend’s code → **Start game**. Same map seed + live positions (Realtime **broadcast**). **2 LOCAL** is split-screen on one device. **Play offline** skips accounts.
 
 **Admin / secrets:** lobby **Admin Login** (PIN) and **Secret Modes** (SONIC, RICH, GHOST, MURDER, REALITY, RARITY DROP, GODLY).
 
