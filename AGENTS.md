@@ -8,15 +8,15 @@ Pixel City is served from `index.html` plus **`assets/tailwind.css`** (built wit
 
 ### Running locally (with Supabase)
 
-Use the dev server which injects Supabase credentials from environment variables:
+Use the dev server which serves **`/supabase-config.js`** from environment variables:
 
 ```bash
 python3 dev-server.py 8080
 ```
 
-Requires `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` env vars (configured as Cursor secrets). The server injects `window.__SUPABASE_URL__` and `window.__SUPABASE_ANON_KEY__` into `index.html` before serving.
+Requires `SUPABASE_PROJECT_URL` (or `SUPABASE_URL`) and `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`. Or run `npm run inject:supabase` with the same env to write `supabase-config.js`, then any static server.
 
-Without these env vars, the dev server still runs; use **Play offline** for guest mode. Ensure `npm run build:css` has been run so `assets/tailwind.css` exists.
+Without env vars, use **Play offline**. Ensure `npm run build:css` has been run so `assets/tailwind.css` exists.
 
 ### Supabase project
 

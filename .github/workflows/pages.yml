@@ -36,18 +36,18 @@ jobs:
           mkdir -p _site
           cp index.html _site/
           cp -r assets vendor _site/
-          cp config.js _site/
-      - name: Inject Supabase (repo or "github-pages" environment secrets — any one URL + one key name works)
+          cp config.js supabase-config.js _site/
+      - name: Write supabase-config.js (multiplayer — same secrets as dev-server)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/inject-supabase-config.mjs _site/index.html
-      - name: Warn if Supabase keys missing (site will show server not configured)
+        run: node scripts/write-supabase-config.mjs _site/supabase-config.js
+      - name: Warn if Supabase keys missing
         run: |
-          if grep -qF '"key":""' _site/index.html; then
-            echo "::warning::Supabase anon key missing in deploy. Add Repository secrets (or Environment secrets for github-pages): SUPABASE_URL or SUPABASE_PROJECT_URL, and SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY. Then re-run this workflow."
+          if grep -qF "window.__SUPABASE_ANON_KEY__ = \"\"" _site/supabase-config.js; then
+            echo "::warning::Supabase keys missing. Add Repository or github-pages Environment secrets: SUPABASE_PROJECT_URL + SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY). Then re-run Deploy."
           fi
       - uses: actions/upload-pages-artifact@v3
         with:

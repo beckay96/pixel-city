@@ -1,9 +1,5 @@
 /**
- * Optional Supabase keys when you host the files yourself (no GitHub Actions inject).
- * 1. Uncomment the two lines below and paste your Project URL + anon key from Supabase → Settings → API.
- * 2. Upload this file next to index.html.
- *
- * GitHub Pages: leave this commented — use repo Settings → Secrets → Actions instead.
+ * Optional extra globals (rare). For Supabase / multiplayer use supabase-config.js instead.
+ * GitHub Actions overwrites _site/supabase-config.js at deploy from secrets.
+ * Manual host: edit supabase-config.js next to index.html (or run: npm run inject:supabase)
  */
-// window.__SUPABASE_URL__ = 'https://YOUR_PROJECT.supabase.co';
-// window.__SUPABASE_ANON_KEY__ = 'YOUR_ANON_KEY';

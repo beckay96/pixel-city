@@ -14,52 +14,48 @@ The HTML expects **`assets/tailwind.css`** and **`vendor/supabase.min.js`** next
 cd /path/to/pixel-city
 npm ci
 npm run build:css
+```
+
+**Multiplayer locally:** either
+
+```bash
+export SUPABASE_PROJECT_URL='https://YOUR_PROJECT.supabase.co'
+export SUPABASE_ANON_KEY='YOUR_ANON_KEY'
+npm run inject:supabase   # writes supabase-config.js
 python3 -m http.server 8080
 ```
 
-Open [http://localhost:8080](http://localhost:8080).
+or run **`python3 dev-server.py 8080`** with the same env vars (it serves a generated **`/supabase-config.js`** and does not write files).
 
-Opening `index.html` as a `file://` URL may block module scripts; use a local server.
+Open [http://localhost:8080](http://localhost:8080). Do not use `file://` for the game; use a local server.
 
 ## Deploy (GitHub Pages)
 
-The workflow `.github/workflows/pages.yml` runs `npm ci`, builds CSS, copies **`index.html`**, **`assets/`**, and **`vendor/`**, then **injects Supabase** from GitHub Actions secrets into the published HTML. No `cdn.tailwindcss.com` or `esm.sh` on the live page.
+The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supabase-config.js`** in the deploy folder from GitHub Actions secrets (so **`window.__SUPABASE_*`** is set before the game loads — reliable multiplayer wiring). No `cdn.tailwindcss.com` or `esm.sh`.
 
-### Fix “server not configured” today (about 5 minutes)
+### Fix “server not configured” / wire multiplayer
 
-The live site only gets keys if **GitHub Actions injects them** when it deploys. If you still see the yellow message, the deploy ran **without** secrets (or you are not on the GitHub Pages build).
+1. Repo → **Settings** → **Secrets and variables** → **Actions** → add **both**:
+   - **`SUPABASE_PROJECT_URL`** (or **`SUPABASE_URL`**) = Supabase **Project URL**
+   - **`SUPABASE_ANON_KEY`** (or **`SUPABASE_PUBLISHABLE_KEY`**) = **anon public** key from **Project Settings → API**
 
-1. Open your repo → **Settings** → **Secrets and variables** → **Actions**.
-2. Under **Repository secrets**, click **New repository secret** and add **both**:
-   - **`SUPABASE_URL`** — your Supabase **Project URL** (e.g. `https://abcdefgh.supabase.co`) from Supabase → **Project Settings → API**.
-   - **`SUPABASE_ANON_KEY`** — the **anon public** key (`eyJ...`) from the same page.
+2. If deploy uses the **`github-pages` environment**, add the **same secrets** under **Environments → github-pages** (repository secrets alone are sometimes ignored).
 
-   **Alternative names** (if you already use them elsewhere): **`SUPABASE_PROJECT_URL`** instead of `SUPABASE_URL`, and **`SUPABASE_PUBLISHABLE_KEY`** instead of `SUPABASE_ANON_KEY`. The deploy script accepts either pair.
+3. **Actions** → **Deploy to GitHub Pages** → **Run workflow** (or push to `main`).
 
-3. If your workflow uses the **`github-pages` environment** and secrets do not seem to apply, add the **same two secrets** under **Settings** → **Environments** → **github-pages** → **Environment secrets** (not only Dependabot).
+4. Hard-refresh the site. **View source** of **`/supabase-config.js`** — it should show your project URL and a non-empty key string (not `""` for both).
 
-4. Redeploy: **Actions** → **Deploy to GitHub Pages** → **Run workflow**, or push to **`main`**. Open the **workflow log**: if keys were missing, you will see a **yellow warning** in the summary.
+**Manual static host:** copy **`supabase-config.js`** from the repo, paste your URL and anon key into the two `window.__SUPABASE_*` lines, upload with **`index.html`**, **`assets/`**, **`vendor/`**. Do **not** commit real keys to a **public** repo.
 
-5. Hard-refresh the live site (Ctrl+Shift+R). View page source and search for `pixel-city-supabase-config` — you should see your URL inside the JSON (not empty strings).
-
-**Not using GitHub Actions?** Uncomment and fill in **`config.js`** in the site root (same folder as `index.html`), upload with your static host. Do **not** commit real keys into git if the repo is public.
-
-**Security:** the anon key is **meant** to be in the browser; access is still limited by **RLS** in Supabase. Never paste the **service role** key here.
+**Security:** use only the **anon** / **publishable** key; never the **service_role** key in the browser.
 
 ## Supabase (sign up / sign in, friends, online)
 
 1. Create a [Supabase](https://supabase.com/) project.
 2. Run SQL from `supabase/migrations/` in the **SQL Editor** as documented in your migrations.
 3. Copy **Project URL** and **anon public** key from **Project Settings → API**.
-4. **Production (GitHub Pages):** use the two Action secrets above — no manual HTML edit.
-5. **Local only:** either run `dev-server.py` with `SUPABASE_PROJECT_URL` + `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` env vars, or temporarily add a snippet before `</head>` (do not commit):
-
-```html
-<script>
-  window.__SUPABASE_URL__ = 'https://YOUR_PROJECT.supabase.co';
-  window.__SUPABASE_ANON_KEY__ = 'YOUR_ANON_KEY';
-</script>
-```
+4. **Production:** GitHub secrets → deploy writes **`supabase-config.js`** automatically.
+5. **Local:** `npm run inject:supabase` + static server, or **`dev-server.py`** with env vars (see above).
 
 ## “State-wide blocked” at school — what actually helps
 
@@ -85,4 +81,4 @@ Only your **education department / IT** can remove a statewide block. This repo 
 
 ## Put it live on pixelcity.quest
 
-GitHub Pages (workflow above) or any static host: upload **`index.html`**, **`assets/`**, **`vendor/`**, inject Supabase globals on the live page, set custom domain in the host’s settings.
+GitHub Pages (workflow above) or any static host: upload **`index.html`**, **`supabase-config.js`** (with keys filled in), **`assets/`**, **`vendor/`**, **`config.js`**, set custom domain in the host’s settings.
