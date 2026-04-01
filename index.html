@@ -337,7 +337,7 @@
                 </ul>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">Enter these in the "Secret Modes" box.</p>
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
-                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/give</span> <span class="font-mono text-amber-400/90">/kill</span> <span class="font-mono text-amber-400/90">/teleport all</span> (multiplayer)</p>
+                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/explode</span> <span class="font-mono text-amber-400/90">/destroy</span> · <span class="font-mono text-amber-400/90">/kill</span> · <span class="font-mono text-amber-400/90">/teleport all</span></p>
             </div>
         </div>
     </div>
@@ -716,6 +716,14 @@
             { id: 'lambo', name: 'Aventador LAMBO', price: 100000, topSpeed: 150, accel: 4.0, color: '#fbbf24' }
         ];
 
+        function fastLamboTypeForNuke() {
+            return { id: 'lambo', name: 'Aventador LAMBO', price: 0, topSpeed: 220, accel: 5.0, color: '#fbbf24' };
+        }
+
+        function fastLamboTypeExplode() {
+            return { id: 'lambo', name: 'Aventador LAMBO', price: 0, topSpeed: 260, accel: 6.0, color: '#fbbf24' };
+        }
+
         let savedWins = parseInt(localStorage.getItem('pixelCityWins') || '0');
 
         const state = {
@@ -1005,6 +1013,56 @@
             state.remotePlayers = {};
         }
 
+        function applyExplodeDestroyWorld(opts) {
+            const fromNet = opts && opts.fromNetwork;
+            state.buildings = [];
+            state.police = [];
+            state.civilians = [];
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            state.orb = null;
+            state.orbHuntActive = false;
+            state.orbCollected = false;
+            state.cityNuked = true;
+            if (state.isJailed) {
+                state.isJailed = false;
+                state.jailTime = 0;
+                const jo = document.getElementById('jail-overlay');
+                if (jo) jo.style.display = 'none';
+            }
+            window.closePlayerModal(0);
+            if (state.players[1]) window.closePlayerModal(1);
+            state.vehicles = [];
+            const t = fastLamboTypeExplode();
+            state.players.forEach((p, i) => {
+                if (!p) return;
+                if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; }
+                const typeCopy = JSON.parse(JSON.stringify(t));
+                const v = {
+                    x: 2000 + i * 140,
+                    y: 2150,
+                    angle: 0,
+                    speed: 0,
+                    type: typeCopy,
+                    occupied: true
+                };
+                state.vehicles.push(v);
+                p.inVehicle = v;
+                p.x = v.x;
+                p.y = v.y;
+                p.angle = v.angle;
+            });
+            if (!fromNet) {
+                const flash = document.getElementById('nuke-flash');
+                if (flash) {
+                    flash.style.display = 'block';
+                    flash.style.opacity = '0.85';
+                    setTimeout(() => { flash.style.display = 'none'; }, 400);
+                }
+            }
+            showMessage(fromNet ? 'WORLD OBLITERATED (admin).' : 'WORLD OBLITERATED.');
+        }
+
         function putPlayerInJail(frames, releaseMsg) {
             const jail = state.buildings.find(b => b.type === 'jail');
             state.isJailed = true;
@@ -1019,6 +1077,7 @@
                 if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; }
                 p.speed = 0;
                 if (jail) { p.x = jail.x + jail.w / 2 + (i * 20); p.y = jail.y + jail.h / 2; }
+                else { p.x = 2000 + i * 30; p.y = 2200; }
             });
             const el = document.getElementById('jail-timer');
             if (el) el.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
@@ -1070,6 +1129,10 @@
                         state.players[0].inVehicle.y = state.players[0].y;
                     }
                     showMessage('Teleported to admin.');
+                    return;
+                }
+                if (payload.kind === 'world_obliterate') {
+                    applyExplodeDestroyWorld({ fromNetwork: true });
                 }
             });
             supabaseRealtimeChannel = ch;
@@ -1362,14 +1425,7 @@
             state.wantedLevel = 0;
             state.policeDelay = 0;
             state.players.forEach(p => { if (p) p.inVehicle = null; });
-            const fastLambo = {
-                id: 'lambo',
-                name: 'Aventador LAMBO',
-                price: 0,
-                topSpeed: 220,
-                accel: 5.0,
-                color: '#fbbf24'
-            };
+            const fastLambo = fastLamboTypeForNuke();
             state.vehicles = [
                 { x: cx - 80, y: cy + 40, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false },
                 { x: cx + 80, y: cy + 40, angle: Math.PI, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false }
@@ -1947,7 +2003,8 @@
                     const nextX = v.x + Math.cos(v.angle) * v.type.topSpeed, nextY = v.y + Math.sin(v.angle) * v.type.topSpeed;
                     
                     const hitBuilding = state.buildings.some(b => buildingBlocksMovement(b) && nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
-                    if (!hitBuilding && getRoadAt(nextX, nextY)) { v.x = nextX; v.y = nextY; }
+                    const openWorld = state.buildings.length === 0;
+                    if (!hitBuilding && (openWorld || getRoadAt(nextX, nextY))) { v.x = nextX; v.y = nextY; }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
                 } else {
                     let mx=0, my=0; 
@@ -2015,7 +2072,11 @@
                 if (state.jailTime <= 0) {
                     state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
                     const h = state.buildings.find(b => b.type === 'home');
-                    state.players.forEach((p, i) => { if(p&&h) { p.x = h.x+h.w/2+(i*20); p.y = h.y+h.h+30; } });
+                    state.players.forEach((p, i) => {
+                        if (!p) return;
+                        if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
+                        else { p.x = 2000 + i * 40; p.y = 2200; }
+                    });
                     state.policeDelay = 3600; showMessage("RELEASED.");
                 }
             }
@@ -2272,7 +2333,8 @@
                         '/connect — refresh multiplayer channel',
                         '/kill USER — jail that player 30s (online)',
                         '/kill all — jail everyone except you 30s (online)',
-                        '/teleport all — pull others to you (online)'
+                        '/teleport all — pull others to you (online)',
+                        '/explode or /destroy or /destroyer — empty city + Lambo for everyone (multiplayer sync)'
                     ]
                 };
             }
@@ -2297,12 +2359,17 @@
             }
             if (lower === '/spawn') {
                 const h = state.buildings.find(b => b.type === 'home');
-                if (h && state.players[0]) {
-                    state.players[0].x = h.x + h.w / 2;
-                    state.players[0].y = h.y + h.h + 30;
+                if (state.players[0]) {
+                    if (h) {
+                        state.players[0].x = h.x + h.w / 2;
+                        state.players[0].y = h.y + h.h + 30;
+                    } else {
+                        state.players[0].x = 2000;
+                        state.players[0].y = 2200;
+                    }
                     state.players[0].inVehicle = null;
                 }
-                return { ok: true, lines: ['Spawned at safe house.'] };
+                return { ok: true, lines: [h ? 'Spawned at safe house.' : 'Spawned at map center (no buildings).'] };
             }
             if (lower === '/server') {
                 const sup = !!supabase;
@@ -2359,6 +2426,14 @@
                     exceptUid: state.supabaseUserId
                 });
                 return { ok: true, lines: [ok ? 'Teleported others to you.' : 'Could not send.'] };
+            }
+            if (lower === '/explode' || lower === '/destroy' || lower === '/destroyer') {
+                applyExplodeDestroyWorld({ fromNetwork: false });
+                if (state.playMode === 'online' && state.supabaseUserId) {
+                    const ok = await broadcastAdminCmd({ kind: 'world_obliterate' });
+                    return { ok: true, lines: [ok ? 'Obliterated world for everyone in session.' : 'Local only — could not sync (use /connect).'] };
+                }
+                return { ok: true, lines: ['Obliterated (local). Use MULTIPLAYER to sync to friends.'] };
             }
             return { ok: false, lines: ['Unknown command. Try /help'] };
         }
@@ -3000,7 +3075,7 @@
             document.getElementById('join-btn').onclick = () => { void joinRoom(); };
             const orbDismiss = document.getElementById('orb-hunt-dismiss');
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
-            document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
+            document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (!p) return; if (h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } else { p.x = 2000 + i * 40; p.y = 2200; } }); } else showMessage("Not enough money!"); };
             
             initSmartphoneUI();
             if (supabase && state.supabaseUserId) {
