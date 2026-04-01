@@ -22,6 +22,7 @@
         canvas {
             display: block;
             image-rendering: pixelated;
+            image-rendering: crisp-edges; /* chunky upscale (N64-style internal res) */
         }
         #ui-layer {
             position: absolute;
@@ -224,7 +225,8 @@
 
     <div id="sign-in-screen">
         <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
-        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account</p>
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
+        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Multiplayer works at school if IT allows this site + <span class="text-cyan-400/90">*.supabase.co</span>. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / same-screen two players.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
             <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden">Supabase is not configured here (empty URL/key). Use <span class="text-white font-bold">Play offline</span>, or set GitHub Actions secrets and redeploy, or upload <span class="font-mono text-[9px]">supabase-config.js</span> with your project URL and anon key. Custom domains need the full site or a deploy with secrets. See README.</p>
             <div>
@@ -269,7 +271,7 @@
                     <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
                     <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
                 </div>
-                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden">True multiplayer: same city for both players + live positions (sign in, host or join code).</p>
+                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Multiplayer (online): same map + live friend dots. Sign in → host or join code → Start game. Works on filtered networks when Supabase is allowlisted.</p>
                 <div id="online-lobby-panel" class="hidden mt-2 space-y-2 text-left">
                     <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — get invite link</button>
                     <div class="flex gap-2">
@@ -2118,49 +2120,71 @@
             canvas.style.filter = state.activeSecrets.includes('REALITY') ? 'grayscale(80%) contrast(0.8)' : 'none';
         }
 
-        function renderScene(camera, clipX, clipY, clipW, clipH) {
-            ctx.save(); ctx.beginPath(); ctx.rect(clipX, clipY, clipW, clipH); ctx.clip();
-            ctx.translate(clipX - camera.x, clipY - camera.y);
-            ctx.fillStyle = '#14532d'; ctx.fillRect(0,0,4000,4000);
-            ctx.fillStyle = '#334155';
-            for(let i=0; i<4000; i+=GRID_SIZE) { ctx.fillRect(i-100, 0, 200, 4000); ctx.fillRect(0, i-100, 4000, 200); }
-            state.buildings.forEach(b => { ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = 'white'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; if(b.type !== 'house') ctx.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
+        /** N64-style: world drawn at low res then scaled up (chunky pixels) */
+        const N64_RENDER_SCALE = 3;
+        let gameBuffer = null;
+        let gameBufCtx = null;
+
+        function ensureGameBuffer(w, h) {
+            if (!gameBuffer) {
+                gameBuffer = document.createElement('canvas');
+                gameBufCtx = gameBuffer.getContext('2d');
+                if (gameBufCtx) {
+                    gameBufCtx.imageSmoothingEnabled = false;
+                }
+            }
+            const bw = Math.max(64, Math.floor(w / N64_RENDER_SCALE));
+            const bh = Math.max(64, Math.floor(h / N64_RENDER_SCALE));
+            if (gameBuffer.width !== bw || gameBuffer.height !== bh) {
+                gameBuffer.width = bw;
+                gameBuffer.height = bh;
+            }
+            return gameBufCtx;
+        }
+
+        function renderScene(targetCtx, camera, clipX, clipY, clipW, clipH) {
+            const c = targetCtx;
+            c.save(); c.beginPath(); c.rect(clipX, clipY, clipW, clipH); c.clip();
+            c.translate(clipX - camera.x, clipY - camera.y);
+            c.fillStyle = '#14532d'; c.fillRect(0,0,4000,4000);
+            c.fillStyle = '#334155';
+            for(let i=0; i<4000; i+=GRID_SIZE) { c.fillRect(i-100, 0, 200, 4000); c.fillRect(0, i-100, 4000, 200); }
+            state.buildings.forEach(b => { c.fillStyle = b.color; c.fillRect(b.x, b.y, b.w, b.h); c.fillStyle = 'white'; c.font = 'bold 16px sans-serif'; c.textAlign = 'center'; if(b.type !== 'house') c.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
 
             if (state.orbHuntActive && state.orb && !state.orbCollected) {
                 const ox = state.orb.x, oy = state.orb.y;
                 const pulse = 0.85 + 0.15 * Math.sin(state.frameCount * 0.08);
-                ctx.save();
-                ctx.translate(ox, oy);
-                ctx.globalAlpha = pulse;
-                const g = ctx.createRadialGradient(0, 0, 4, 0, 0, ORB_VISUAL_RADIUS + 12);
+                c.save();
+                c.translate(ox, oy);
+                c.globalAlpha = pulse;
+                const g = c.createRadialGradient(0, 0, 4, 0, 0, ORB_VISUAL_RADIUS + 12);
                 g.addColorStop(0, '#fff');
                 g.addColorStop(0.35, '#22d3ee');
                 g.addColorStop(0.7, '#a5f3fc');
                 g.addColorStop(1, 'rgba(34,211,238,0)');
-                ctx.fillStyle = g;
-                ctx.beginPath();
-                ctx.arc(0, 0, ORB_VISUAL_RADIUS + 12, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#ecfeff';
-                ctx.beginPath();
-                ctx.arc(0, 0, ORB_VISUAL_RADIUS * 0.45, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                c.fillStyle = g;
+                c.beginPath();
+                c.arc(0, 0, ORB_VISUAL_RADIUS + 12, 0, Math.PI * 2);
+                c.fill();
+                c.fillStyle = '#ecfeff';
+                c.beginPath();
+                c.arc(0, 0, ORB_VISUAL_RADIUS * 0.45, 0, Math.PI * 2);
+                c.fill();
+                c.restore();
             }
             
-            // Render Civilians
-            state.civilians.forEach(c => {
-                ctx.save(); ctx.translate(c.x, c.y); ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill(); ctx.restore();
+            state.civilians.forEach(cv => {
+                c.save(); c.translate(cv.x, cv.y); c.fillStyle = '#f97316'; c.beginPath(); c.arc(0,0,8,0,Math.PI*2); c.fill(); c.restore();
             });
 
-            state.vehicles.forEach(v => { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.angle); ctx.fillStyle = v.type.color; ctx.fillRect(-25, -15, 50, 30); ctx.restore(); });
-            state.police.forEach(v => { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.angle); ctx.fillStyle = '#fff'; ctx.fillRect(-25, -15, 50, 30); ctx.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; ctx.fillRect(0,-15,10,30); ctx.restore(); });
+            state.vehicles.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = v.type.color; c.fillRect(-25, -15, 50, 30); c.restore(); });
+            state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#fff'; c.fillRect(-25, -15, 50, 30); c.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; c.fillRect(0,-15,10,30); c.restore(); });
             state.players.forEach(p => { 
                 if(!p.inVehicle) { 
-                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); 
-                    if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) ctx.globalAlpha = 0.5;
-                    ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); 
-                    ctx.restore(); 
+                    c.save(); c.translate(p.x, p.y); c.rotate(p.angle); 
+                    if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
+                    c.fillStyle = p.color; c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.fill(); 
+                    c.restore(); 
                 }
             });
             if (state.playMode === 'online') {
@@ -2168,31 +2192,55 @@
                 let ci = 0;
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
-                    ctx.save();
-                    ctx.translate(rp.x, rp.y);
-                    ctx.rotate(rp.angle || 0);
-                    ctx.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                    ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 11px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(rp.username || 'Friend', 0, -16);
-                    ctx.restore();
+                    c.save();
+                    c.translate(rp.x, rp.y);
+                    c.rotate(rp.angle || 0);
+                    c.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
+                    c.strokeStyle = '#fff';
+                    c.lineWidth = 2;
+                    c.beginPath();
+                    c.arc(0, 0, 10, 0, Math.PI * 2);
+                    c.fill();
+                    c.stroke();
+                    c.fillStyle = '#fff';
+                    c.font = 'bold 11px sans-serif';
+                    c.textAlign = 'center';
+                    c.fillText(rp.username || 'Friend', 0, -16);
+                    c.restore();
                     ci++;
                 }
             }
-            ctx.restore();
+            c.restore();
         }
 
         function draw() {
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            if (state.playerMode === 1) renderScene(state.camera, 0, 0, canvas.width, canvas.height);
-            else { renderScene(state.cameras[0], 0, 0, canvas.width/2, canvas.height); renderScene(state.cameras[1], canvas.width/2, 0, canvas.width/2, canvas.height); ctx.fillStyle = '#000'; ctx.fillRect(canvas.width/2-2, 0, 4, canvas.height); }
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const bc = ensureGameBuffer(cw, ch);
+            if (!bc) return;
+            bc.imageSmoothingEnabled = false;
+            const bw = gameBuffer.width;
+            const bh = gameBuffer.height;
+            const ox = Math.floor((cw - bw * N64_RENDER_SCALE) / 2);
+            const oy = Math.floor((ch - bh * N64_RENDER_SCALE) / 2);
+            bc.fillStyle = '#0f172a';
+            bc.fillRect(0, 0, bw, bh);
+
+            if (state.playerMode === 1) {
+                renderScene(bc, state.camera, 0, 0, bw, bh);
+            } else {
+                const half = Math.floor(bw / 2);
+                renderScene(bc, state.cameras[0], 0, 0, half, bh);
+                renderScene(bc, state.cameras[1], half, 0, bw - half, bh);
+                bc.fillStyle = '#000';
+                bc.fillRect(half - 1, 0, 2, bh);
+            }
+
+            ctx.imageSmoothingEnabled = false;
+            ctx.clearRect(0, 0, cw, ch);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
             ctxM.clearRect(0,0,140,140); const s = 140/4000;
             state.buildings.forEach(b => { if(b.type!=='house'){ ctxM.fillStyle = b.color; ctxM.fillRect(b.x*s, b.y*s, b.w*s, b.h*s); }});
             if (state.orbHuntActive && state.orb && !state.orbCollected) {
