@@ -4,7 +4,7 @@
 
 ### Overview
 
-Pixel City is a single-file browser game (`index.html`) with zero build steps, no package manager, and no installable dependencies. All external libraries (Tailwind CSS, Supabase JS) are loaded from CDNs at runtime.
+Pixel City is served from `index.html` plus **`assets/tailwind.css`** (built with Tailwind CLI) and **`vendor/supabase.min.js`** (vendored Supabase UMD). Run `npm ci && npm run build:css` before local preview or rely on the GitHub Pages workflow to build CSS. Runtime CDNs **Tailwind** and **esm.sh** are intentionally not used so school filters see fewer third-party domains.
 
 ### Running locally (with Supabase)
 
@@ -16,7 +16,7 @@ python3 dev-server.py 8080
 
 Requires `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` env vars (configured as Cursor secrets). The server injects `window.__SUPABASE_URL__` and `window.__SUPABASE_ANON_KEY__` into `index.html` before serving.
 
-Without these env vars, `python3 -m http.server 8080` works for offline/guest mode.
+Without these env vars, the dev server still runs; use **Play offline** for guest mode. Ensure `npm run build:css` has been run so `assets/tailwind.css` exists.
 
 ### Supabase project
 

@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel City - Evolution 6.16</title>
-    <meta name="description" content="Pixel City — multiplayer city game. Sign in with Supabase for online play, friends, and PixelPhone chat.">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="description" content="Pixel City — multiplayer city game. Self-hosted CSS; Supabase client bundled. Sign in for online play.">
+    <link rel="stylesheet" href="assets/tailwind.css">
     <style>
         body {
             margin: 0;
@@ -677,9 +677,13 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
     </div>
 
-    <!-- Optional Supabase: set window.__SUPABASE_URL__ and window.__SUPABASE_ANON_KEY__ before the module (never commit secrets). -->
+    <!-- Supabase client is vendored (no esm.sh). Set window.__SUPABASE_URL__ and window.__SUPABASE_ANON_KEY__ before this block if needed (never commit secrets). -->
+    <script src="vendor/supabase.min.js"></script>
     <script type="module">
-        import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+        const { createClient } = window.supabase || {};
+        if (typeof createClient !== 'function') {
+            console.error('Pixel City: vendor/supabase.min.js failed to load.');
+        }
 
         const LS_FRIENDS = 'pixelCityFriends';
         const LS_LAST_USER = 'pixelCityLastUser';
@@ -1533,6 +1537,12 @@
             const hint = document.getElementById('supabase-config-hint');
             if (!cfg.ok) {
                 if (hint) hint.classList.remove('hidden');
+                supabase = null;
+            } else if (typeof createClient !== 'function') {
+                if (hint) {
+                    hint.textContent = 'Game bundle error: vendor/supabase.min.js missing. Redeploy from the latest repo.';
+                    hint.classList.remove('hidden');
+                }
                 supabase = null;
             } else {
                 if (hint) hint.classList.add('hidden');
