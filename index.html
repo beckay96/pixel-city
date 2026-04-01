@@ -337,7 +337,7 @@
                 </ul>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">Enter these in the "Secret Modes" box.</p>
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
-                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: type <span class="text-amber-400 font-mono">/help</span> for admin slash commands.</p>
+                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/give</span> <span class="font-mono text-amber-400/90">/kill</span> <span class="font-mono text-amber-400/90">/teleport all</span> (multiplayer)</p>
             </div>
         </div>
     </div>
@@ -699,6 +699,10 @@
         const LS_SESSION = 'pixelCitySession';
         const ONLINE_BROADCAST_MS = 120;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
+        const JAIL_FRAMES_PER_SEC = 60;
+        const jailFramesPolice = () => (35 + Math.floor(Math.random() * 26)) * JAIL_FRAMES_PER_SEC;
+        const JAIL_FRAMES_SLASH_CMD = 30 * JAIL_FRAMES_PER_SEC;
 
         const GRID_SIZE = 500;
         const WORLD_SIZE = 4000;
@@ -1001,6 +1005,29 @@
             state.remotePlayers = {};
         }
 
+        function putPlayerInJail(frames, releaseMsg) {
+            const jail = state.buildings.find(b => b.type === 'jail');
+            state.isJailed = true;
+            state.jailTime = Math.max(1, Math.floor(frames));
+            state.police = [];
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            window.closePlayerModal(0);
+            if (state.players[1]) window.closePlayerModal(1);
+            state.players.forEach((p, i) => {
+                if (!p) return;
+                if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; }
+                p.speed = 0;
+                if (jail) { p.x = jail.x + jail.w / 2 + (i * 20); p.y = jail.y + jail.h / 2; }
+            });
+            const el = document.getElementById('jail-timer');
+            if (el) el.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
+            const bailBtn = document.getElementById('pay-bail-btn');
+            if (bailBtn) bailBtn.innerText = `Pay Bail ($${state.bailPrice})`;
+            document.getElementById('jail-overlay').style.display = 'flex';
+            if (releaseMsg) showMessage(releaseMsg);
+        }
+
         function subscribeToSessionChannel(code) {
             return subscribeToSessionChannelAsync(code);
         }
@@ -1021,6 +1048,29 @@
             });
             ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
                 if (payload && payload.uid) delete state.remotePlayers[payload.uid];
+            });
+            ch.on('broadcast', { event: 'admin_cmd' }, ({ payload }) => {
+                if (!payload || !payload.kind) return;
+                const myId = state.supabaseUserId;
+                const myName = normalizeUsername(state.profileUsername || state.playerName || '');
+                if (payload.kind === 'jail_all') {
+                    if (myId && payload.exceptUid !== myId) putPlayerInJail(JAIL_FRAMES_SLASH_CMD, 'Remote admin jailed you.');
+                    return;
+                }
+                if (payload.kind === 'jail_user' && payload.targetUsername) {
+                    if (myName && myName === normalizeUsername(payload.targetUsername))
+                        putPlayerInJail(JAIL_FRAMES_SLASH_CMD, 'Remote admin jailed you.');
+                    return;
+                }
+                if (payload.kind === 'tp_all' && payload.exceptUid !== myId && state.players[0]) {
+                    state.players[0].x = Number(payload.x) || state.players[0].x;
+                    state.players[0].y = Number(payload.y) || state.players[0].y;
+                    if (state.players[0].inVehicle) {
+                        state.players[0].inVehicle.x = state.players[0].x;
+                        state.players[0].inVehicle.y = state.players[0].y;
+                    }
+                    showMessage('Teleported to admin.');
+                }
             });
             supabaseRealtimeChannel = ch;
             return new Promise((resolve) => {
@@ -1082,6 +1132,16 @@
             const inp = document.getElementById('online-join-code-input');
             if (inp) inp.value = code;
             await joinOnlineSession(code);
+        }
+
+        async function broadcastAdminCmd(payload) {
+            if (!onlineRealtimeReady || !supabaseRealtimeChannel) return false;
+            try {
+                await supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload });
+                return true;
+            } catch {
+                return false;
+            }
         }
 
         function broadcastMyPosition() {
@@ -1297,12 +1357,23 @@
                 b.type = 'ruins';
                 b.color = '#1f2937'; // Dark slate/ash color
             });
-            state.vehicles = [];
             state.police = [];
             state.civilians = [];
             state.wantedLevel = 0;
             state.policeDelay = 0;
             state.players.forEach(p => { if (p) p.inVehicle = null; });
+            const fastLambo = {
+                id: 'lambo',
+                name: 'Aventador LAMBO',
+                price: 0,
+                topSpeed: 220,
+                accel: 5.0,
+                color: '#fbbf24'
+            };
+            state.vehicles = [
+                { x: cx - 80, y: cy + 40, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false },
+                { x: cx + 80, y: cy + 40, angle: Math.PI, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false }
+            ];
             state.cityNuked = true;
             state.orbHuntActive = true;
             state.orbCollected = false;
@@ -1928,13 +1999,9 @@
                         v.x += Math.cos(v.angle) * v.speed; v.y += Math.sin(v.angle) * v.speed;
                         state.players.forEach((p, pIdx) => { 
                             if (p && dist(v.x, v.y, p.x, p.y) < 40) {
-                                state.arrestCount++; state.isJailed = true; state.jailTime = Math.min(60, state.arrestCount * 10); state.bailPrice = state.arrestCount * 100;
+                                state.arrestCount++; state.bailPrice = state.arrestCount * 100;
                                 state.police = []; window.closePlayerModal(pIdx);
-                                state.players.forEach(p => { if(p.inVehicle){ p.inVehicle.occupied=false; p.inVehicle=null; } p.speed=0; });
-                                const jail = state.buildings.find(b => b.type === 'jail');
-                                if (jail) state.players.forEach((p, i) => { if(p){p.x=jail.x+jail.w/2+(i*20); p.y=jail.y+jail.h/2;} });
-                                document.getElementById('pay-bail-btn').innerText = `Pay Bail ($${state.bailPrice})`;
-                                document.getElementById('jail-overlay').style.display = 'flex';
+                                putPlayerInJail(jailFramesPolice(), 'BUSTED!');
                             }
                         });
                     });
@@ -1942,7 +2009,9 @@
             }
 
             if (state.isJailed && state.jailTime > 0) {
-                state.jailTime--; document.getElementById('jail-timer').innerText = `${Math.ceil(state.jailTime/60)}s`;
+                state.jailTime--;
+                const jt = document.getElementById('jail-timer');
+                if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
                 if (state.jailTime <= 0) {
                     state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
                     const h = state.buildings.find(b => b.type === 'home');
@@ -2188,7 +2257,7 @@
             return !!state.isAdmin;
         }
 
-        function runPhoneSlashCommand(raw) {
+        async function runPhoneSlashCommand(raw) {
             const t = raw.trim();
             const lower = t.toLowerCase();
             if (lower === '/help' || lower === '/codes' || lower === '/admin') {
@@ -2196,11 +2265,14 @@
                     ok: true,
                     lines: [
                         'Admin slash commands:',
-                        '/give $N or /give N — add cash',
-                        '/spawn — teleport to safe house',
-                        '/event — quick on-screen event',
-                        '/server — show supabase / online / code',
-                        '/connect — refresh multiplayer channel'
+                        '/give $N — add cash',
+                        '/spawn — safe house',
+                        '/event — screen event',
+                        '/server — status',
+                        '/connect — refresh multiplayer channel',
+                        '/kill USER — jail that player 30s (online)',
+                        '/kill all — jail everyone except you 30s (online)',
+                        '/teleport all — pull others to you (online)'
                     ]
                 };
             }
@@ -2248,6 +2320,45 @@
                     return { ok: true, lines: ['Refreshing session channel…'] };
                 }
                 return { ok: true, lines: ['Use MULTIPLAYER + join/host first.'] };
+            }
+            if (lower === '/kill' || lower.startsWith('/kill ')) {
+                const rest = t.slice(5).trim();
+                if (!rest || lower === '/kill') {
+                    return { ok: false, lines: ['Use /kill USERNAME or /kill all'] };
+                }
+                if (rest.toLowerCase() === 'all') {
+                    if (state.playMode !== 'online' || !state.supabaseUserId) {
+                        return { ok: true, lines: ['/kill all works in MULTIPLAYER when signed in.'] };
+                    }
+                    const ok = await broadcastAdminCmd({ kind: 'jail_all', exceptUid: state.supabaseUserId });
+                    return { ok: true, lines: [ok ? 'Jailed other players ~30s (not you).' : 'Could not send (reconnect /connect).'] };
+                }
+                if (state.playMode !== 'online' || !state.supabaseUserId) {
+                    const victim = normalizeUsername(rest);
+                    if (victim && victim === normalizeUsername(state.profileUsername || state.playerName))
+                        putPlayerInJail(JAIL_FRAMES_SLASH_CMD, 'Jailed.');
+                    else return { ok: true, lines: ['Online: /kill targets friends in session. Offline: only matches your username.'] };
+                    return { ok: true, lines: ['Jailed 30s.'] };
+                }
+                const ok = await broadcastAdminCmd({ kind: 'jail_user', targetUsername: rest.trim() });
+                return { ok: true, lines: [ok ? `Jail sent for "${rest.trim()}".` : 'Could not send.'] };
+            }
+            if (lower === '/teleport' || lower.startsWith('/teleport')) {
+                const sub = lower.replace(/^\/teleport\s*/, '');
+                if (!sub.startsWith('all')) {
+                    return { ok: false, lines: ['Use /teleport all'] };
+                }
+                if (state.playMode !== 'online' || !state.supabaseUserId || !state.players[0]) {
+                    return { ok: true, lines: ['/teleport all needs MULTIPLAYER + sign in.'] };
+                }
+                const p = state.players[0];
+                const ok = await broadcastAdminCmd({
+                    kind: 'tp_all',
+                    x: p.x,
+                    y: p.y,
+                    exceptUid: state.supabaseUserId
+                });
+                return { ok: true, lines: [ok ? 'Teleported others to you.' : 'Could not send.'] };
             }
             return { ok: false, lines: ['Unknown command. Try /help'] };
         }
@@ -2324,7 +2435,7 @@
                     phoneAppendSystemLine('Slash commands are admin-only. Use Admin Login in the lobby first.');
                     return;
                 }
-                const r = runPhoneSlashCommand(text);
+                const r = await runPhoneSlashCommand(text);
                 (r.lines || []).forEach(line => phoneAppendSystemLine(line));
                 return;
             }
