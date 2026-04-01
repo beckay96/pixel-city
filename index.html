@@ -2671,6 +2671,7 @@
             };
 
             document.getElementById('auth-guest-btn').onclick = () => {
+                pendingJoinCodeFromUrl = null;
                 state.playerName = 'Guest';
                 state.profileUsername = '';
                 state.supabaseUserId = null;
