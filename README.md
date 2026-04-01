@@ -1,8 +1,10 @@
-# Pixel City — School Edition
+# Pixel City
 
 Single-file browser game: open `index.html`. **No payment** or checkout in this project.
 
-For classrooms: the in-game **Web** app only opens **Kiddle** (kids search) or a short **allow list** (Wikipedia, NASA kids, Khan Academy, Scratch, etc.). Random URLs are blocked. **Do not commit Supabase keys** in `index.html`; inject them at deploy time (see below).
+**Multiplayer:** sign in with Supabase, choose **ONLINE**, host or join with a friend code — same world seed and live positions over Realtime **broadcast**. **Play offline** still works for local 1–2 players.
+
+**Admin / secrets:** lobby **Admin Login** (PIN) and **Secret Modes** codes are unchanged (SONIC, RICH, GHOST, MURDER, REALITY, RARITY DROP, GODLY).
 
 ## Preview locally
 
@@ -22,7 +24,7 @@ Then open [http://localhost:8080](http://localhost:8080).
 1. Create a [Supabase](https://supabase.com/) project.
 2. Run the SQL in `supabase/migrations/001_pixel_city.sql` in the **SQL Editor** (tables `profiles`, `friends`, `game_sessions`, RLS, trigger, `add_friend_by_username`).
 3. In **Project Settings → API**, copy the **Project URL** and **anon public** key.
-4. Before loading the game, set on `window` (e.g. in a small inline script above the main module, or via your host’s env injection):
+4. Before loading the game, set on `window` (e.g. a small inline script above the main module, or your host’s env injection). **Never commit real keys** to git.
 
 ```html
 <script>
@@ -42,17 +44,19 @@ Then open [http://localhost:8080](http://localhost:8080).
 
 Realtime uses **Broadcast** only (no database replication toggle required).
 
-## Why a school filter might block the site (even if it worked yesterday)
+## PixelPhone Web app
 
-Common causes:
+Opens links in a **new browser tab**: direct **https://** URLs, **www.** hostnames, or **Google search with SafeSearch** (`safe=active`) for plain text. Your school filter still applies to where the tab navigates.
 
-1. **Category change** — the domain was reclassified (games, social, “unknown”, proxy/anonymizer).
-2. **New third-party hosts** — e.g. `esm.sh` (Supabase JS), `cdn.tailwindcss.com`, `youtube-nocookie.com` (VidKing embeds), or `kiddle.co` (Web app). One new blocked host can break part of the page.
-3. **Keyword / SSL / policy updates** — filter lists and TLS inspection rules change often.
-4. **Stricter “no account / chat” rules** — sign-up, friends, or realtime can trip policies even when the game is harmless.
+## If the education filter blocks the site
 
-**For IT:** allowlist your **game origin** first, then only the CDNs you need. To avoid `esm.sh`, bundle `supabase-js` with your deploy or vendor it on the same origin.
+Getting unblocked is usually **allowlisting**, not stripping game features. Common block reasons:
+
+1. **Domain category** (games, social, unknown).
+2. **Third-party scripts**: `cdn.tailwindcss.com`, `esm.sh` (Supabase client), `google.com` / `youtube-nocookie.com` (Web / VidKing).
+
+**For IT:** allowlist your **game origin** first, then only what you use: **your Supabase project** (`*.supabase.co`), plus the CDNs above if needed. To reduce external hosts, you can vendor `supabase-js` on the same origin instead of `esm.sh`.
 
 ## Put it live on pixelcity.quest
 
-Host the static files (e.g. GitHub Pages with `.github/workflows/pages.yml`), inject `window.__SUPABASE_URL__` and `window.__SUPABASE_ANON_KEY__` on the deployed page (never commit keys), and point your domain at the host.
+Host the static files (e.g. GitHub Pages with `.github/workflows/pages.yml`), inject `window.__SUPABASE_URL__` and `window.__SUPABASE_ANON_KEY__` on the deployed page, and point your domain at the host.
