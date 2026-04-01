@@ -27,16 +27,24 @@ The workflow `.github/workflows/pages.yml` runs `npm ci`, builds CSS, copies **`
 
 ### Fix “server not configured” today (about 5 minutes)
 
-The live site only knows your Supabase project if you add **two repository secrets** (keys stay out of git).
+The live site only gets keys if **GitHub Actions injects them** when it deploys. If you still see the yellow message, the deploy ran **without** secrets (or you are not on the GitHub Pages build).
 
-1. Open your repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
-2. Add **`SUPABASE_URL`** — value = your Supabase **Project URL** (e.g. `https://abcdefgh.supabase.co`) from **Project Settings → API**.
-3. Add **`SUPABASE_ANON_KEY`** — value = the **anon public** key (long `eyJ...` JWT) from the same page.
-4. Trigger a new deploy: **Actions** → **Deploy to GitHub Pages** → **Run workflow**, or push any commit to **`main`**.
+1. Open your repo → **Settings** → **Secrets and variables** → **Actions**.
+2. Under **Repository secrets**, click **New repository secret** and add **both**:
+   - **`SUPABASE_URL`** — your Supabase **Project URL** (e.g. `https://abcdefgh.supabase.co`) from Supabase → **Project Settings → API**.
+   - **`SUPABASE_ANON_KEY`** — the **anon public** key (`eyJ...`) from the same page.
 
-After the workflow finishes, reload your Pages URL: the amber “server not configured” line should stay **hidden** and sign-in / online should work (assuming your Supabase project has migrations applied).
+   **Alternative names** (if you already use them elsewhere): **`SUPABASE_PROJECT_URL`** instead of `SUPABASE_URL`, and **`SUPABASE_PUBLISHABLE_KEY`** instead of `SUPABASE_ANON_KEY`. The deploy script accepts either pair.
 
-**Security:** the anon key is **meant** to be in the browser; it is still gated by **Row Level Security** in Supabase. Never commit it inside `index.html` in the repo.
+3. If your workflow uses the **`github-pages` environment** and secrets do not seem to apply, add the **same two secrets** under **Settings** → **Environments** → **github-pages** → **Environment secrets** (not only Dependabot).
+
+4. Redeploy: **Actions** → **Deploy to GitHub Pages** → **Run workflow**, or push to **`main`**. Open the **workflow log**: if keys were missing, you will see a **yellow warning** in the summary.
+
+5. Hard-refresh the live site (Ctrl+Shift+R). View page source and search for `pixel-city-supabase-config` — you should see your URL inside the JSON (not empty strings).
+
+**Not using GitHub Actions?** Uncomment and fill in **`config.js`** in the site root (same folder as `index.html`), upload with your static host. Do **not** commit real keys into git if the repo is public.
+
+**Security:** the anon key is **meant** to be in the browser; access is still limited by **RLS** in Supabase. Never paste the **service role** key here.
 
 ## Supabase (sign up / sign in, friends, online)
 

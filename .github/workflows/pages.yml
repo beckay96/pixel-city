@@ -36,11 +36,19 @@ jobs:
           mkdir -p _site
           cp index.html _site/
           cp -r assets vendor _site/
-      - name: Inject Supabase (repository secrets — required for sign-in / online at school)
+          cp config.js _site/
+      - name: Inject Supabase (repo or "github-pages" environment secrets — any one URL + one key name works)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/inject-supabase-config.mjs _site/index.html
+      - name: Warn if Supabase keys missing (site will show server not configured)
+        run: |
+          if grep -qF '"key":""' _site/index.html; then
+            echo "::warning::Supabase anon key missing in deploy. Add Repository secrets (or Environment secrets for github-pages): SUPABASE_URL or SUPABASE_PROJECT_URL, and SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY. Then re-run this workflow."
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

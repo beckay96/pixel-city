@@ -7,6 +7,7 @@
     <meta name="description" content="Pixel City — multiplayer city game. Self-hosted CSS; Supabase client bundled. Sign in for online play.">
     <link rel="stylesheet" href="assets/tailwind.css">
     <!--PIXEL_CITY_SUPABASE_INJECT-->
+    <script src="config.js"></script>
     <style>
         body {
             margin: 0;
@@ -224,7 +225,7 @@
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Sign in or create an account</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center hidden">Server not configured. Play offline or set up Supabase (see README).</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden">Accounts &amp; online play need Supabase. <span class="text-white font-bold">GitHub:</span> Repo → Settings → Secrets → Actions → add <span class="font-mono text-[9px]">SUPABASE_URL</span> + <span class="font-mono text-[9px]">SUPABASE_ANON_KEY</span> (or <span class="font-mono text-[9px]">SUPABASE_PROJECT_URL</span> + <span class="font-mono text-[9px]">SUPABASE_PUBLISHABLE_KEY</span>), then re-run Deploy. <span class="text-white font-bold">Manual host:</span> edit <span class="font-mono text-[9px]">config.js</span>. Or tap Play offline.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
                 <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
