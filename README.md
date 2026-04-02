@@ -37,6 +37,10 @@ The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supa
 
 ### Fix “server not configured” / wire multiplayer
 
+**Common mistake:** Secrets under **Codespaces** or **Dependabot** are **not** used by GitHub Pages. You need **Actions** secrets (or **Environment** secrets for `github-pages`).
+
+After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run → check the **Summary** at the bottom: it shows ✅/❌ for whether URL and key were found (no secret values printed).
+
 1. Repo → **Settings** → **Secrets and variables** → **Actions** → add **both**:
    - **`SUPABASE_PROJECT_URL`** (or **`SUPABASE_URL`**) = Supabase **Project URL**
    - **`SUPABASE_PUBLISHABLE_KEY`** = **Publishable key** from **Project Settings → API** (recommended; starts with `sb_publishable_…`)
