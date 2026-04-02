@@ -2,9 +2,9 @@
 """Dev server: serves static files; /supabase-config.js is built from env (multiplayer).
 
 Usage:
-    SUPABASE_PROJECT_URL=https://xxx.supabase.co SUPABASE_ANON_KEY=eyJ... python3 dev-server.py [PORT]
+    SUPABASE_PROJECT_URL=https://xxx.supabase.co SUPABASE_PUBLISHABLE_KEY=sb_publishable_... python3 dev-server.py [PORT]
 
-Also accepts SUPABASE_PUBLISHABLE_KEY instead of SUPABASE_ANON_KEY.
+Also accepts legacy SUPABASE_ANON_KEY.
 """
 
 import http.server
@@ -15,7 +15,7 @@ import sys
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 SUPABASE_URL = (os.environ.get("SUPABASE_PROJECT_URL") or os.environ.get("SUPABASE_URL") or "").strip()
 SUPABASE_KEY = (
-    os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_PUBLISHABLE_KEY") or ""
+    os.environ.get("SUPABASE_PUBLISHABLE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or ""
 ).strip()
 
 
@@ -23,6 +23,7 @@ def supabase_js_body():
     return (
         "/* dev-server: from env */\n"
         f"window.__SUPABASE_URL__ = {json.dumps(SUPABASE_URL)};\n"
+        f"window.__SUPABASE_PUBLISHABLE_KEY__ = {json.dumps(SUPABASE_KEY)};\n"
         f"window.__SUPABASE_ANON_KEY__ = {json.dumps(SUPABASE_KEY)};\n"
     )
 

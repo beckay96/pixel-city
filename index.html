@@ -228,7 +228,7 @@
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
         <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Multiplayer works at school if IT allows this site + <span class="text-cyan-400/90">*.supabase.co</span>. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / same-screen two players.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden">Supabase is not configured here (empty URL/key). Use <span class="text-white font-bold">Play offline</span>, or set GitHub Actions secrets and redeploy, or upload <span class="font-mono text-[9px]">supabase-config.js</span> with your project URL and anon key. Custom domains need the full site or a deploy with secrets. See README.</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden">Supabase is not configured (empty URL or publishable key). Use <span class="text-white font-bold">Play offline</span>, or add GitHub secrets <span class="font-mono text-[9px]">SUPABASE_PROJECT_URL</span> + <span class="font-mono text-[9px]">SUPABASE_PUBLISHABLE_KEY</span> and redeploy. See README.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
                 <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
@@ -688,7 +688,7 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
     </div>
 
-    <!-- Supabase client is vendored (no esm.sh). Set window.__SUPABASE_URL__ and window.__SUPABASE_ANON_KEY__ before this block if needed (never commit secrets). -->
+    <!-- Supabase client is vendored (no esm.sh). Set window.__SUPABASE_URL__ + window.__SUPABASE_PUBLISHABLE_KEY__ (preferred) or legacy __SUPABASE_ANON_KEY__. Never commit secrets. -->
     <script src="vendor/supabase.min.js"></script>
     <script type="module">
         const { createClient } = window.supabase || {};
@@ -801,7 +801,9 @@
 
         function getSupabaseConfig() {
             const url = typeof window.__SUPABASE_URL__ === 'string' ? window.__SUPABASE_URL__.trim() : '';
-            const key = typeof window.__SUPABASE_ANON_KEY__ === 'string' ? window.__SUPABASE_ANON_KEY__.trim() : '';
+            const keyPub = typeof window.__SUPABASE_PUBLISHABLE_KEY__ === 'string' ? window.__SUPABASE_PUBLISHABLE_KEY__.trim() : '';
+            const keyLegacy = typeof window.__SUPABASE_ANON_KEY__ === 'string' ? window.__SUPABASE_ANON_KEY__.trim() : '';
+            const key = keyPub || keyLegacy;
             return { url, key, ok: !!(url && key) };
         }
 

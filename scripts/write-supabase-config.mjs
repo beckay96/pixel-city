@@ -15,13 +15,14 @@ const url = (
 ).trim();
 
 const key = (
-    process.env.SUPABASE_ANON_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
     ''
 ).trim();
 
 const body = `/* Auto-generated — do not commit real keys to a public repo. */
 window.__SUPABASE_URL__ = ${JSON.stringify(url)};
+window.__SUPABASE_PUBLISHABLE_KEY__ = ${JSON.stringify(key)};
 window.__SUPABASE_ANON_KEY__ = ${JSON.stringify(key)};
 `;
 

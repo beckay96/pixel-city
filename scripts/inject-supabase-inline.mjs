@@ -16,8 +16,8 @@ const url = (
 ).trim();
 
 const key = (
-    process.env.SUPABASE_ANON_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
     ''
 ).trim();
 
@@ -29,7 +29,7 @@ if (!html.includes(marker)) {
 
 let block = '';
 if (url && key) {
-    block = `<script>window.__SUPABASE_URL__=${JSON.stringify(url)};window.__SUPABASE_ANON_KEY__=${JSON.stringify(key)}</script>`;
+    block = `<script>window.__SUPABASE_URL__=${JSON.stringify(url)};window.__SUPABASE_PUBLISHABLE_KEY__=${JSON.stringify(key)};window.__SUPABASE_ANON_KEY__=${JSON.stringify(key)}</script>`;
     console.log('inject-supabase-inline: embedded keys in', htmlPath);
 } else {
     console.log('inject-supabase-inline: no env keys — marker removed (use supabase-config.js or set GitHub secrets)');

@@ -14,7 +14,7 @@ Use the dev server which serves **`/supabase-config.js`** from environment varia
 python3 dev-server.py 8080
 ```
 
-Requires `SUPABASE_PROJECT_URL` (or `SUPABASE_URL`) and `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`. Or run `npm run inject:supabase` with the same env to write `supabase-config.js`, then any static server.
+Requires `SUPABASE_PROJECT_URL` (or `SUPABASE_URL`) and **`SUPABASE_PUBLISHABLE_KEY`** (preferred) or legacy `SUPABASE_ANON_KEY`. Or run `npm run inject:supabase` with the same env to write `supabase-config.js`, then any static server.
 
 Without env vars, use **Play offline**. Ensure `npm run build:css` has been run so `assets/tailwind.css` exists.
 
@@ -33,8 +33,8 @@ Without env vars, use **Play offline**. Ensure `npm run build:css` has been run 
 | Secret name | Purpose |
 |---|---|
 | `SUPABASE_PROJECT_URL` | Project API URL (`https://<ref>.supabase.co`) |
-| `SUPABASE_ANON_KEY` | Legacy anon JWT key for client-side auth |
-| `SUPABASE_PUBLISHABLE_KEY` | Newer publishable key (fallback in dev-server) |
+| `SUPABASE_PUBLISHABLE_KEY` | **Preferred** client key for browser (`sb_publishable_…`) |
+| `SUPABASE_ANON_KEY` | Legacy JWT anon key (optional fallback) |
 | `PIXELCITY_SUPABASE_DB_PASSWORD` | Database password for psql access |
 
 ### Linting / Tests / Build

@@ -41,15 +41,15 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           node scripts/write-supabase-config.mjs _site/supabase-config.js
           node scripts/inject-supabase-inline.mjs _site/index.html
       - name: Warn if Supabase keys missing
         run: |
-          if grep -qF "window.__SUPABASE_ANON_KEY__ = \"\"" _site/supabase-config.js; then
-            echo "::warning::Supabase secrets empty. Add to Repository secrets AND/OR Environment secrets for \"github-pages\": SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY (or SUPABASE_PUBLISHABLE_KEY). Re-run Deploy. Custom domains (e.g. pixelcity.best) must use this workflow output or paste keys into supabase-config.js on the host."
+          if grep -qF "window.__SUPABASE_PUBLISHABLE_KEY__ = \"\"" _site/supabase-config.js; then
+            echo "::warning::Supabase publishable key missing. Add SUPABASE_PROJECT_URL + SUPABASE_PUBLISHABLE_KEY (preferred) to Repository or github-pages Environment secrets. Legacy SUPABASE_ANON_KEY still works if publishable is unset."
           fi
       - uses: actions/upload-pages-artifact@v3
         with:
