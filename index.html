@@ -283,7 +283,7 @@
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
         <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Multiplayer works at school if IT allows this site + <span class="text-cyan-400/90">*.supabase.co</span>. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / same-screen two players.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Supabase isn’t on this copy of the site (empty URL or key). <span class="text-white font-bold">Play offline</span> still works.<br><br><span class="text-slate-300">Fix:</span> In GitHub open <span class="text-white font-bold">Settings → Secrets and variables → Actions</span> (for this repo) and add <span class="font-mono text-[8px]">SUPABASE_PROJECT_URL</span> + <span class="font-mono text-[8px]">SUPABASE_PUBLISHABLE_KEY</span>. If the workflow uses Environment <span class="font-mono text-[8px]">github-pages</span>, add the same secrets under <span class="text-white">Environments → github-pages</span>. <span class="text-red-300 font-bold">Codespaces secrets do not deploy to pixelcity.quest.</span> Then run Actions → <span class="text-white">Deploy to GitHub Pages</span> → Run workflow. Open <span class="font-mono text-[8px]">/supabase-config.js</span> on your site — the key line must not be empty.</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Supabase isn’t on this copy of the site (empty URL or key). <span class="text-white font-bold">Play offline</span> still works.<br><br><span class="text-slate-300">Fix:</span> GitHub <span class="text-white font-bold">Settings → Secrets → Actions</span> (or <span class="text-white">Environments → github-pages</span>): add <span class="font-mono text-[8px]">VITE_SUPABASE_URL</span> + <span class="font-mono text-[8px]">VITE_SUPABASE_PUBLISHABLE_KEY</span> (or legacy <span class="font-mono text-[8px]">SUPABASE_PROJECT_URL</span> / <span class="font-mono text-[8px]">SUPABASE_PUBLISHABLE_KEY</span>). <span class="text-red-300 font-bold">Codespaces secrets don’t deploy here.</span> Run <span class="text-white">Deploy to GitHub Pages</span>. Check <span class="font-mono text-[8px]">/supabase-config.js</span> — keys must not be empty.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
                 <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
@@ -791,7 +791,7 @@
         </div>
     </div>
 
-    <!-- Supabase client is vendored (no esm.sh). Set window.__SUPABASE_URL__ + window.__SUPABASE_PUBLISHABLE_KEY__ (preferred) or legacy __SUPABASE_ANON_KEY__. Never commit secrets. -->
+    <!-- Supabase: CI reads VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY (GitHub secrets) → window.__SUPABASE_* Never commit secrets. -->
     <script src="vendor/supabase.min.js"></script>
     <script type="module">
         const { createClient } = window.supabase || {};

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Dev server: serves static files; /supabase-config.js is built from env (multiplayer).
 
-Usage:
-    SUPABASE_PROJECT_URL=https://xxx.supabase.co SUPABASE_PUBLISHABLE_KEY=sb_publishable_... python3 dev-server.py [PORT]
+Usage (preferred):
+    VITE_SUPABASE_URL=https://xxx.supabase.co VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_... python3 dev-server.py [PORT]
 
-Also accepts legacy SUPABASE_ANON_KEY.
+Also: SUPABASE_PROJECT_URL, SUPABASE_PUBLISHABLE_KEY, legacy SUPABASE_ANON_KEY.
 """
 
 import http.server
@@ -13,9 +13,17 @@ import os
 import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
-SUPABASE_URL = (os.environ.get("SUPABASE_PROJECT_URL") or os.environ.get("SUPABASE_URL") or "").strip()
+SUPABASE_URL = (
+    os.environ.get("VITE_SUPABASE_URL")
+    or os.environ.get("SUPABASE_PROJECT_URL")
+    or os.environ.get("SUPABASE_URL")
+    or ""
+).strip()
 SUPABASE_KEY = (
-    os.environ.get("SUPABASE_PUBLISHABLE_KEY") or os.environ.get("SUPABASE_ANON_KEY") or ""
+    os.environ.get("VITE_SUPABASE_PUBLISHABLE_KEY")
+    or os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+    or os.environ.get("SUPABASE_ANON_KEY")
+    or ""
 ).strip()
 
 
@@ -45,6 +53,6 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     with http.server.HTTPServer(("", PORT), DevHandler) as httpd:
-        status = "Supabase from env (multiplayer OK)" if SUPABASE_URL and SUPABASE_KEY else "no Supabase env — use Play offline or set SUPABASE_PROJECT_URL + key"
+        status = "Supabase from env (multiplayer OK)" if SUPABASE_URL and SUPABASE_KEY else "no Supabase env — set VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_* fallbacks)"
         print(f"Dev server http://localhost:{PORT} — {status}")
         httpd.serve_forever()

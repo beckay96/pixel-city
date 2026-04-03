@@ -39,6 +39,8 @@ jobs:
           cp config.js supabase-config.js _site/
       - name: Check Supabase secrets (Codespaces secrets do NOT apply — use Repository or Environment)
         env:
+          VU: ${{ secrets.VITE_SUPABASE_URL }}
+          VK: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           SU: ${{ secrets.SUPABASE_URL }}
           SPU: ${{ secrets.SUPABASE_PROJECT_URL }}
           SPK: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -46,15 +48,17 @@ jobs:
         run: |
           echo "## Supabase → GitHub Pages" >> "$GITHUB_STEP_SUMMARY"
           URL_OK=0; KEY_OK=0
-          if [ -n "$SPU" ] || [ -n "$SU" ]; then URL_OK=1; echo "- ✅ URL secret found (SUPABASE_PROJECT_URL or SUPABASE_URL)" >> "$GITHUB_STEP_SUMMARY"; fi
-          if [ -n "$SPK" ] || [ -n "$SAK" ]; then KEY_OK=1; echo "- ✅ Client key secret found (SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY)" >> "$GITHUB_STEP_SUMMARY"; fi
-          if [ "$URL_OK" -eq 0 ]; then echo "- ❌ **Missing URL** — add \`SUPABASE_PROJECT_URL\` (value: \`https://xxxxx.supabase.co\`) under **Repo → Settings → Secrets and variables → Actions** (or **Settings → Environments → github-pages**)" >> "$GITHUB_STEP_SUMMARY"; fi
-          if [ "$KEY_OK" -eq 0 ]; then echo "- ❌ **Missing key** — add \`SUPABASE_PUBLISHABLE_KEY\` (starts with \`sb_publishable_\`) same place. **Codespaces / Dependabot secrets are ignored** by this workflow." >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -n "$VU" ] || [ -n "$SPU" ] || [ -n "$SU" ]; then URL_OK=1; echo "- ✅ URL secret found (VITE_SUPABASE_URL or SUPABASE_PROJECT_URL or SUPABASE_URL)" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -n "$VK" ] || [ -n "$SPK" ] || [ -n "$SAK" ]; then KEY_OK=1; echo "- ✅ Client key found (VITE_SUPABASE_PUBLISHABLE_KEY or SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY)" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ "$URL_OK" -eq 0 ]; then echo "- ❌ **Missing URL** — add \`VITE_SUPABASE_URL\` (preferred) or \`SUPABASE_PROJECT_URL\` under **Settings → Secrets → Actions** or **Environments → github-pages**" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ "$KEY_OK" -eq 0 ]; then echo "- ❌ **Missing key** — add \`VITE_SUPABASE_PUBLISHABLE_KEY\` (preferred) or \`SUPABASE_PUBLISHABLE_KEY\`. **Codespaces secrets are ignored**." >> "$GITHUB_STEP_SUMMARY"; fi
           if [ "$URL_OK" -eq 0 ] || [ "$KEY_OK" -eq 0 ]; then
             echo "::warning::Supabase secrets missing for this deploy — pixelcity.quest will show 'not configured'. Add Repository or github-pages Environment secrets, then re-run **Deploy to GitHub Pages**."
           fi
       - name: Write supabase-config.js + embed keys in index.html (works even if only HTML is mirrored)
         env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PROJECT_URL: ${{ secrets.SUPABASE_PROJECT_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -65,7 +69,7 @@ jobs:
       - name: Warn if Supabase keys missing
         run: |
           if grep -qF "window.__SUPABASE_PUBLISHABLE_KEY__ = \"\"" _site/supabase-config.js; then
-            echo "::warning::Built site still has empty key. Confirm secrets names are exact: SUPABASE_PROJECT_URL, SUPABASE_PUBLISHABLE_KEY (or legacy SUPABASE_ANON_KEY)."
+            echo "::warning::Built site still has empty key. Add VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_PUBLISHABLE_KEY / SUPABASE_ANON_KEY) and VITE_SUPABASE_URL (or SUPABASE_PROJECT_URL)."
           fi
       - uses: actions/upload-pages-artifact@v3
         with:

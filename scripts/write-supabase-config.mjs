@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * Writes supabase-config.js (plain JS) so the browser sets window.__SUPABASE_* before the game module runs.
- * Reads the same env vars as GitHub Actions / dev-server.
+ * Prefers VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY (Vite/GitHub naming), then legacy names.
  */
 import fs from 'fs';
 
 const outPath = process.argv[2] || 'supabase-config.js';
 
 const url = (
+    process.env.VITE_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
     process.env.SUPABASE_PROJECT_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -15,6 +16,7 @@ const url = (
 ).trim();
 
 const key = (
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     ''

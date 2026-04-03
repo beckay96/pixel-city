@@ -19,13 +19,13 @@ npm run build:css
 **Multiplayer locally:** either
 
 ```bash
-export SUPABASE_PROJECT_URL='https://YOUR_PROJECT.supabase.co'
-export SUPABASE_PUBLISHABLE_KEY='sb_publishable_...'
+export VITE_SUPABASE_URL='https://YOUR_PROJECT.supabase.co'
+export VITE_SUPABASE_PUBLISHABLE_KEY='sb_publishable_...'
 npm run inject:supabase   # writes supabase-config.js
 python3 -m http.server 8080
 ```
 
-(Legacy **`SUPABASE_ANON_KEY`** still works if publishable is unset.)
+(Fallbacks: **`SUPABASE_PROJECT_URL`** / **`SUPABASE_PUBLISHABLE_KEY`** / legacy **`SUPABASE_ANON_KEY`**.)
 
 or run **`python3 dev-server.py 8080`** with the same env vars (it serves a generated **`/supabase-config.js`** and does not write files).
 
@@ -41,11 +41,11 @@ The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supa
 
 After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run → check the **Summary** at the bottom: it shows ✅/❌ for whether URL and key were found (no secret values printed).
 
-1. Repo → **Settings** → **Secrets and variables** → **Actions** → add **both**:
-   - **`SUPABASE_PROJECT_URL`** (or **`SUPABASE_URL`**) = Supabase **Project URL**
-   - **`SUPABASE_PUBLISHABLE_KEY`** = **Publishable key** from **Project Settings → API** (recommended; starts with `sb_publishable_…`)
+1. Repo → **Settings** → **Secrets and variables** → **Actions** → add **both** (Vite-style names are checked first by the deploy scripts):
+   - **`VITE_SUPABASE_URL`** = Supabase **Project URL** (`https://….supabase.co`)
+   - **`VITE_SUPABASE_PUBLISHABLE_KEY`** = **Publishable key** from **Project Settings → API** (`sb_publishable_…`)
 
-   Optional legacy: **`SUPABASE_ANON_KEY`** (JWT `eyJ…`) if you do not use publishable keys yet.
+   Fallbacks: **`SUPABASE_PROJECT_URL`** + **`SUPABASE_PUBLISHABLE_KEY`**, or **`SUPABASE_ANON_KEY`** (JWT).
 
 2. If deploy uses the **`github-pages` environment**, add the **same secrets** under **Environments → github-pages**.
 
