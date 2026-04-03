@@ -67,7 +67,7 @@ After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run �
 
 ### Owner dashboard (username `thomas` only)
 
-1. Run **`supabase/migrations/003_admin_dashboard.sql`** in the SQL Editor (reserves `thomas` at signup + adds `admin_dashboard_snapshot`).
+1. Run **`supabase/migrations/003_admin_dashboard.sql`** then **`004_admin_online_now.sql`** in the SQL Editor (owner dashboard + “online now” count from `last_seen`).
 2. Create the owner row once (replace password):
 
 ```sql

@@ -751,7 +751,7 @@
                 <h2 class="text-lg font-black text-violet-300 uppercase tracking-widest">Owner dashboard</h2>
                 <button type="button" id="owner-dashboard-close" class="text-slate-400 hover:text-white text-2xl leading-none px-2">×</button>
             </div>
-            <div class="grid grid-cols-2 gap-2 mb-4 text-center">
+            <div class="grid grid-cols-2 gap-2 mb-3 text-center">
                 <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
                     <div class="text-[9px] text-slate-500 uppercase font-bold">Users</div>
                     <div id="dash-stat-users" class="text-2xl font-black text-white">—</div>
@@ -767,6 +767,11 @@
                 <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
                     <div class="text-[9px] text-slate-500 uppercase font-bold">Sessions 7d</div>
                     <div id="dash-stat-sessions7" class="text-2xl font-black text-amber-400">—</div>
+                </div>
+                <div class="col-span-2 bg-violet-950/90 rounded-lg p-4 border border-violet-500/60">
+                    <div class="text-[9px] text-violet-300 uppercase font-bold tracking-widest">Online right now</div>
+                    <div id="dash-stat-online-now" class="text-4xl font-black text-violet-100 leading-tight">—</div>
+                    <p class="text-[8px] text-slate-500 mt-1">Users with a heartbeat in the last <span class="text-slate-400">90 seconds</span> (game pings ~every 25s while signed in).</p>
                 </div>
             </div>
             <p class="text-[9px] text-slate-500 text-center mb-2">Friend edges: <span id="dash-stat-friends" class="text-slate-300 font-bold">—</span> · Updated <span id="dash-stat-time" class="text-slate-400">—</span></p>
@@ -928,6 +933,7 @@
         }
 
         const ASSISTANT_TIPS = [
+            '“Online right now” uses last_seen within 90s — run SQL migration 004 if it stays blank.',
             'If sign-in says “not configured”, check GitHub Actions secrets (not Codespaces) and redeploy Pages.',
             'Multiplayer needs *.supabase.co allowlisted on school Wi‑Fi.',
             'Run migration 003 in Supabase SQL Editor for admin analytics RPC + reserved username thomas.',
@@ -970,6 +976,7 @@
             set('dash-stat-active', data.users_seen_24h);
             set('dash-stat-sessions', data.game_sessions_total);
             set('dash-stat-sessions7', data.game_sessions_active_7d);
+            set('dash-stat-online-now', data.users_online_now != null ? data.users_online_now : '—');
             set('dash-stat-friends', data.friends_edges_total);
             set('dash-stat-time', data.generated_at || '—');
         }
