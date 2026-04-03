@@ -153,6 +153,61 @@
             pointer-events: auto;
         }
         #in-game-phone-btn:active { transform: scale(0.95); }
+
+        #owner-dashboard-fab {
+            position: fixed;
+            bottom: 80px;
+            left: 16px;
+            z-index: 1150;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #7c3aed, #5b21b6);
+            border: 2px solid #a78bfa;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            font-size: 22px;
+        }
+        #owner-dashboard-fab:active { transform: scale(0.95); }
+        #owner-dashboard-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            background: rgba(10, 10, 20, 0.92);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 16px;
+            overflow-y: auto;
+            pointer-events: auto;
+        }
+        #owner-dashboard-overlay.open { display: flex; }
+        .pixel-bot-face {
+            display: grid;
+            grid-template-columns: repeat(6, 10px);
+            grid-template-rows: repeat(6, 10px);
+            gap: 0;
+            image-rendering: pixelated;
+        }
+        .pixel-bot-face span {
+            width: 10px;
+            height: 10px;
+            background: #1e293b;
+            display: block;
+        }
+        .pixel-bot-face span.p-on { background: #fde047; }
+        .pixel-bot-face span.p-skin { background: #fcd34d; }
+        .pixel-bot-face span.p-blush { background: #f472b6; }
+        @keyframes pixel-blink {
+            0%, 92%, 100% { opacity: 1; }
+            94%, 98% { opacity: 0.15; }
+        }
+        .pixel-bot-face .p-eye { animation: pixel-blink 4s infinite; }
         #smartphone-overlay {
             position: fixed;
             inset: 0;
@@ -688,6 +743,54 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
     </div>
 
+    <button type="button" id="owner-dashboard-fab" class="interactive" title="Owner dashboard" aria-label="Open owner dashboard">📊</button>
+
+    <div id="owner-dashboard-overlay" class="interactive text-white">
+        <div class="w-full max-w-lg bg-slate-900 border-2 border-violet-500 rounded-2xl shadow-2xl p-4 mt-4 mb-8">
+            <div class="flex items-center justify-between gap-2 mb-4">
+                <h2 class="text-lg font-black text-violet-300 uppercase tracking-widest">Owner dashboard</h2>
+                <button type="button" id="owner-dashboard-close" class="text-slate-400 hover:text-white text-2xl leading-none px-2">×</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-4 text-center">
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Users</div>
+                    <div id="dash-stat-users" class="text-2xl font-black text-white">—</div>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Active 24h</div>
+                    <div id="dash-stat-active" class="text-2xl font-black text-emerald-400">—</div>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Sessions</div>
+                    <div id="dash-stat-sessions" class="text-2xl font-black text-cyan-400">—</div>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Sessions 7d</div>
+                    <div id="dash-stat-sessions7" class="text-2xl font-black text-amber-400">—</div>
+                </div>
+            </div>
+            <p class="text-[9px] text-slate-500 text-center mb-2">Friend edges: <span id="dash-stat-friends" class="text-slate-300 font-bold">—</span> · Updated <span id="dash-stat-time" class="text-slate-400">—</span></p>
+            <p id="dash-stat-err" class="text-[10px] text-red-400 text-center min-h-[1rem] mb-4"></p>
+            <button type="button" id="owner-dashboard-refresh" class="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg font-bold text-sm mb-6">Refresh analytics</button>
+
+            <div class="border-t border-slate-700 pt-4 flex gap-3 items-start">
+                <div class="pixel-bot-face shrink-0" aria-hidden="true">
+                    <span></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span></span>
+                    <span class="p-skin"></span><span class="p-skin"></span><span class="p-eye p-on"></span><span class="p-skin"></span><span class="p-eye p-on"></span><span class="p-skin"></span>
+                    <span class="p-skin"></span><span class="p-blush"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-blush"></span>
+                    <span class="p-skin"></span><span class="p-skin"></span><span></span><span class="p-on"></span><span></span><span class="p-skin"></span>
+                    <span></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span></span>
+                    <span></span><span></span><span class="p-skin"></span><span class="p-skin"></span><span></span><span></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-1">Assistant</p>
+                    <ul id="dash-assistant-tips" class="text-[11px] text-slate-300 space-y-2 leading-snug list-disc pl-4"></ul>
+                </div>
+            </div>
+            <p class="text-[9px] text-slate-600 text-center mt-4">Username <span class="font-mono text-violet-400">thomas</span> is reserved — run SQL in README migration <span class="font-mono">003</span> to create your account.</p>
+        </div>
+    </div>
+
     <!-- Supabase client is vendored (no esm.sh). Set window.__SUPABASE_URL__ + window.__SUPABASE_PUBLISHABLE_KEY__ (preferred) or legacy __SUPABASE_ANON_KEY__. Never commit secrets. -->
     <script src="vendor/supabase.min.js"></script>
     <script type="module">
@@ -783,6 +886,7 @@
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
             setInGamePhoneVisible(false);
+            updateOwnerDashboardFabVisibility();
         }
 
         function isSignInScreenVisible() {
@@ -809,6 +913,78 @@
 
         function normalizeUsername(s) {
             return (s || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 32);
+        }
+
+        const OWNER_DASHBOARD_USERNAME = 'thomas';
+
+        function isOwnerDashboardUser() {
+            return !!(state.supabaseUserId && normalizeUsername(state.profileUsername) === OWNER_DASHBOARD_USERNAME);
+        }
+
+        function updateOwnerDashboardFabVisibility() {
+            const fab = document.getElementById('owner-dashboard-fab');
+            if (!fab) return;
+            fab.style.display = isOwnerDashboardUser() ? 'flex' : 'none';
+        }
+
+        const ASSISTANT_TIPS = [
+            'If sign-in says “not configured”, check GitHub Actions secrets (not Codespaces) and redeploy Pages.',
+            'Multiplayer needs *.supabase.co allowlisted on school Wi‑Fi.',
+            'Run migration 003 in Supabase SQL Editor for admin analytics RPC + reserved username thomas.',
+            'If Realtime friends vanish, try PixelPhone → /connect or re-host the session code.',
+            'Publishable key sb_publishable_… is preferred over legacy anon JWT in GitHub secrets.',
+            'Custom domain must serve the full deploy (or index.html with injected keys), not an old copy.',
+            'If jail timer looks wrong, hard refresh — jail uses ~60 frames per second.',
+            'Orb hunt only after nuke; if stuck, NEW RUN from victory or orb overlay.'
+        ];
+
+        function renderAssistantTips() {
+            const ul = document.getElementById('dash-assistant-tips');
+            if (!ul) return;
+            ul.innerHTML = '';
+            ASSISTANT_TIPS.forEach(tip => {
+                const li = document.createElement('li');
+                li.textContent = tip;
+                ul.appendChild(li);
+            });
+        }
+
+        async function refreshOwnerDashboardAnalytics() {
+            const errEl = document.getElementById('dash-stat-err');
+            if (errEl) errEl.textContent = '';
+            if (!supabase || !state.supabaseUserId) {
+                if (errEl) errEl.textContent = 'Sign in required.';
+                return;
+            }
+            const { data, error } = await supabase.rpc('admin_dashboard_snapshot', { p_user_id: state.supabaseUserId });
+            if (error) {
+                if (errEl) errEl.textContent = error.message || 'RPC failed — run migration 003 in Supabase?';
+                return;
+            }
+            if (!data || !data.ok) {
+                if (errEl) errEl.textContent = (data && data.error) ? String(data.error) : 'Forbidden';
+                return;
+            }
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v != null ? String(v) : '—'; };
+            set('dash-stat-users', data.users_total);
+            set('dash-stat-active', data.users_seen_24h);
+            set('dash-stat-sessions', data.game_sessions_total);
+            set('dash-stat-sessions7', data.game_sessions_active_7d);
+            set('dash-stat-friends', data.friends_edges_total);
+            set('dash-stat-time', data.generated_at || '—');
+        }
+
+        function openOwnerDashboard() {
+            if (!isOwnerDashboardUser()) return;
+            const ov = document.getElementById('owner-dashboard-overlay');
+            if (!ov) return;
+            ov.classList.add('open');
+            renderAssistantTips();
+            void refreshOwnerDashboardAnalytics();
+        }
+
+        function closeOwnerDashboard() {
+            document.getElementById('owner-dashboard-overlay')?.classList.remove('open');
         }
 
         function loadLocalFriends() {
@@ -1774,6 +1950,7 @@
             const c = getSupabaseConfig();
             if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!state.supabaseUserId);
             if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+            updateOwnerDashboardFabVisibility();
         }
 
         function setupFullTouch() {
@@ -1856,6 +2033,7 @@
 
             document.getElementById('lobby-screen').style.display = 'none';
             setInGamePhoneVisible(true);
+            updateOwnerDashboardFabVisibility();
             state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
             if (state.playMode === 'online') {
@@ -2321,6 +2499,7 @@
         function setInGamePhoneVisible(show) {
             const b = document.getElementById('in-game-phone-btn');
             if (b) b.style.display = show ? 'flex' : 'none';
+            updateOwnerDashboardFabVisibility();
         }
 
         function phoneShowView(name) {
@@ -2974,6 +3153,7 @@
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
                 await tryApplyPendingJoinFromUrl();
+                updateOwnerDashboardFabVisibility();
             };
 
             document.getElementById('auth-signup-btn').onclick = async () => {
@@ -2995,6 +3175,7 @@
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
                 await tryApplyPendingJoinFromUrl();
+                updateOwnerDashboardFabVisibility();
             };
 
             document.getElementById('auth-guest-btn').onclick = () => {
@@ -3005,7 +3186,15 @@
                 clearSession();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
+                updateOwnerDashboardFabVisibility();
             };
+
+            document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
+            document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
+            document.getElementById('owner-dashboard-refresh')?.addEventListener('click', () => { void refreshOwnerDashboardAnalytics(); });
+            document.getElementById('owner-dashboard-overlay')?.addEventListener('click', (e) => {
+                if (e.target.id === 'owner-dashboard-overlay') closeOwnerDashboard();
+            });
 
             document.getElementById('friend-add-btn').onclick = () => {
                 const v = document.getElementById('friend-add-input');

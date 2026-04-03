@@ -65,6 +65,19 @@ After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run �
 4. **Production:** GitHub secrets → deploy writes config automatically.
 5. **Local:** `npm run inject:supabase` + static server, or **`dev-server.py`**.
 
+### Owner dashboard (username `thomas` only)
+
+1. Run **`supabase/migrations/003_admin_dashboard.sql`** in the SQL Editor (reserves `thomas` at signup + adds `admin_dashboard_snapshot`).
+2. Create the owner row once (replace password):
+
+```sql
+insert into public.users (username, password_hash)
+select 'thomas', crypt('YOUR_PASSWORD', gen_salt('bf'))
+where not exists (select 1 from public.users where username = 'thomas');
+```
+
+3. Sign in as **thomas**. A **chart** button appears (lobby + in-game). Analytics load via RPC — only the DB user named `thomas` succeeds; others get **Forbidden**.
+
 ## “State-wide blocked” at school — what actually helps
 
 Only your **education department / IT** can remove a statewide block. This repo reduces how many **extra** domains the page hits so approval is easier:
