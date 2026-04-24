@@ -314,6 +314,18 @@
                 <button type="button" id="auth-signup-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white flex-1 py-3 rounded-lg font-bold interactive text-sm">Sign up</button>
             </div>
             <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive">Play offline (no account)</button>
+            <details class="text-left pt-2 border-t border-slate-700" id="supabase-local-override-wrap">
+                <summary class="text-[10px] text-cyan-500/90 font-bold cursor-pointer interactive list-none">Can’t sign in? Connect Supabase on this device</summary>
+                <p class="text-[9px] text-slate-500 mt-2 mb-2">Paste your <span class="text-slate-300">Project URL</span> and <span class="text-slate-300">publishable key</span> from Supabase (Settings → API). Saved only in this browser. Then reload the page.</p>
+                <label class="text-[9px] text-slate-400 block mb-1">Project URL</label>
+                <input type="url" id="local-supabase-url" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs mb-2 interactive" placeholder="https://xxxxx.supabase.co">
+                <label class="text-[9px] text-slate-400 block mb-1">Publishable key</label>
+                <input type="password" id="local-supabase-key" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs mb-2 interactive" placeholder="sb_publishable_… or anon JWT" autocomplete="off">
+                <div class="flex gap-2">
+                    <button type="button" id="local-supabase-save" class="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white text-[10px] font-bold py-2 rounded interactive">Save &amp; reload</button>
+                    <button type="button" id="local-supabase-clear" class="text-slate-500 text-[9px] font-bold py-2 px-2 interactive">Clear</button>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -834,6 +846,9 @@
         const LS_FRIENDS = 'pixelCityFriends';
         const LS_LAST_USER = 'pixelCityLastUser';
         const LS_SESSION = 'pixelCitySession';
+        /** Optional: set in browser to fix “server not configured” without a new deploy. */
+        const LS_SUPABASE_URL_OVERRIDE = 'pixelCitySupabaseUrl';
+        const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
         const ONLINE_BROADCAST_MS = 120;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
@@ -988,11 +1003,21 @@
         }
 
         function getSupabaseConfig() {
-            const url = typeof window.__SUPABASE_URL__ === 'string' ? window.__SUPABASE_URL__.trim() : '';
+            let url = typeof window.__SUPABASE_URL__ === 'string' ? window.__SUPABASE_URL__.trim() : '';
             const keyPub = typeof window.__SUPABASE_PUBLISHABLE_KEY__ === 'string' ? window.__SUPABASE_PUBLISHABLE_KEY__.trim() : '';
             const keyLegacy = typeof window.__SUPABASE_ANON_KEY__ === 'string' ? window.__SUPABASE_ANON_KEY__.trim() : '';
-            const key = keyPub || keyLegacy;
+            let key = keyPub || keyLegacy;
+            try {
+                const lo = localStorage.getItem(LS_SUPABASE_URL_OVERRIDE);
+                const lk = localStorage.getItem(LS_SUPABASE_KEY_OVERRIDE);
+                if (lo && String(lo).trim()) url = String(lo).trim();
+                if (lk && String(lk).trim()) key = String(lk).trim();
+            } catch (_) { /* private mode */ }
             return { url, key, ok: !!(url && key) };
+        }
+
+        function serverNotConfiguredUserMessage() {
+            return 'No Supabase URL/key in this build. Add GitHub Actions secrets and redeploy, or open “Connect Supabase on this device” below and Save & reload.';
         }
 
         function normalizeUsername(s) {
@@ -1589,7 +1614,7 @@
                 return;
             }
             if (!supabase) {
-                if (el) el.textContent = 'Supabase not configured.';
+                if (el) el.textContent = 'Server not wired: set Supabase on the sign-in screen (local) or deploy with secrets.';
                 return;
             }
             const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id').eq('code', code).maybeSingle();
@@ -2108,6 +2133,10 @@
             if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
             updateOwnerDashboardFabVisibility();
             if (supabase) ensureGlobalServerNoticeSubscribed();
+            const localWrap = document.getElementById('supabase-local-override-wrap');
+            if (localWrap && !getSupabaseConfig().ok) {
+                localWrap.setAttribute('open', '');
+            }
         }
 
         function setupFullTouch() {
@@ -3306,6 +3335,38 @@
             const passInput = document.getElementById('auth-password-input');
 
             if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
+            try {
+                const lo = localStorage.getItem(LS_SUPABASE_URL_OVERRIDE);
+                const lk = localStorage.getItem(LS_SUPABASE_KEY_OVERRIDE);
+                const uIn = document.getElementById('local-supabase-url');
+                const kIn = document.getElementById('local-supabase-key');
+                if (uIn && lo) uIn.value = lo;
+                if (kIn && lk) kIn.value = lk;
+            } catch (_) { /* */ }
+            document.getElementById('local-supabase-save')?.addEventListener('click', () => {
+                const u = document.getElementById('local-supabase-url');
+                const k = document.getElementById('local-supabase-key');
+                const uu = (u && u.value) ? u.value.trim() : '';
+                const kk = (k && k.value) ? k.value.trim() : '';
+                if (!uu || !kk) {
+                    if (signInMsg) signInMsg.textContent = 'Enter both Project URL and publishable key, then Save & reload.';
+                    return;
+                }
+                try {
+                    localStorage.setItem(LS_SUPABASE_URL_OVERRIDE, uu);
+                    localStorage.setItem(LS_SUPABASE_KEY_OVERRIDE, kk);
+                    window.location.reload();
+                } catch (e) {
+                    if (signInMsg) signInMsg.textContent = 'Could not save (private browsing?).';
+                }
+            });
+            document.getElementById('local-supabase-clear')?.addEventListener('click', () => {
+                try {
+                    localStorage.removeItem(LS_SUPABASE_URL_OVERRIDE);
+                    localStorage.removeItem(LS_SUPABASE_KEY_OVERRIDE);
+                    window.location.reload();
+                } catch (_) { window.location.reload(); }
+            });
 
             document.getElementById('auth-signin-btn').onclick = async () => {
                 const gateway = gatewayInput ? gatewayInput.value : '';
@@ -3313,7 +3374,7 @@
                 const password = passInput ? passInput.value : '';
                 if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
                 if (!username || !password) { if (signInMsg) signInMsg.textContent = 'Username and password required.'; return; }
-                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Server not configured.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
                 const { data, error } = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
                 if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
                 if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
@@ -3338,7 +3399,7 @@
                 if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
                 if (!username || username.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
                 if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be 6+ characters.'; return; }
-                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Server not configured.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
                 const { data, error } = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
                 if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
                 if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }

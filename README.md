@@ -80,6 +80,13 @@ After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run �
 4. **Production:** GitHub secrets → deploy writes config automatically.
 5. **Local:** `npm run inject:supabase` + static server, or **`dev-server.py`**.
 
+### “Server not configured” on the live site
+
+The game only works online if the **deployed** files contain your Supabase **Project URL** and **publishable** (or legacy anon) key. If they are empty, you see that message when you tap **Sign in**.
+
+1. **Fix for everyone (proper):** In the GitHub repo, **Settings → Secrets and variables → Actions** (and if you use the `github-pages` **Environment**, the same variables there): add **`VITE_SUPABASE_URL`** and **`VITE_SUPABASE_PUBLISHABLE_KEY`**. Push to `main` or run **Actions → Deploy to GitHub Pages → Run workflow**. **Codespaces-only secrets do not apply** to Pages.
+2. **Fix on one browser (quick test):** On the sign-in screen, open **“Connect Supabase on this device”**, paste URL + key from **Supabase → Project Settings → API**, then **Save & reload**. Keys are stored in **localStorage** on that device only.
+
 ### Owner dashboard (username `thomas` only)
 
 1. Run **`supabase/migrations/003_admin_dashboard.sql`** then **`004_admin_online_now.sql`** in the SQL Editor (owner dashboard + “online now” count from `last_seen`). Optionally run **`005_thomas_owner_account.sql`** to create the reserved **`thomas`** user with password **`francis`** (skipped if the row already exists). If you created `thomas` earlier, update the password in SQL:  
