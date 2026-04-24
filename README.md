@@ -2,6 +2,21 @@
 
 Single-file browser game: open `index.html`.
 
+## School-safe mode (scaffold)
+
+A **placeholder** for policies you will define later (IT allowlists, content rules, in-game web restrictions, and so on). The game already exposes a **School-safe** flag and UI hooks; behavior stays the same until you implement rules in code.
+
+| How to enable | Effect today |
+|---------------|--------------|
+| `?schoolSafe=1` or `?school=1` in the URL | Sets mode on and persists the choice in `localStorage` (`pixelCitySchoolSafe` = `1` or `0` when you turn it off with `0` / `false`). |
+| `localStorage.setItem('pixelCitySchoolSafe', '1')` | Same, without a query string (next load). |
+| A script **before** the main module: `window.__PIXELCITY_SCHOOL_SAFE__ = true;` | Highest priority (build-time or inline injection). Skips URL/localStorage. |
+
+- **`state.schoolSafe`**: set on load; use in game logic when you add restrictions.
+- **`document.body.dataset.schoolSafe`**: `"1"` or `"0"` for CSS, e.g. `body[data-school-safe="1"] .some-panel { display: none; }`.
+- **`applySchoolSafeGameRules()`** in `index.html`: add future school-only behavior here.
+- A small **“School mode”** label appears in the top-right and in the lobby when active.
+
 ## Preview locally
 
 **Fastest:** double-click `index.html` or drag it into Chrome / Firefox / Edge.

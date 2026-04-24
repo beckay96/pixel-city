@@ -129,7 +129,9 @@
         
         .spin-anim { animation: pulse 0.1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+        /* School-safe hook: [data-school-safe="1"] { ... } for future CSS */
     </style>
+    <!-- School builds: set window.__PIXELCITY_SCHOOL_SAFE__ = true in a script before the module, or use ?schoolSafe=1 -->
 </head>
 <body>
 
@@ -154,6 +156,7 @@
     <div id="lobby-screen">
         <h1 class="text-4xl md:text-6xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
         <p class="text-blue-300 mb-2 uppercase tracking-[0.3em] text-[10px] font-bold text-center">Evolution 6.16 (Anti-Zoom Fix)</p>
+        <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
         <p id="lobby-wins-display" class="text-yellow-400 font-black mb-6 text-sm">🏆 Wins: 0</p>
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
@@ -225,6 +228,7 @@
     </div>
 
     <div id="ui-layer">
+        <div id="school-safe-badge" class="hidden fixed top-3 right-3 z-[1200] pointer-events-none text-[9px] font-bold uppercase tracking-widest text-emerald-200/90 bg-emerald-950/90 border border-emerald-600/50 px-2 py-1 rounded-md shadow-lg" title="School-safe mode is on (scaffold)">School mode</div>
         <!-- Shared HUD -->
         <div class="flex justify-between items-start bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit mt-4">
             <div class="px-4 border-r border-slate-700">
@@ -399,6 +403,8 @@
         const LS_ACCESS_PAID = 'pixelCityAccessPaid';
         const SS_PENDING_NAME = 'pixelCitySignInName';
         const BYPASS_SIGNIN_NAME = '4789';
+        /** Persisted when toggled via URL; read on load. */
+        const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
 
         const GRID_SIZE = 500;
         const WORLD_SIZE = 4000;
@@ -425,6 +431,8 @@
             isAdmin: false,
             playerMode: 1, 
             deviceMode: 'computer',
+            /** When true, stricter / kid-friendly rules can be applied (see applySchoolSafeGameRules). */
+            schoolSafe: false,
             players: [],
             cameras: [{ x: 0, y: 0 }, { x: 0, y: 0 }],
             camera: { x: 0, y: 0 },
@@ -440,6 +448,51 @@
             winCount: savedWins,
             playerName: ''
         };
+
+        function getSchoolSafeParamFromUrl() {
+            const p = new URLSearchParams(window.location.search);
+            const v = p.get('schoolSafe') || p.get('school');
+            if (v === null) return null;
+            const s = String(v).toLowerCase();
+            if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true;
+            if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false;
+            return null;
+        }
+
+        function resolveSchoolSafe() {
+            if (typeof window.__PIXELCITY_SCHOOL_SAFE__ === 'boolean') {
+                return window.__PIXELCITY_SCHOOL_SAFE__;
+            }
+            const fromUrl = getSchoolSafeParamFromUrl();
+            if (fromUrl !== null) {
+                try {
+                    localStorage.setItem(LS_SCHOOL_SAFE, fromUrl ? '1' : '0');
+                } catch (e) { /* private mode */ }
+                return fromUrl;
+            }
+            try {
+                if (localStorage.getItem(LS_SCHOOL_SAFE) === '1') return true;
+            } catch (e) { /* */ }
+            return false;
+        }
+
+        function initSchoolSafeMode() {
+            state.schoolSafe = resolveSchoolSafe();
+            document.body.dataset.schoolSafe = state.schoolSafe ? '1' : '0';
+        }
+
+        /** Call after state.schoolSafe is set. Extend here when you define school policy (content, web, etc.). */
+        function applySchoolSafeGameRules() {
+            if (!state.schoolSafe) return;
+            // Future: optional text filters, restrict in-game browser, hide admin UI, etc.
+        }
+
+        function applySchoolSafeUI() {
+            const badge = document.getElementById('school-safe-badge');
+            if (badge) badge.classList.toggle('hidden', !state.schoolSafe);
+            const lobbyTag = document.getElementById('lobby-school-safe-hint');
+            if (lobbyTag) lobbyTag.classList.toggle('hidden', !state.schoolSafe);
+        }
 
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
@@ -1156,6 +1209,10 @@
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
         async function startApp() {
+            initSchoolSafeMode();
+            applySchoolSafeGameRules();
+            applySchoolSafeUI();
+
             handlePaymentReturnUrl();
 
             const signInMsg = document.getElementById('sign-in-msg');
