@@ -284,6 +284,8 @@
         #mini-game-cosmic, #mini-game-zombie, #mini-game-pixel {
             touch-action: manipulation;
         }
+        #jail-overlay.content-interactive { pointer-events: auto; }
+        .jail-school-block { max-width: 24rem; margin: 0 auto; }
     </style>
     <!-- School builds: set window.__PIXELCITY_SCHOOL_SAFE__ = true in a script before the module, or use ?schoolSafe=1 -->
 </head>
@@ -333,7 +335,11 @@
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-blue-300 mb-2 text-[10px] md:text-xs font-bold text-center italic px-2">you didn't think Thomas could make this did ya</p>
         <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
-        <p id="lobby-wins-display" class="text-yellow-400 font-black mb-6 text-sm">🏆 Wins: 0</p>
+        <p id="lobby-wins-display" class="text-yellow-400 font-black mb-2 text-sm">🏆 Wins: 0</p>
+        <div class="w-full max-w-sm mb-4">
+            <button type="button" id="lobby-school-mode-btn" class="w-full bg-amber-700/90 hover:bg-amber-600 border-2 border-amber-500 text-amber-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">School mode: Off</button>
+            <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">Same world — School replaces the shop jobs; jail = lines + math. Tap again to turn off.</p>
+        </div>
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
             <div>
@@ -458,18 +464,26 @@
         <!-- Viewport Aware Modals for P1 -->
         <div id="p0-modals" class="p0-view">
             <div id="store-modal-0" class="modal interactive">
-                <h2 class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
+                <h2 id="store-title-0" class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
                 <div class="job-list space-y-2 mb-4"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to select</div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
             <div id="work-modal-0" class="modal interactive">
                 <h2 id="job-title-0" class="text-xl font-bold mb-2 text-green-400 text-center uppercase">Working...</h2>
+                <div id="work-tap-area-0">
                 <button class="bg-green-600 active:bg-green-500 w-full py-8 rounded-xl text-center border-b-4 border-green-800" onclick="window.handleWork(0)">
                     <div class="text-2xl font-black text-white uppercase">Tap for $10</div>
                     <div id="job-count-0" class="text-xs text-green-200 mt-2">0 taps this shift</div>
                 </button>
-                <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint">Or tap E repeatedly</div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint work-e-hint">Or tap E repeatedly</div>
+                </div>
+                <div id="work-school-0" class="hidden text-left">
+                    <p id="work-school-prompt-0" class="text-sm text-slate-200 mb-2 min-h-[2.5rem]"></p>
+                    <input type="text" id="work-school-input-0" class="w-full bg-slate-800 border border-slate-500 rounded p-2 text-white text-sm mb-2" placeholder="Your answer" autocomplete="off" />
+                    <p id="work-school-feedback-0" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
+                    <button type="button" class="w-full bg-emerald-600 text-white font-bold py-2 rounded" onclick="window.submitSchoolWork(0)">Submit</button>
+                </div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded mt-4 font-bold" onclick="window.closePlayerModal(0)">Quit Job</button>
             </div>
             <div id="dealer-modal-0" class="modal interactive">
@@ -500,18 +514,26 @@
         <!-- Viewport Aware Modals for P2 -->
         <div id="p1-modals" class="p1-view hidden">
             <div id="store-modal-1" class="modal interactive">
-                <h2 class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
+                <h2 id="store-title-1" class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
                 <div class="job-list space-y-2 mb-4"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to select</div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="work-modal-1" class="modal interactive">
                 <h2 id="job-title-1" class="text-xl font-bold mb-2 text-green-400 text-center uppercase">Working...</h2>
+                <div id="work-tap-area-1">
                 <button class="bg-green-600 active:bg-green-500 w-full py-8 rounded-xl text-center border-b-4 border-green-800" onclick="window.handleWork(1)">
                     <div class="text-2xl font-black text-white uppercase">Tap for $10</div>
                     <div id="job-count-1" class="text-xs text-green-200 mt-2">0 taps this shift</div>
                 </button>
-                <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint">Or tap SHIFT repeatedly</div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint work-e-hint">Or tap SHIFT repeatedly</div>
+                </div>
+                <div id="work-school-1" class="hidden text-left">
+                    <p id="work-school-prompt-1" class="text-sm text-slate-200 mb-2 min-h-[2.5rem]"></p>
+                    <input type="text" id="work-school-input-1" class="w-full bg-slate-800 border border-slate-500 rounded p-2 text-white text-sm mb-2" placeholder="Your answer" autocomplete="off" />
+                    <p id="work-school-feedback-1" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
+                    <button type="button" class="w-full bg-emerald-600 text-white font-bold py-2 rounded" onclick="window.submitSchoolWork(1)">Submit</button>
+                </div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded mt-4 font-bold" onclick="window.closePlayerModal(1)">Quit Job</button>
             </div>
             <div id="dealer-modal-1" class="modal interactive">
@@ -578,10 +600,25 @@
     </div>
 
     <!-- Overlays -->
-    <div id="jail-overlay">
-        <h1 class="text-6xl font-black text-red-600 mb-4 text-center uppercase italic">Busted</h1>
-        <div id="jail-timer" class="text-4xl font-mono mb-8 text-yellow-500 text-center">10s</div>
-        <button id="pay-bail-btn" class="bg-yellow-500 text-black px-8 py-3 rounded-lg font-black interactive mx-auto block">Pay Bail</button>
+    <div id="jail-overlay" class="content-interactive">
+        <h1 class="text-5xl font-black text-red-600 mb-2 text-center uppercase italic">Busted</h1>
+        <p id="jail-sub" class="text-slate-400 text-xs text-center mb-2 max-w-md mx-auto">Jail</p>
+        <div id="jail-timer" class="text-3xl font-mono mb-4 text-yellow-500 text-center">10s</div>
+        <div id="jail-default-actions" class="w-full max-w-sm mx-auto text-center">
+            <button id="pay-bail-btn" class="bg-yellow-500 text-black px-8 py-3 rounded-lg font-black interactive w-full">Pay Bail</button>
+        </div>
+        <div id="jail-school-block" class="jail-school-block hidden mt-4 p-3 rounded-xl border border-amber-600/50 bg-slate-900/95 text-left max-h-[60vh] overflow-y-auto">
+            <p class="text-[10px] font-bold text-amber-300 uppercase mb-1">Classroom consequence</p>
+            <p class="text-xs text-amber-100/90 mb-2">Type this line exactly <span id="jail-line-count" class="font-mono text-white">0</span> / 10</p>
+            <p class="text-[9px] text-amber-200/80 font-mono bg-black/30 p-2 rounded mb-2" id="jail-line-sample">I will not rob anybody ever again</p>
+            <input type="text" id="jail-line-input" class="w-full bg-slate-800 border border-amber-500/50 rounded p-2 text-sm text-white mb-2" placeholder="Type the line" autocomplete="off" />
+            <button type="button" id="jail-line-submit" class="w-full bg-amber-600 text-white font-bold py-2 rounded text-sm mb-4">Submit line</button>
+            <p class="text-[9px] text-amber-300 mb-1">Bail: solve first, then pay (if you have the cash)</p>
+            <p class="text-sm text-white font-mono mb-1" id="jail-bail-math-q">?</p>
+            <input type="text" id="jail-bail-math-ans" class="w-full bg-slate-800 border border-amber-500/50 rounded p-2 text-sm text-white mb-1" inputmode="numeric" placeholder="Answer" autocomplete="off" />
+            <button type="button" id="jail-bail-verify" class="w-full bg-amber-700 text-white text-xs font-bold py-1.5 rounded mb-1">Check answer</button>
+            <p id="jail-school-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
+        </div>
     </div>
 
     <div id="game-over-overlay">
@@ -857,6 +894,13 @@
         const JAIL_FRAMES_SLASH_CMD = 30 * JAIL_FRAMES_PER_SEC;
         /** Persisted when toggled via ?schoolSafe= / ?school= or build flag; read on load. */
         const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
+        /** Lobby "School mode" — math/writing jobs + school jail (separate from schoolSafe scaffold). */
+        const LS_SCHOOL_GAME_MODE = 'pixelCitySchoolGameMode';
+        const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
+        const SCHOOL_JOBS = [
+            { id: 'math', name: 'Math class', kind: 'math' },
+            { id: 'writing', name: 'Writing class', kind: 'writing' }
+        ];
 
         const GRID_SIZE = 500;
         const WORLD_SIZE = 4000;
@@ -919,7 +963,15 @@
             cityNuked: false,
             orbHuntActive: false,
             orbCollected: false,
-            orb: null
+            orb: null,
+            /** “School mode” from lobby: school building + academic jobs + stricter jail. */
+            schoolGameMode: false,
+            jailLineCount: 0,
+            jailBailMathA: 0,
+            jailBailMathB: 0,
+            jailBailMathSolved: false,
+            /** School jail: after lines + bail math, short countdown to walk free (or pay bail) */
+            jailReleasePhase: false
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -952,6 +1004,132 @@
         function initSchoolSafeMode() {
             state.schoolSafe = resolveSchoolSafe();
             document.body.dataset.schoolSafe = state.schoolSafe ? '1' : '0';
+        }
+
+        function getSchoolGameMode() {
+            try {
+                if (localStorage.getItem(LS_SCHOOL_GAME_MODE) === '1') return true;
+            } catch (_) { /* */ }
+            return false;
+        }
+
+        function setSchoolGameMode(v) {
+            state.schoolGameMode = !!v;
+            try {
+                localStorage.setItem(LS_SCHOOL_GAME_MODE, state.schoolGameMode ? '1' : '0');
+            } catch (_) { /* */ }
+            const btn = document.getElementById('lobby-school-mode-btn');
+            if (btn) {
+                btn.textContent = state.schoolGameMode ? 'School mode: On' : 'School mode: Off';
+                btn.classList.toggle('ring-2', state.schoolGameMode);
+                btn.classList.toggle('ring-amber-300', state.schoolGameMode);
+            }
+        }
+
+        function syncWorkModalLayout(pIdx) {
+            [0, 1].forEach((i) => {
+                const p = state.players[i];
+                const sk = p && p.activeJob && p.activeJob.schoolKind;
+                const tapA = document.getElementById(`work-tap-area-${i}`);
+                const schD = document.getElementById(`work-school-${i}`);
+                if (tapA) tapA.classList.toggle('hidden', !!sk);
+                if (schD) schD.classList.toggle('hidden', !sk);
+            });
+        }
+
+        function newBailMathProblem() {
+            state.jailBailMathA = 2 + Math.floor(Math.random() * 9);
+            state.jailBailMathB = 2 + Math.floor(Math.random() * 9);
+            const q = document.getElementById('jail-bail-math-q');
+            if (q) q.textContent = `What is ${state.jailBailMathA} + ${state.jailBailMathB}?`;
+        }
+
+        function canLeaveSchoolJail() {
+            return state.jailLineCount >= 10 && state.jailBailMathSolved;
+        }
+
+        function checkJailBailMathFromInput() {
+            const m = document.getElementById('jail-school-msg');
+            if (!state.schoolGameMode || !state.isJailed) return;
+            if (state.jailLineCount < 10) {
+                if (m) m.textContent = 'Finish 10 lines first.';
+                return;
+            }
+            const inp = document.getElementById('jail-bail-math-ans');
+            const n = parseInt(String(inp && inp.value).trim(), 10);
+            const want = state.jailBailMathA + state.jailBailMathB;
+            if (n === want) {
+                state.jailBailMathSolved = true;
+                if (m) m.textContent = 'Correct! Pay bail below, or wait 15s to walk free.';
+                startSchoolJailCountdown();
+            } else {
+                if (m) m.textContent = 'Not quite — try the sum again.';
+                newBailMathProblem();
+                const a = document.getElementById('jail-bail-math-ans');
+                if (a) a.value = '';
+            }
+        }
+
+        function handleJailLineSubmit() {
+            const m = document.getElementById('jail-school-msg');
+            const li = document.getElementById('jail-line-input');
+            if (!state.schoolGameMode || !state.isJailed) return;
+            const got = String(li && li.value ? li.value : '').trim();
+            if (got === JAIL_SENTENCE_TEXT) {
+                state.jailLineCount = Math.min(10, state.jailLineCount + 1);
+                updateJailSchoolLineUI();
+                if (m) m.textContent = `Line ${state.jailLineCount} of 10 — keep going!`;
+            } else {
+                if (m) m.textContent = 'Type the line exactly (punctuation and spaces).';
+            }
+        }
+
+        function startSchoolJailCountdown() {
+            state.jailReleasePhase = true;
+            const schoolB = document.getElementById('jail-school-block');
+            if (schoolB) schoolB.classList.add('hidden');
+            const def = document.getElementById('jail-default-actions');
+            if (def) def.classList.remove('hidden');
+            const jsub = document.getElementById('jail-sub');
+            if (jsub) jsub.textContent = 'Walk free in…';
+            state.jailTime = 15 * JAIL_FRAMES_PER_SEC;
+            const jt = document.getElementById('jail-timer');
+            if (jt) jt.textContent = '15s';
+        }
+
+        function startSchoolWork(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || !p.activeJob) return;
+            const t = p.schoolTask;
+            if (!t) return;
+            const pr = document.getElementById(`work-school-prompt-${pIdx}`);
+            const fi = document.getElementById(`work-school-feedback-${pIdx}`);
+            if (pr) {
+                if (t.schoolKind === 'math') pr.textContent = t.prompt;
+                else pr.textContent = t.prompt;
+            }
+            if (fi) fi.textContent = '';
+            const inp = document.getElementById(`work-school-input-${pIdx}`);
+            if (inp) { inp.value = ''; inp.focus(); }
+            document.getElementById(`job-title-${pIdx}`).innerText = p.activeJob.name;
+            syncWorkModalLayout(pIdx);
+        }
+
+        function pickSchoolTask() {
+            const w = SCHOOL_JOBS[Math.random() < 0.55 ? 0 : 1];
+            if (w.kind === 'math') {
+                const a = 2 + Math.floor(Math.random() * 11);
+                const b = 2 + Math.floor(Math.random() * 11);
+                return { schoolKind: 'math', a, b, answer: a + b, prompt: `What is ${a} + ${b}?` };
+            }
+            const phrases = [
+                'The quick brown fox jumps over the lazy dog',
+                'Pixel City is a fun place to play',
+                'I study hard and play fair',
+                'Learning math makes me strong'
+            ];
+            const t = phrases[Math.floor(Math.random() * phrases.length)];
+            return { schoolKind: 'writing', text: t, answer: t.toLowerCase().trim(), prompt: `Type this sentence exactly:\n“${t}”` };
         }
 
         /** Call after state.schoolSafe is set. Extend here when you define school policy (content, web, etc.). */
@@ -1218,7 +1396,7 @@
                     else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }
                     else if (x === 500 && y === 500) { type = 'jail'; color = '#475569'; }
                     else if (x === 500 && y === 3500) { type = 'dealership'; color = '#3b82f6'; }
-                    else if (rnd() > 0.85) { type = 'store'; color = '#10b981'; }
+                    else if (rnd() > 0.85) { type = state.schoolGameMode ? 'school' : 'store'; color = state.schoolGameMode ? '#f59e0b' : '#10b981'; }
                     state.buildings.push({ x: x + 100, y: y + 100, w: 300, h: 300, type, color });
                 }
             }
@@ -1417,13 +1595,36 @@
             showMessage(fromNet ? 'WORLD OBLITERATED (admin).' : 'WORLD OBLITERATED.');
         }
 
+        function updateJailSchoolLineUI() {
+            const c = document.getElementById('jail-line-count');
+            if (c) c.textContent = String(state.jailLineCount);
+            const li = document.getElementById('jail-line-input');
+            if (li) li.value = '';
+        }
+
+        function applyJailReleaseCommon() {
+            state.isJailed = false;
+            state.jailTime = 0;
+            state.jailLineCount = 0;
+            state.jailBailMathSolved = false;
+            state.jailReleasePhase = false;
+            const jo = document.getElementById('jail-overlay');
+            if (jo) jo.style.display = 'none';
+            const def = document.getElementById('jail-default-actions');
+            const school = document.getElementById('jail-school-block');
+            if (def) def.classList.remove('hidden');
+            if (school) school.classList.add('hidden');
+            const jsub = document.getElementById('jail-sub');
+            if (jsub) jsub.textContent = 'Jail';
+        }
+
         function putPlayerInJail(frames, releaseMsg) {
             const jail = state.buildings.find(b => b.type === 'jail');
             state.isJailed = true;
-            state.jailTime = Math.max(1, Math.floor(frames));
             state.police = [];
             state.wantedLevel = 0;
             state.policeDelay = 0;
+            state.jailReleasePhase = false;
             window.closePlayerModal(0);
             if (state.players[1]) window.closePlayerModal(1);
             state.players.forEach((p, i) => {
@@ -1433,11 +1634,37 @@
                 if (jail) { p.x = jail.x + jail.w / 2 + (i * 20); p.y = jail.y + jail.h / 2; }
                 else { p.x = 2000 + i * 30; p.y = 2200; }
             });
-            const el = document.getElementById('jail-timer');
-            if (el) el.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
+            const jo = document.getElementById('jail-overlay');
+            const jt = document.getElementById('jail-timer');
+            const def = document.getElementById('jail-default-actions');
+            const schoolB = document.getElementById('jail-school-block');
+            const jsub = document.getElementById('jail-sub');
+            const lineSample = document.getElementById('jail-line-sample');
+            if (lineSample) lineSample.textContent = JAIL_SENTENCE_TEXT;
+            if (state.schoolGameMode) {
+                state.jailTime = 0;
+                state.jailLineCount = 0;
+                state.jailBailMathSolved = false;
+                newBailMathProblem();
+                if (def) def.classList.add('hidden');
+                if (schoolB) schoolB.classList.remove('hidden');
+                if (jsub) jsub.textContent = 'School mode: 10 perfect lines, then math to leave or pay bail.';
+                if (jt) jt.textContent = 'Complete tasks';
+                const bailA = document.getElementById('jail-bail-math-ans');
+                if (bailA) bailA.value = '';
+                const jsm = document.getElementById('jail-school-msg');
+                if (jsm) jsm.textContent = '';
+                updateJailSchoolLineUI();
+            } else {
+                if (def) def.classList.remove('hidden');
+                if (schoolB) schoolB.classList.add('hidden');
+                if (jsub) jsub.textContent = 'Jail';
+                state.jailTime = Math.max(1, Math.floor(frames));
+                if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
+            }
             const bailBtn = document.getElementById('pay-bail-btn');
             if (bailBtn) bailBtn.innerText = `Pay Bail ($${state.bailPrice})`;
-            document.getElementById('jail-overlay').style.display = 'flex';
+            if (jo) jo.style.display = 'flex';
             if (releaseMsg) showMessage(releaseMsg);
         }
 
@@ -1816,6 +2043,13 @@
             state.isGameOver = false;
             state.isJailed = false;
             state.jailTime = 0;
+            state.jailLineCount = 0;
+            state.jailBailMathSolved = false;
+            state.jailReleasePhase = false;
+            const jo = document.getElementById('jail-overlay');
+            if (jo) jo.style.display = 'none';
+            document.getElementById('jail-default-actions')?.classList.remove('hidden');
+            document.getElementById('jail-school-block')?.classList.add('hidden');
             state.cityNuked = false;
             state.orbHuntActive = false;
             state.orbCollected = false;
@@ -1843,6 +2077,7 @@
                 p.speed = 0;
                 p.inVehicle = null;
                 p.activeJob = null;
+                p.schoolTask = null;
                 p.jobClicksDone = 0;
                 p.menuType = null;
                 p.menuSelection = 0;
@@ -1864,6 +2099,7 @@
             });
             if (state.players[pIdx]) {
                 state.players[pIdx].activeJob = null;
+                state.players[pIdx].schoolTask = null;
                 state.players[pIdx].menuType = null;
                 state.players[pIdx].isRobbing = false;
             }
@@ -1883,11 +2119,38 @@
         window.handleWork = (pIdx) => {
             const p = state.players[pIdx];
             if (!p || p.activeJob === null) return;
+            if (p.schoolTask) return;
             state.money += 10;
             p.jobClicksDone++;
             updateMoneyUI();
             const cnt = document.getElementById(`job-count-${pIdx}`);
             if(cnt) cnt.innerText = `${p.jobClicksDone} taps this shift`;
+        };
+
+        window.submitSchoolWork = (pIdx) => {
+            const p = state.players[pIdx];
+            if (!p || !p.schoolTask) return;
+            const inp = document.getElementById(`work-school-input-${pIdx}`);
+            const raw = (inp && inp.value) ? inp.value : '';
+            const t = p.schoolTask;
+            const fb = document.getElementById(`work-school-feedback-${pIdx}`);
+            let ok = false;
+            if (t.schoolKind === 'math') {
+                const n = parseInt(String(raw).trim(), 10);
+                ok = n === t.answer;
+            } else {
+                ok = String(raw).trim() === t.text;
+            }
+            if (ok) {
+                state.money += 10;
+                p.jobClicksDone = (p.jobClicksDone || 0) + 1;
+                updateMoneyUI();
+                if (fb) fb.textContent = 'Good! +$10 — next task';
+                p.schoolTask = pickSchoolTask();
+                setTimeout(() => { startSchoolWork(pIdx); }, 350);
+            } else {
+                if (fb) fb.textContent = t.schoolKind === 'math' ? 'Check your math and try again.' : 'Type the sentence exactly.';
+            }
         };
 
         window.startRobbery = (pIdx) => {
@@ -1967,10 +2230,22 @@
             if (!p || !p.menuType) return;
             
             const storeList = document.querySelector(`#store-modal-${pIdx} .job-list`);
+            const stTitle = document.getElementById(`store-title-${pIdx}`);
+            if (stTitle) stTitle.textContent = state.schoolGameMode ? '\uD83C\uDFEB School' : '\uD83D\uDED2 Store';
             const dealerList = document.querySelector(`#dealer-modal-${pIdx} .car-list`);
             
             if (p.menuType === 'store' && storeList) {
                 storeList.innerHTML = '';
+                if (state.schoolGameMode) {
+                    SCHOOL_JOBS.forEach((j, i) => {
+                        const btn = document.createElement('div');
+                        btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
+                        const sub = j.kind === 'math' ? 'Do quick math' : 'Type a sentence';
+                        btn.innerHTML = `<div class="font-bold uppercase text-sm">${j.name}</div><div class="text-amber-200 font-bold text-xs">${sub}</div>`;
+                        btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
+                        storeList.appendChild(btn);
+                    });
+                } else {
                 JOBS.forEach((j, i) => {
                     const btn = document.createElement('div');
                     btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
@@ -1978,6 +2253,7 @@
                     btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
                     storeList.appendChild(btn);
                 });
+                }
             } else if (p.menuType === 'dealer' && dealerList) {
                 dealerList.innerHTML = '';
                 VEHICLE_TYPES.forEach((v, i) => {
@@ -1995,12 +2271,21 @@
             if (!p || !p.menuType) return;
 
             if (p.menuType === 'store') {
-                p.activeJob = JOBS[p.menuSelection];
+                p.activeJob = state.schoolGameMode ? SCHOOL_JOBS[p.menuSelection] : JOBS[p.menuSelection];
+                p.schoolTask = null;
                 p.jobClicksDone = 0;
                 document.getElementById(`store-modal-${pIdx}`).style.display = 'none';
                 document.getElementById(`work-modal-${pIdx}`).style.display = 'block';
                 document.getElementById(`job-title-${pIdx}`).innerText = p.activeJob.name;
+                if (state.schoolGameMode && p.activeJob.schoolKind) {
+                    p.schoolTask = pickSchoolTask();
+                }
                 p.menuType = null;
+                if (state.schoolGameMode && p.schoolTask) {
+                    startSchoolWork(pIdx);
+                } else {
+                    syncWorkModalLayout(pIdx);
+                }
             } else if (p.menuType === 'dealer') {
                 const car = VEHICLE_TYPES[p.menuSelection];
                 if (state.money >= car.price) {
@@ -2040,7 +2325,7 @@
             
             const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
             if (bNear && bNear.type !== 'ruins') {
-                if (bNear.type === 'store') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
+                if (bNear.type === 'store' || bNear.type === 'school') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
@@ -2220,7 +2505,7 @@
             document.getElementById('lobby-screen').style.display = 'none';
             setInGamePhoneVisible(true);
             updateOwnerDashboardFabVisibility();
-            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
+            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
             if (state.playMode === 'online') {
                 state.playerMode = 1;
@@ -2233,7 +2518,7 @@
                     badge.classList.remove('hidden');
                 }
             } else if (state.playerMode === 2) {
-                state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
+                state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
                 document.getElementById('p1-modals').classList.remove('hidden');
             } else {
                 document.getElementById('p1-modals').classList.add('hidden');
@@ -2265,23 +2550,40 @@
             updateMoneyUI();
 
             window.onkeydown = e => {
-                if (e.repeat || state.isJailed) return;
+                if (e.repeat) return;
+                const t = e.target;
+                if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+                if (state.isJailed) return;
                 const k = e.key.toLowerCase();
                 const code = e.code;
                 state.keys[k] = true;
                 
                 // PLAYER 1
-                if (k === 'e') { if(state.players[0].activeJob) window.handleWork(0); else if(state.players[0].menuType) selectMenuItem(0); else handleInteraction(0); }
+                if (k === 'e') {
+                    const p0 = state.players[0];
+                    if (p0 && p0.activeJob) {
+                        if (p0.schoolTask) window.submitSchoolWork(0);
+                        else window.handleWork(0);
+                    } else if (p0 && p0.menuType) selectMenuItem(0);
+                    else handleInteraction(0);
+                }
                 if (state.players[0] && state.players[0].menuType) {
                     if (k === 'w') { state.players[0].menuSelection = Math.max(0, state.players[0].menuSelection-1); updateMenuUI(0); }
-                    if (k === 's') { const m = state.players[0].menuType === 'store' ? JOBS.length-1 : (state.players[0].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[0].menuSelection = Math.min(m, state.players[0].menuSelection+1); updateMenuUI(0); }
+                    if (k === 's') { const m = state.players[0].menuType === 'store' ? (state.schoolGameMode ? SCHOOL_JOBS.length - 1 : JOBS.length-1) : (state.players[0].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[0].menuSelection = Math.min(m, state.players[0].menuSelection+1); updateMenuUI(0); }
                 }
 
                 // PLAYER 2
-                if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) { if(state.players[1].activeJob) window.handleWork(1); else if(state.players[1].menuType) selectMenuItem(1); else handleInteraction(1); }
+                if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) {
+                    const p1 = state.players[1];
+                    if (p1.activeJob) {
+                        if (p1.schoolTask) window.submitSchoolWork(1);
+                        else window.handleWork(1);
+                    } else if (p1.menuType) selectMenuItem(1);
+                    else handleInteraction(1);
+                }
                 if (state.players[1] && state.players[1].menuType) {
                     if (k === 'arrowup') { state.players[1].menuSelection = Math.max(0, state.players[1].menuSelection-1); updateMenuUI(1); }
-                    if (k === 'arrowdown') { const m = state.players[1].menuType === 'store' ? JOBS.length-1 : (state.players[1].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
+                    if (k === 'arrowdown') { const m = state.players[1].menuType === 'store' ? (state.schoolGameMode ? SCHOOL_JOBS.length - 1 : JOBS.length-1) : (state.players[1].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
                 }
             };
             window.onkeyup = e => state.keys[e.key.toLowerCase()] = false;
@@ -2403,7 +2705,15 @@
                     } else {
                     const bNear = state.buildings.find(b => b.type !== 'ruins' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
                     const vNear = state.vehicles.find(v => dist(p.x, p.y, v.x, v.y) < 80 && !v.occupied);
-                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) { pr.style.opacity = "1"; if (subEl) subEl.innerText = bNear ? bNear.type : (vNear ? vNear.type.name : ""); } else pr.style.opacity = "0";
+                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) {
+                        pr.style.opacity = "1";
+                        if (subEl) {
+                            if (bNear) {
+                                if (bNear.type === 'school' || (bNear.type === 'store' && state.schoolGameMode)) subEl.innerText = 'school';
+                                else subEl.innerText = bNear.type;
+                            } else subEl.innerText = vNear ? vNear.type.name : '';
+                        }
+                    } else pr.style.opacity = "0";
                     }
                 }
             });
@@ -2433,19 +2743,38 @@
                 }
             }
 
-            if (state.isJailed && state.jailTime > 0) {
-                state.jailTime--;
-                const jt = document.getElementById('jail-timer');
-                if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
-                if (state.jailTime <= 0) {
-                    state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
-                    const h = state.buildings.find(b => b.type === 'home');
-                    state.players.forEach((p, i) => {
-                        if (!p) return;
-                        if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
-                        else { p.x = 2000 + i * 40; p.y = 2200; }
-                    });
-                    state.policeDelay = 3600; showMessage("RELEASED.");
+            if (state.isJailed) {
+                if (state.schoolGameMode) {
+                    if (state.jailTime > 0) {
+                        state.jailTime--;
+                        const jt = document.getElementById('jail-timer');
+                        if (jt) jt.textContent = state.jailReleasePhase ? `${Math.max(0, Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC))}s` : 'Complete tasks';
+                        if (state.jailTime <= 0) {
+                            applyJailReleaseCommon();
+                            const h = state.buildings.find(b => b.type === 'home');
+                            state.players.forEach((p, i) => {
+                                if (!p) return;
+                                if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
+                                else { p.x = 2000 + i * 40; p.y = 2200; }
+                            });
+                            state.policeDelay = 3600;
+                            showMessage('Time served — you are free to go.');
+                        }
+                    }
+                } else if (state.jailTime > 0) {
+                    state.jailTime--;
+                    const jt = document.getElementById('jail-timer');
+                    if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
+                    if (state.jailTime <= 0) {
+                        state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
+                        const h = state.buildings.find(b => b.type === 'home');
+                        state.players.forEach((p, i) => {
+                            if (!p) return;
+                            if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
+                            else { p.x = 2000 + i * 40; p.y = 2200; }
+                        });
+                        state.policeDelay = 3600; showMessage("RELEASED.");
+                    }
                 }
             }
 
@@ -2515,7 +2844,7 @@
             c.fillStyle = '#14532d'; c.fillRect(0,0,4000,4000);
             c.fillStyle = '#334155';
             for(let i=0; i<4000; i+=GRID_SIZE) { c.fillRect(i-100, 0, 200, 4000); c.fillRect(0, i-100, 4000, 200); }
-            state.buildings.forEach(b => { c.fillStyle = b.color; c.fillRect(b.x, b.y, b.w, b.h); c.fillStyle = 'white'; c.font = 'bold 16px sans-serif'; c.textAlign = 'center'; if(b.type !== 'house') c.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
+            state.buildings.forEach(b => { c.fillStyle = b.color; c.fillRect(b.x, b.y, b.w, b.h); c.fillStyle = 'white'; c.font = 'bold 16px sans-serif'; c.textAlign = 'center'; if (b.type !== 'house') { const lbl = b.type === 'school' ? 'SCHOOL' : b.type.toUpperCase(); c.fillText(lbl, b.x + b.w/2, b.y + b.h/2); } });
 
             if (state.orbHuntActive && state.orb && !state.orbCollected) {
                 const ox = state.orb.x, oy = state.orb.y;
@@ -3325,6 +3654,10 @@
             initSchoolSafeMode();
             applySchoolSafeGameRules();
             applySchoolSafeUI();
+            setSchoolGameMode(getSchoolGameMode());
+            document.getElementById('lobby-school-mode-btn')?.addEventListener('click', () => {
+                setSchoolGameMode(!getSchoolGameMode());
+            });
             consumeJoinFromUrl();
             await initSupabaseAndSession();
             await tryApplyPendingJoinFromUrl();
@@ -3568,7 +3901,31 @@
             document.getElementById('join-btn').onclick = () => { void joinRoom(); };
             const orbDismiss = document.getElementById('orb-hunt-dismiss');
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
-            document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (!p) return; if (h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } else { p.x = 2000 + i * 40; p.y = 2200; } }); } else showMessage("Not enough money!"); };
+            document.getElementById('pay-bail-btn').onclick = () => {
+                if (state.schoolGameMode && state.isJailed) {
+                    if (!canLeaveSchoolJail()) {
+                        showMessage('Finish 10 lines and the math problem first.');
+                        return;
+                    }
+                }
+                if (state.money >= state.bailPrice) {
+                    state.money -= state.bailPrice;
+                    applyJailReleaseCommon();
+                    updateMoneyUI();
+                    const h = state.buildings.find(b => b.type === 'home');
+                    state.players.forEach((p, i) => {
+                        if (!p) return;
+                        if (h) { p.x = h.x + (h.w / 2) + (i * 20); p.y = h.y + h.h + 30; }
+                        else { p.x = 2000 + i * 40; p.y = 2200; }
+                    });
+                    state.policeDelay = 3600;
+                    showMessage('Bail paid — released.');
+                } else showMessage('Not enough money!');
+            };
+            document.getElementById('jail-line-submit')?.addEventListener('click', handleJailLineSubmit);
+            document.getElementById('jail-line-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleJailLineSubmit(); });
+            document.getElementById('jail-bail-verify')?.addEventListener('click', checkJailBailMathFromInput);
+            document.getElementById('jail-bail-math-ans')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkJailBailMathFromInput(); });
             
             initSmartphoneUI();
             if (supabase && state.supabaseUserId) {
