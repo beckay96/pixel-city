@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel City Evolution 1</title>
-    <meta name="description" content="Pixel City — multiplayer city game. Self-hosted CSS; Supabase client bundled. Sign in for online play.">
+    <meta name="description" content="Pixel City Evolution 1 — multiplayer low‑res city game. Sign in for online play or go offline.">
     <link rel="stylesheet" href="assets/tailwind.css">
     <script src="supabase-config.js"></script>
     <!--SUPABASE_BUILD_INJECT-->
@@ -294,10 +294,10 @@
     <div id="sign-in-screen">
         <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
-        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Multiplayer works at school if IT allows this site + <span class="text-cyan-400/90">*.supabase.co</span>. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / same-screen two players.</p>
-        <p class="text-slate-500 text-[8px] text-center max-w-md mb-2 px-1 leading-snug">Gateway password: use the one set in Supabase (default in migration 002 is <span class="font-mono text-slate-300">feluga</span> unless you changed it).</p>
+        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">For online play, this site may need to be allowlisted on your school or office network. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / two players on one screen.</p>
+        <p class="text-slate-500 text-[8px] text-center max-w-md mb-2 px-1 leading-snug">Gateway password: ask the person who set up this game (site operator). It is <span class="text-slate-300">not</span> the same as your account password.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Supabase isn’t on this copy of the site (empty URL or key). <span class="text-white font-bold">Play offline</span> still works.<br><br><span class="text-slate-300">Fix:</span> GitHub <span class="text-white font-bold">Settings → Secrets → Actions</span> (or <span class="text-white">Environments → github-pages</span>): add <span class="font-mono text-[8px]">VITE_SUPABASE_URL</span> + <span class="font-mono text-[8px]">VITE_SUPABASE_PUBLISHABLE_KEY</span> (or legacy <span class="font-mono text-[8px]">SUPABASE_PROJECT_URL</span> / <span class="font-mono text-[8px]">SUPABASE_PUBLISHABLE_KEY</span>). <span class="text-red-300 font-bold">Codespaces secrets don’t deploy here.</span> Run <span class="text-white">Deploy to GitHub Pages</span>. Check <span class="font-mono text-[8px]">/supabase-config.js</span> — keys must not be empty.</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Online sign-in isn’t available on this copy of the game. <span class="text-white font-bold">Play offline</span> still works. If the problem continues, try again later or on another network.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
                 <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
@@ -316,18 +316,6 @@
                 <button type="button" id="auth-signup-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white flex-1 py-3 rounded-lg font-bold interactive text-sm">Sign up</button>
             </div>
             <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive">Play offline (no account)</button>
-            <details class="text-left pt-2 border-t border-slate-700" id="supabase-local-override-wrap">
-                <summary class="text-[10px] text-cyan-500/90 font-bold cursor-pointer interactive list-none">Can’t sign in? Connect Supabase on this device</summary>
-                <p class="text-[9px] text-slate-500 mt-2 mb-2">Paste your <span class="text-slate-300">Project URL</span> and <span class="text-slate-300">publishable key</span> from Supabase (Settings → API). Saved only in this browser. Then reload the page.</p>
-                <label class="text-[9px] text-slate-400 block mb-1">Project URL</label>
-                <input type="url" id="local-supabase-url" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs mb-2 interactive" placeholder="https://xxxxx.supabase.co">
-                <label class="text-[9px] text-slate-400 block mb-1">Publishable key</label>
-                <input type="password" id="local-supabase-key" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white text-xs mb-2 interactive" placeholder="sb_publishable_… or anon JWT" autocomplete="off">
-                <div class="flex gap-2">
-                    <button type="button" id="local-supabase-save" class="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white text-[10px] font-bold py-2 rounded interactive">Save &amp; reload</button>
-                    <button type="button" id="local-supabase-clear" class="text-slate-500 text-[9px] font-bold py-2 px-2 interactive">Clear</button>
-                </div>
-            </details>
         </div>
     </div>
 
@@ -357,7 +345,7 @@
                     <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
                     <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
                 </div>
-                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Multiplayer (online): same map + live friend dots. Sign in → host or join code → Start game. Works on filtered networks when Supabase is allowlisted.</p>
+                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Multiplayer (online): same map + live friend dots. Sign in → host or join code → Start game. If you are on a strict network, online play may need IT to allow this site’s online service.</p>
                 <div id="online-lobby-panel" class="hidden mt-2 space-y-2 text-left">
                     <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — get invite link</button>
                     <div class="flex gap-2">
@@ -864,7 +852,7 @@
 
             <div id="owner-broadcast-block" class="hidden border-t border-violet-500/50 pt-4 mt-4 text-left">
                 <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-2">Broadcast to everyone (online)</p>
-                <p class="text-[9px] text-slate-500 mb-2">Shows a popup on <span class="text-slate-300">all signed-in players’</span> screens, even in different game sessions. Requires working Supabase Realtime.</p>
+                <p class="text-[9px] text-slate-500 mb-2">Shows a popup on <span class="text-slate-300">all signed-in players’</span> screens, even in different game sessions. Requires online play with live sync working.</p>
                 <textarea id="owner-broadcast-text" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm min-h-[72px] interactive mb-2" placeholder="Type a short message (max 400 chars)…" maxlength="400" rows="3"></textarea>
                 <button type="button" id="owner-broadcast-send" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg font-bold text-sm">Send to all players</button>
                 <p id="owner-broadcast-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
@@ -872,7 +860,6 @@
         </div>
     </div>
 
-    <!-- Supabase: CI reads VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY (GitHub secrets) → window.__SUPABASE_* Never commit secrets. -->
     <script src="vendor/supabase.min.js"></script>
     <script type="module">
         const { createClient } = window.supabase || {};
@@ -883,7 +870,7 @@
         const LS_FRIENDS = 'pixelCityFriends';
         const LS_LAST_USER = 'pixelCityLastUser';
         const LS_SESSION = 'pixelCitySession';
-        /** Optional: set in browser to fix “server not configured” without a new deploy. */
+        /** Dev-only: optional URL/key override (see README; not shown in the public UI). */
         const LS_SUPABASE_URL_OVERRIDE = 'pixelCitySupabaseUrl';
         const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
         const ONLINE_BROADCAST_MS = 120;
@@ -1195,7 +1182,16 @@
         }
 
         function serverNotConfiguredUserMessage() {
-            return 'No Supabase URL/key in this build. Add GitHub Actions secrets and redeploy, or open “Connect Supabase on this device” below and Save & reload.';
+            return 'Online play isn’t available in this build. Use Play offline, or try again later on another device or network.';
+        }
+
+        /** Safari often reports failed fetches as TypeError: Load failed */
+        function formatSupabaseNetworkError(err) {
+            const msg = err && err.message ? String(err.message) : String(err);
+            if (msg.includes('Load failed') || msg === 'Failed to fetch' || msg.includes('NetworkError')) {
+                return 'Connection failed. Check your network, try disabling blockers, or use Play offline. A strict firewall or school network may block the game’s online service.';
+            }
+            return msg;
         }
 
         function normalizeUsername(s) {
@@ -1226,15 +1222,15 @@
         }
 
         const ASSISTANT_TIPS = [
-            '“Online right now” uses last_seen within 90s — run SQL migration 004 if it stays blank.',
-            'If sign-in says “not configured”, check GitHub Actions secrets (not Codespaces) and redeploy Pages.',
-            'Multiplayer needs *.supabase.co allowlisted on school Wi‑Fi.',
-            'Run migration 003 in Supabase SQL Editor for admin analytics RPC + reserved username thomas.',
+            '“Online right now” is based on players active in the last 90 seconds.',
+            'If online sign-in fails, confirm the site was deployed with a working config and try another network.',
+            'School networks sometimes block the game’s online service — use Play offline or ask IT to allowlist this site.',
+            'Admin panel stats need the server-side dashboard migration applied (see project README for maintainers).',
             'If Realtime friends vanish, try PixelPhone → /connect or re-host the session code.',
-            'Publishable key sb_publishable_… is preferred over legacy anon JWT in GitHub secrets.',
-            'Custom domain must serve the full deploy (or index.html with injected keys), not an old copy.',
-            'If jail timer looks wrong, hard refresh — jail uses ~60 frames per second.',
-            'Orb hunt only after nuke; if stuck, NEW RUN from victory or orb overlay.'
+            'For production, only browser-safe keys belong in the deployed site — never service role keys.',
+            'If you use a custom domain, make sure it serves the current deploy, not an old cached copy.',
+            'If jail time looks wrong, do a hard refresh — jail is timed in game frames (~60/sec).',
+            'Orb hunt only after the nuke; if stuck, use New run from the victory or orb screen.'
         ];
 
         function renderAssistantTips() {
@@ -1257,7 +1253,7 @@
             }
             const { data, error } = await supabase.rpc('admin_dashboard_snapshot', { p_user_id: state.supabaseUserId });
             if (error) {
-                if (errEl) errEl.textContent = error.message || 'RPC failed — run migration 003 in Supabase?';
+                if (errEl) errEl.textContent = error.message || 'Could not load dashboard stats. If this persists, the server may need a maintainer update.';
                 return;
             }
             if (!data || !data.ok) {
@@ -1841,7 +1837,7 @@
                 return;
             }
             if (!supabase) {
-                if (el) el.textContent = 'Server not wired: set Supabase on the sign-in screen (local) or deploy with secrets.';
+                if (el) el.textContent = 'Online session isn’t available. Use Play offline, or try again when online play works.';
                 return;
             }
             const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id').eq('code', code).maybeSingle();
@@ -2392,7 +2388,7 @@
                 supabase = null;
             } else if (typeof createClient !== 'function') {
                 if (hint) {
-                    hint.textContent = 'Game bundle error: vendor/supabase.min.js missing. Redeploy from the latest repo.';
+                    hint.textContent = 'Game files failed to load. Try a hard refresh; if it keeps happening, check back later.';
                     hint.classList.remove('hidden');
                 }
                 supabase = null;
@@ -2418,10 +2414,6 @@
             if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
             updateOwnerDashboardFabVisibility();
             if (supabase) ensureGlobalServerNoticeSubscribed();
-            const localWrap = document.getElementById('supabase-local-override-wrap');
-            if (localWrap && !getSupabaseConfig().ok) {
-                localWrap.setAttribute('open', '');
-            }
         }
 
         function setupFullTouch() {
@@ -3128,13 +3120,12 @@
                 return { ok: true, lines: [h ? 'Spawned at safe house.' : 'Spawned at map center (no buildings).'] };
             }
             if (lower === '/server') {
-                const sup = !!supabase;
                 const onl = state.playMode === 'online';
                 const code = state.onlineSessionCode || '—';
                 const rt = typeof onlineRealtimeReady !== 'undefined' && onlineRealtimeReady;
                 return {
                     ok: true,
-                    lines: [`supabase=${sup} online=${onl} code=${code} realtime=${rt}`]
+                    lines: [`backend=${supabase ? 'on' : 'off'} online=${onl} code=${code} realtime=${rt}`]
                 };
             }
             if (lower === '/connect') {
@@ -3668,38 +3659,6 @@
             const passInput = document.getElementById('auth-password-input');
 
             if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
-            try {
-                const lo = localStorage.getItem(LS_SUPABASE_URL_OVERRIDE);
-                const lk = localStorage.getItem(LS_SUPABASE_KEY_OVERRIDE);
-                const uIn = document.getElementById('local-supabase-url');
-                const kIn = document.getElementById('local-supabase-key');
-                if (uIn && lo) uIn.value = lo;
-                if (kIn && lk) kIn.value = lk;
-            } catch (_) { /* */ }
-            document.getElementById('local-supabase-save')?.addEventListener('click', () => {
-                const u = document.getElementById('local-supabase-url');
-                const k = document.getElementById('local-supabase-key');
-                const uu = (u && u.value) ? u.value.trim() : '';
-                const kk = (k && k.value) ? k.value.trim() : '';
-                if (!uu || !kk) {
-                    if (signInMsg) signInMsg.textContent = 'Enter both Project URL and publishable key, then Save & reload.';
-                    return;
-                }
-                try {
-                    localStorage.setItem(LS_SUPABASE_URL_OVERRIDE, uu);
-                    localStorage.setItem(LS_SUPABASE_KEY_OVERRIDE, kk);
-                    window.location.reload();
-                } catch (e) {
-                    if (signInMsg) signInMsg.textContent = 'Could not save (private browsing?).';
-                }
-            });
-            document.getElementById('local-supabase-clear')?.addEventListener('click', () => {
-                try {
-                    localStorage.removeItem(LS_SUPABASE_URL_OVERRIDE);
-                    localStorage.removeItem(LS_SUPABASE_KEY_OVERRIDE);
-                    window.location.reload();
-                } catch (_) { window.location.reload(); }
-            });
 
             document.getElementById('auth-signin-btn').onclick = async () => {
                 const gateway = gatewayInput ? gatewayInput.value : '';
@@ -3708,8 +3667,16 @@
                 if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
                 if (!username || !password) { if (signInMsg) signInMsg.textContent = 'Username and password required.'; return; }
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
-                const { data, error } = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
-                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                let data, error;
+                try {
+                    const r = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
+                    data = r.data;
+                    error = r.error;
+                } catch (e) {
+                    if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
+                    return;
+                }
+                if (error) { if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(error); return; }
                 if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
                 state.supabaseUserId = data.user_id;
                 state.profileUsername = data.username;
@@ -3733,8 +3700,16 @@
                 if (!username || username.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
                 if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be 6+ characters.'; return; }
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
-                const { data, error } = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
-                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                let data, error;
+                try {
+                    const r = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
+                    data = r.data;
+                    error = r.error;
+                } catch (e) {
+                    if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
+                    return;
+                }
+                if (error) { if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(error); return; }
                 if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
                 state.supabaseUserId = data.user_id;
                 state.profileUsername = data.username;

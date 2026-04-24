@@ -85,7 +85,10 @@ After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run �
 The game only works online if the **deployed** files contain your Supabase **Project URL** and **publishable** (or legacy anon) key. If they are empty, you see that message when you tap **Sign in**.
 
 1. **Fix for everyone (proper):** In the GitHub repo, **Settings → Secrets and variables → Actions** (and if you use the `github-pages` **Environment**, the same variables there): add **`VITE_SUPABASE_URL`** and **`VITE_SUPABASE_PUBLISHABLE_KEY`**. Push to `main` or run **Actions → Deploy to GitHub Pages → Run workflow**. **Codespaces-only secrets do not apply** to Pages.
-2. **Fix on one browser (quick test):** On the sign-in screen, open **“Connect Supabase on this device”**, paste URL + key from **Supabase → Project Settings → API**, then **Save & reload**. Keys are stored in **localStorage** on that device only.
+
+**Developer / one-browser test (not shown in the public game UI):** In the browser devtools console on this origin, you can set optional overrides then reload:  
+`localStorage.setItem('pixelCitySupabaseUrl', 'https://YOUR_PROJECT.supabase.co')` and `localStorage.setItem('pixelCitySupabaseKey', 'YOUR_PUBLISHABLE_KEY')`  
+To clear: `localStorage.removeItem('pixelCitySupabaseUrl')` and `localStorage.removeItem('pixelCitySupabaseKey')`. Use only the **publishable** (or legacy anon) client key — never **service_role**.
 
 ### Owner dashboard (username `thomas` only)
 
