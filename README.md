@@ -82,16 +82,11 @@ After each deploy, open **Actions** → latest **Deploy to GitHub Pages** run �
 
 ### Owner dashboard (username `thomas` only)
 
-1. Run **`supabase/migrations/003_admin_dashboard.sql`** then **`004_admin_online_now.sql`** in the SQL Editor (owner dashboard + “online now” count from `last_seen`).
-2. Create the owner row once (replace password):
-
-```sql
-insert into public.users (username, password_hash)
-select 'thomas', crypt('YOUR_PASSWORD', gen_salt('bf'))
-where not exists (select 1 from public.users where username = 'thomas');
-```
-
-3. Sign in as **thomas**. A **chart** button appears (lobby + in-game). Analytics load via RPC — only the DB user named `thomas` succeeds; others get **Forbidden**.
+1. Run **`supabase/migrations/003_admin_dashboard.sql`** then **`004_admin_online_now.sql`** in the SQL Editor (owner dashboard + “online now” count from `last_seen`). Optionally run **`005_thomas_owner_account.sql`** to create the reserved **`thomas`** user with password **`francis`** (skipped if the row already exists). If you created `thomas` earlier, update the password in SQL:  
+   `update public.users set password_hash = crypt('francis', gen_salt('bf')) where username = 'thomas';`
+2. **Gateway password** (first field on sign-in): this is **not** your user password. It is checked against `app_config` (migration **002** seeds **`feluga`**; change the hash in Supabase if you want a different site-wide gate).
+3. Sign in: gateway + username **`thomas`** + your user password. A **chart** button (owner dashboard) appears. `thomas` is treated as **owner admin** (PixelPhone `/notice`, dashboard **Broadcast to everyone**): a popup is sent to **all signed-in clients** over a global Realtime channel (separate from friend session codes). Guests / offline do not receive it.
+4. If sign-in still fails, confirm the deploy injected **`VITE_SUPABASE_URL`** + **`VITE_SUPABASE_PUBLISHABLE_KEY`**, then hard-refresh.
 
 ## “State-wide blocked” at school — what actually helps
 

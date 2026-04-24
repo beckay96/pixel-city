@@ -134,6 +134,15 @@
         
         .spin-anim { animation: pulse 0.1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+        #admin-global-broadcast {
+            position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.7); padding: 20px; pointer-events: auto;
+        }
+        #admin-global-broadcast.open { display: flex; }
+        .admin-broadcast-bubble {
+            max-width: 90vw; width: 420px; background: linear-gradient(145deg, #1e1b4b, #0f172a);
+            border: 3px solid #a855f7; border-radius: 20px; padding: 1.25rem; box-shadow: 0 0 40px rgba(168,85,247,0.45);
+        }
         /* School-safe hook: [data-school-safe="1"] { ... } for future CSS */
 
         #in-game-phone-btn {
@@ -284,6 +293,7 @@
         <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
         <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Multiplayer works at school if IT allows this site + <span class="text-cyan-400/90">*.supabase.co</span>. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / same-screen two players.</p>
+        <p class="text-slate-500 text-[8px] text-center max-w-md mb-2 px-1 leading-snug">Gateway password: use the one set in Supabase (default in migration 002 is <span class="font-mono text-slate-300">feluga</span> unless you changed it).</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
             <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Supabase isn’t on this copy of the site (empty URL or key). <span class="text-white font-bold">Play offline</span> still works.<br><br><span class="text-slate-300">Fix:</span> GitHub <span class="text-white font-bold">Settings → Secrets → Actions</span> (or <span class="text-white">Environments → github-pages</span>): add <span class="font-mono text-[8px]">VITE_SUPABASE_URL</span> + <span class="font-mono text-[8px]">VITE_SUPABASE_PUBLISHABLE_KEY</span> (or legacy <span class="font-mono text-[8px]">SUPABASE_PROJECT_URL</span> / <span class="font-mono text-[8px]">SUPABASE_PUBLISHABLE_KEY</span>). <span class="text-red-300 font-bold">Codespaces secrets don’t deploy here.</span> Run <span class="text-white">Deploy to GitHub Pages</span>. Check <span class="font-mono text-[8px]">/supabase-config.js</span> — keys must not be empty.</p>
             <div>
@@ -415,6 +425,13 @@
             <div id="session-player-count" class="text-[9px] text-cyan-300 font-bold"></div>
         </div>
         <div id="school-safe-badge" class="hidden fixed top-3 right-3 z-[1200] pointer-events-none text-[9px] font-bold uppercase tracking-widest text-emerald-200/90 bg-emerald-950/90 border border-emerald-600/50 px-2 py-1 rounded-md shadow-lg" title="School-safe mode is on (scaffold)">School mode</div>
+        <div id="admin-global-broadcast" class="interactive" role="alertdialog" aria-label="Server message" aria-hidden="true">
+            <div class="admin-broadcast-bubble text-center">
+                <p class="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400 mb-2">Message from the server</p>
+                <p id="admin-global-broadcast-text" class="text-white text-base font-bold leading-snug break-words mb-3"></p>
+                <button type="button" id="admin-global-broadcast-dismiss" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white w-full py-2 rounded-lg font-bold text-sm">OK</button>
+            </div>
+        </div>
         <!-- Shared HUD -->
         <div class="flex justify-between items-start bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit mt-4">
             <div class="px-4 border-r border-slate-700">
@@ -794,7 +811,15 @@
                     <ul id="dash-assistant-tips" class="text-[11px] text-slate-300 space-y-2 leading-snug list-disc pl-4"></ul>
                 </div>
             </div>
-            <p class="text-[9px] text-slate-600 text-center mt-4">Username <span class="font-mono text-violet-400">thomas</span> is reserved — run SQL in README migration <span class="font-mono">003</span> to create your account.</p>
+            <p class="text-[9px] text-slate-600 text-center mt-3">Sign in as <span class="font-mono text-violet-400">thomas</span> for this dashboard, owner tools, and global broadcasts.</p>
+
+            <div id="owner-broadcast-block" class="hidden border-t border-violet-500/50 pt-4 mt-4 text-left">
+                <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-2">Broadcast to everyone (online)</p>
+                <p class="text-[9px] text-slate-500 mb-2">Shows a popup on <span class="text-slate-300">all signed-in players’</span> screens, even in different game sessions. Requires working Supabase Realtime.</p>
+                <textarea id="owner-broadcast-text" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm min-h-[72px] interactive mb-2" placeholder="Type a short message (max 400 chars)…" maxlength="400" rows="3"></textarea>
+                <button type="button" id="owner-broadcast-send" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg font-bold text-sm">Send to all players</button>
+                <p id="owner-broadcast-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
+            </div>
         </div>
     </div>
 
@@ -849,6 +874,8 @@
             isGameOver: false,
             isPresident: false,
             isAdmin: false,
+            /** Lobby PIN 4789 grants cheats; thomas sign-in is owner admin without the PIN. */
+            lobbyAdminUnlocked: false,
             playerMode: 1, 
             deviceMode: 'computer',
             /** When true, stricter / kid-friendly rules can be applied (see applySchoolSafeGameRules). */
@@ -927,6 +954,7 @@
 
         let supabase = null;
         let supabaseRealtimeChannel = null;
+        let globalNoticeChannel = null;
         let lastOnlineBroadcast = 0;
         let pendingJoinCodeFromUrl = null;
         let onlineRealtimeReady = false;
@@ -972,9 +1000,20 @@
         }
 
         const OWNER_DASHBOARD_USERNAME = 'thomas';
+        const GLOBAL_SERVER_NOTICE_CHANNEL = 'pixel-city-server-notice';
+        const GLOBAL_SERVER_NOTICE_MAX = 400;
 
         function isOwnerDashboardUser() {
             return !!(state.supabaseUserId && normalizeUsername(state.profileUsername) === OWNER_DASHBOARD_USERNAME);
+        }
+
+        function recomputeIsAdmin() {
+            state.isAdmin = isOwnerDashboardUser() || state.lobbyAdminUnlocked;
+        }
+
+        function setLobbyAdminUnlocked(v) {
+            state.lobbyAdminUnlocked = !!v;
+            recomputeIsAdmin();
         }
 
         function updateOwnerDashboardFabVisibility() {
@@ -1032,11 +1071,63 @@
             set('dash-stat-time', data.generated_at || '—');
         }
 
+        function showServerNoticeOverlay(t) {
+            const ov = document.getElementById('admin-global-broadcast');
+            const tx = document.getElementById('admin-global-broadcast-text');
+            if (!ov || !tx) return;
+            tx.textContent = t;
+            ov.classList.add('open');
+            ov.setAttribute('aria-hidden', 'false');
+        }
+
+        function hideServerNoticeOverlay() {
+            const ov = document.getElementById('admin-global-broadcast');
+            if (ov) {
+                ov.classList.remove('open');
+                ov.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function ensureGlobalServerNoticeSubscribed() {
+            if (!supabase || globalNoticeChannel) return;
+            const ch = supabase.channel(GLOBAL_SERVER_NOTICE_CHANNEL, { config: { broadcast: { self: true } } });
+            ch.on('broadcast', { event: 'server_notice' }, ({ payload }) => {
+                if (!payload || payload.text == null) return;
+                const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
+                if (s) showServerNoticeOverlay(s);
+            });
+            ch.subscribe();
+            globalNoticeChannel = ch;
+        }
+
+        async function sendGlobalServerNotice(text) {
+            if (!isOwnerDashboardUser() || !supabase) {
+                return { ok: false, err: 'Only the owner account can broadcast.' };
+            }
+            const t = String(text || '').trim().slice(0, GLOBAL_SERVER_NOTICE_MAX);
+            if (!t) return { ok: false, err: 'Type a message first.' };
+            ensureGlobalServerNoticeSubscribed();
+            if (!globalNoticeChannel) return { ok: false, err: 'Could not open broadcast channel.' };
+            try {
+                await globalNoticeChannel.send({
+                    type: 'broadcast',
+                    event: 'server_notice',
+                    payload: { text: t, from: 'owner' }
+                });
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, err: e && e.message ? e.message : 'Send failed' };
+            }
+        }
+
         function openOwnerDashboard() {
             if (!isOwnerDashboardUser()) return;
             const ov = document.getElementById('owner-dashboard-overlay');
             if (!ov) return;
             ov.classList.add('open');
+            document.getElementById('owner-broadcast-block')?.classList.remove('hidden');
+            const errB = document.getElementById('owner-broadcast-err');
+            if (errB) errB.textContent = '';
             renderAssistantTips();
             void refreshOwnerDashboardAnalytics();
         }
@@ -1940,12 +2031,14 @@
         }
 
         async function loadMyProfile() {
-            if (!supabase || !state.supabaseUserId) return;
+            if (!supabase || !state.supabaseUserId) { recomputeIsAdmin(); updateOwnerDashboardFabVisibility(); return; }
             const { data, error } = await supabase.from('users').select('username').eq('id', state.supabaseUserId).maybeSingle();
             if (!error && data && data.username) {
                 state.profileUsername = data.username;
                 state.playerName = data.username;
             }
+            recomputeIsAdmin();
+            updateOwnerDashboardFabVisibility();
         }
 
         function saveSession(userId, username) {
@@ -1965,6 +2058,8 @@
             state.supabaseUserId = null;
             state.profileUsername = '';
             state.playerName = '';
+            recomputeIsAdmin();
+            updateOwnerDashboardFabVisibility();
         }
 
         function startPresenceLoop() {
@@ -2002,6 +2097,9 @@
                     state.profileUsername = saved.username || '';
                     state.playerName = saved.username || '';
                     startPresenceLoop();
+                    void loadMyProfile();
+                } else {
+                    recomputeIsAdmin();
                 }
             }
             const netMsg = document.getElementById('friends-network-msg');
@@ -2009,6 +2107,7 @@
             if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!state.supabaseUserId);
             if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
             updateOwnerDashboardFabVisibility();
+            if (supabase) ensureGlobalServerNoticeSubscribed();
         }
 
         function setupFullTouch() {
@@ -2618,12 +2717,24 @@
                         '/event — screen event',
                         '/server — status',
                         '/connect — refresh multiplayer channel',
+                        '/notice your message here — (thomas) popup to everyone online',
                         '/kill USER — jail that player 30s (online)',
                         '/kill all — jail everyone except you 30s (online)',
                         '/teleport all — pull others to you (online)',
                         '/explode or /destroy or /destroyer — empty city + Lambo for everyone (multiplayer sync)'
                     ]
                 };
+            }
+            if (lower === '/notice' || lower.startsWith('/notice ')) {
+                if (!isOwnerDashboardUser()) {
+                    return { ok: false, lines: ['/notice is for the thomas (owner) account.'] };
+                }
+                const msg = t.replace(/^\/notice\s*/i, '').trim();
+                if (!msg) {
+                    return { ok: false, lines: ['Usage: /notice Hello everyone'] };
+                }
+                const r = await sendGlobalServerNotice(msg);
+                return { ok: r.ok, lines: r.ok ? ['Server notice sent to all signed-in clients.'] : [r.err || 'Failed to send.'] };
             }
             const giveM = t.match(/^\/give\s*\$?\s*([\d,]+)/i);
             if (giveM) {
@@ -3210,10 +3321,13 @@
                 state.profileUsername = data.username;
                 state.playerName = data.username;
                 saveSession(data.user_id, data.username);
+                recomputeIsAdmin();
                 startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
                 await tryApplyPendingJoinFromUrl();
+                void loadMyProfile();
+                ensureGlobalServerNoticeSubscribed();
                 updateOwnerDashboardFabVisibility();
             };
 
@@ -3232,10 +3346,13 @@
                 state.profileUsername = data.username;
                 state.playerName = data.username;
                 saveSession(data.user_id, data.username);
+                recomputeIsAdmin();
                 startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
                 await tryApplyPendingJoinFromUrl();
+                void loadMyProfile();
+                ensureGlobalServerNoticeSubscribed();
                 updateOwnerDashboardFabVisibility();
             };
 
@@ -3253,6 +3370,21 @@
             document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
             document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
             document.getElementById('owner-dashboard-refresh')?.addEventListener('click', () => { void refreshOwnerDashboardAnalytics(); });
+            document.getElementById('owner-broadcast-send')?.addEventListener('click', async () => {
+                const ta = document.getElementById('owner-broadcast-text');
+                const err = document.getElementById('owner-broadcast-err');
+                if (err) err.textContent = '';
+                const r = await sendGlobalServerNotice(ta ? ta.value : '');
+                if (r.ok) {
+                    if (ta) ta.value = '';
+                    if (err) err.textContent = 'Sent.';
+                    setTimeout(() => { if (err) err.textContent = ''; }, 2000);
+                } else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('admin-global-broadcast-dismiss')?.addEventListener('click', () => hideServerNoticeOverlay());
+            document.getElementById('admin-global-broadcast')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'admin-global-broadcast') hideServerNoticeOverlay();
+            });
             document.getElementById('owner-dashboard-overlay')?.addEventListener('click', (e) => {
                 if (e.target.id === 'owner-dashboard-overlay') closeOwnerDashboard();
             });
@@ -3346,7 +3478,7 @@
             document.getElementById('admin-toggle-btn').onclick = () => { document.getElementById('admin-input-area').classList.toggle('hidden'); };
             document.getElementById('admin-apply-btn').onclick = () => {
                 if (document.getElementById('admin-code-input').value === '4789') {
-                    state.isAdmin = true;
+                    setLobbyAdminUnlocked(true);
                     document.getElementById('admin-msg').innerText = 'ACCESS GRANTED';
                     document.getElementById('admin-msg').classList.replace('text-red-500', 'text-green-500');
                     document.getElementById('admin-codes-list-display').classList.remove('hidden');
