@@ -1198,6 +1198,15 @@
             return 'No Supabase URL/key in this build. Add GitHub Actions secrets and redeploy, or open “Connect Supabase on this device” below and Save & reload.';
         }
 
+        /** Safari often reports failed fetches as TypeError: Load failed */
+        function formatSupabaseNetworkError(err) {
+            const msg = err && err.message ? String(err.message) : String(err);
+            if (msg.includes('Load failed') || msg === 'Failed to fetch' || msg.includes('NetworkError')) {
+                return 'Connection failed — check Wi‑Fi, ad blockers, and that your Supabase URL uses https://. School networks may block *.supabase.co; try “Play offline” or ask IT to allowlist it.';
+            }
+            return msg;
+        }
+
         function normalizeUsername(s) {
             return (s || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 32);
         }
@@ -2342,10 +2351,14 @@
 
         async function loadMyProfile() {
             if (!supabase || !state.supabaseUserId) { recomputeIsAdmin(); updateOwnerDashboardFabVisibility(); return; }
-            const { data, error } = await supabase.from('users').select('username').eq('id', state.supabaseUserId).maybeSingle();
-            if (!error && data && data.username) {
-                state.profileUsername = data.username;
-                state.playerName = data.username;
+            try {
+                const { data, error } = await supabase.from('users').select('username').eq('id', state.supabaseUserId).maybeSingle();
+                if (!error && data && data.username) {
+                    state.profileUsername = data.username;
+                    state.playerName = data.username;
+                }
+            } catch (e) {
+                console.warn('loadMyProfile', e);
             }
             recomputeIsAdmin();
             updateOwnerDashboardFabVisibility();
@@ -2505,7 +2518,7 @@
             document.getElementById('lobby-screen').style.display = 'none';
             setInGamePhoneVisible(true);
             updateOwnerDashboardFabVisibility();
-            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
+            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#38bdf8', activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
             if (state.playMode === 'online') {
                 state.playerMode = 1;
@@ -2878,7 +2891,10 @@
                 if(!p.inVehicle) { 
                     c.save(); c.translate(p.x, p.y); c.rotate(p.angle); 
                     if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
-                    c.fillStyle = p.color; c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.fill(); 
+                    c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2);
+                    c.fillStyle = p.color; c.fill();
+                    c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2);
+                    c.strokeStyle = 'rgba(15,23,42,0.95)'; c.lineWidth = 2; c.stroke();
                     c.restore(); 
                 }
             });
@@ -2945,7 +2961,11 @@
                 ctxM.fill();
             }
             state.civilians.forEach(c => { ctxM.fillStyle = '#f97316'; ctxM.beginPath(); ctxM.arc(c.x*s, c.y*s, 2, 0, Math.PI*2); ctxM.fill(); });
-            state.players.forEach(p => { if(p){ ctxM.fillStyle = p.color; ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2); ctxM.fill(); }});
+            state.players.forEach(p => { if(p){
+                ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2);
+                ctxM.fillStyle = p.color; ctxM.fill();
+                ctxM.strokeStyle = 'rgba(15,23,42,0.9)'; ctxM.lineWidth = 1; ctxM.stroke();
+            }});
             if (state.playMode === 'online') {
                 const REMOTE_COLORS = ['#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444'];
                 let ci = 0;
@@ -3708,8 +3728,16 @@
                 if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
                 if (!username || !password) { if (signInMsg) signInMsg.textContent = 'Username and password required.'; return; }
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
-                const { data, error } = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
-                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                let data, error;
+                try {
+                    const r = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
+                    data = r.data;
+                    error = r.error;
+                } catch (e) {
+                    if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
+                    return;
+                }
+                if (error) { if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(error); return; }
                 if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
                 state.supabaseUserId = data.user_id;
                 state.profileUsername = data.username;
@@ -3733,8 +3761,16 @@
                 if (!username || username.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
                 if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be 6+ characters.'; return; }
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
-                const { data, error } = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
-                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                let data, error;
+                try {
+                    const r = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
+                    data = r.data;
+                    error = r.error;
+                } catch (e) {
+                    if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
+                    return;
+                }
+                if (error) { if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(error); return; }
                 if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
                 state.supabaseUserId = data.user_id;
                 state.profileUsername = data.username;
