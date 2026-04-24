@@ -355,8 +355,6 @@
         <div class="w-full max-w-sm mb-4 space-y-2">
             <button type="button" id="lobby-school-mode-btn" class="w-full bg-amber-700/90 hover:bg-amber-600 border-2 border-amber-500 text-amber-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">School mode: Off</button>
             <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">Same world — School replaces the shop jobs; jail = lines + math. Tap again to turn off.</p>
-            <button type="button" id="lobby-walkthrough-btn" class="w-full bg-cyan-800/90 hover:bg-cyan-700 border-2 border-cyan-500 text-cyan-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">Walk through buildings: Off</button>
-            <p class="text-[8px] text-cyan-200/70 text-center px-1">No-collision through all buildings (like GHOST). Saved in this browser.</p>
         </div>
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
@@ -917,7 +915,6 @@
         const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
         /** Lobby "School mode" — math/writing jobs + school jail (separate from schoolSafe scaffold). */
         const LS_SCHOOL_GAME_MODE = 'pixelCitySchoolGameMode';
-        const LS_WALKTHROUGH_BUILDINGS = 'pixelCityWalkThroughBuildings';
         const MINIMAP_PX = 200;
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
         const SCHOOL_JOBS = [
@@ -995,8 +992,6 @@
             jailBailMathSolved: false,
             /** School jail: after lines + bail math, short countdown to walk free (or pay bail) */
             jailReleasePhase: false,
-            /** Walk through all building collision (lobby toggle; like GHOST for walls). */
-            walkThroughBuildings: false
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1051,30 +1046,9 @@
             }
         }
 
-        function getWalkThroughBuildings() {
-            try {
-                if (localStorage.getItem(LS_WALKTHROUGH_BUILDINGS) === '1') return true;
-            } catch (_) { /* */ }
-            return false;
-        }
-
-        function setWalkThroughBuildings(v) {
-            state.walkThroughBuildings = !!v;
-            try {
-                localStorage.setItem(LS_WALKTHROUGH_BUILDINGS, state.walkThroughBuildings ? '1' : '0');
-            } catch (_) { /* */ }
-            const btn = document.getElementById('lobby-walkthrough-btn');
-            if (btn) {
-                btn.textContent = state.walkThroughBuildings ? 'Walk through buildings: On' : 'Walk through buildings: Off';
-                btn.classList.toggle('ring-2', state.walkThroughBuildings);
-                btn.classList.toggle('ring-cyan-300', state.walkThroughBuildings);
-            }
-        }
-
-        function playerIgnoresWalls() {
-            return state.walkThroughBuildings
-                || state.activeSecrets.includes('GHOST')
-                || state.activeSecrets.includes('MURDER');
+        /** GHOST / MURDER only — buildings still have collision otherwise. */
+        function playerPhasesThroughBuildings() {
+            return state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER');
         }
 
         function buildingTypeLabel(t) {
@@ -2757,7 +2731,7 @@
                     
                     const nx = p.x + mx, ny = p.y + my; 
                     
-                    const isGhost = playerIgnoresWalls() || state.activeSecrets.includes('MURDER');
+                    const isGhost = playerPhasesThroughBuildings();
                     const hitBuilding = !isGhost && state.buildings.some(b => buildingBlocksMovement(b) && nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
                     
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
@@ -2963,7 +2937,7 @@
             state.players.forEach(p => { 
                 if(!p.inVehicle) { 
                     c.save(); c.translate(p.x, p.y); c.rotate(p.angle); 
-                    if (playerIgnoresWalls()) c.globalAlpha = 0.5;
+                    if (state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
                     c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2);
                     c.fillStyle = p.color; c.fill();
                     c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2);
@@ -3027,7 +3001,7 @@
             ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
             const ms = ctxM;
             const s = MINIMAP_PX / 4000;
-            const mmBg = state.walkThroughBuildings || playerIgnoresWalls() ? 'rgba(15,23,42,0.95)' : 'rgba(0,0,0,0.7)';
+            const mmBg = 'rgba(8, 15, 20, 0.92)';
             ms.clearRect(0, 0, MINIMAP_PX, MINIMAP_PX);
             ms.fillStyle = mmBg;
             ms.fillRect(0, 0, MINIMAP_PX, MINIMAP_PX);
@@ -3782,12 +3756,8 @@
             applySchoolSafeGameRules();
             applySchoolSafeUI();
             setSchoolGameMode(getSchoolGameMode());
-            setWalkThroughBuildings(getWalkThroughBuildings());
             document.getElementById('lobby-school-mode-btn')?.addEventListener('click', () => {
                 setSchoolGameMode(!getSchoolGameMode());
-            });
-            document.getElementById('lobby-walkthrough-btn')?.addEventListener('click', () => {
-                setWalkThroughBuildings(!getWalkThroughBuildings());
             });
             consumeJoinFromUrl();
             await initSupabaseAndSession();
