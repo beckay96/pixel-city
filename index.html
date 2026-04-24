@@ -79,15 +79,31 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            width: 140px;
-            height: 140px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 200px;
+            height: 200px;
+            background: rgba(8, 15, 20, 0.92);
+            border: 2px solid rgba(56, 189, 248, 0.45);
             border-radius: 12px;
             overflow: hidden;
             pointer-events: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
         }
         #minimapCanvas { width: 100%; height: 100%; }
+        #minimap-legend {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 2px;
+            text-align: center;
+            font-size: 6px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: rgba(186, 230, 253, 0.85);
+            text-transform: uppercase;
+            text-shadow: 0 0 4px #000;
+            pointer-events: none;
+        }
+        #minimap-container { position: relative; }
 
         #sign-in-screen {
             position: fixed;
@@ -336,9 +352,11 @@
         <p class="text-blue-300 mb-2 text-[10px] md:text-xs font-bold text-center italic px-2">you didn't think Thomas could make this did ya</p>
         <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
         <p id="lobby-wins-display" class="text-yellow-400 font-black mb-2 text-sm">🏆 Wins: 0</p>
-        <div class="w-full max-w-sm mb-4">
+        <div class="w-full max-w-sm mb-4 space-y-2">
             <button type="button" id="lobby-school-mode-btn" class="w-full bg-amber-700/90 hover:bg-amber-600 border-2 border-amber-500 text-amber-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">School mode: Off</button>
             <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">Same world — School replaces the shop jobs; jail = lines + math. Tap again to turn off.</p>
+            <button type="button" id="lobby-walkthrough-btn" class="w-full bg-cyan-800/90 hover:bg-cyan-700 border-2 border-cyan-500 text-cyan-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">Walk through buildings: Off</button>
+            <p class="text-[8px] text-cyan-200/70 text-center px-1">No-collision through all buildings (like GHOST). Saved in this browser.</p>
         </div>
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
@@ -561,8 +579,11 @@
             </div>
         </div>
 
-        <div id="minimap-container">
-            <canvas id="minimapCanvas"></canvas>
+        <div class="pointer-events-none" style="position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 12;">
+            <div id="minimap-container" class="relative">
+                <canvas id="minimapCanvas"></canvas>
+                <p id="minimap-legend">N · Map + labels</p>
+            </div>
         </div>
 
         <div id="msg-box" class="fixed bottom-10 right-10 bg-blue-600 px-6 py-3 rounded-xl shadow-2xl font-bold transform translate-y-32 transition-transform duration-300 z-[300]">
@@ -896,6 +917,8 @@
         const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
         /** Lobby "School mode" — math/writing jobs + school jail (separate from schoolSafe scaffold). */
         const LS_SCHOOL_GAME_MODE = 'pixelCitySchoolGameMode';
+        const LS_WALKTHROUGH_BUILDINGS = 'pixelCityWalkThroughBuildings';
+        const MINIMAP_PX = 200;
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
         const SCHOOL_JOBS = [
             { id: 'math', name: 'Math class', kind: 'math' },
@@ -971,7 +994,9 @@
             jailBailMathB: 0,
             jailBailMathSolved: false,
             /** School jail: after lines + bail math, short countdown to walk free (or pay bail) */
-            jailReleasePhase: false
+            jailReleasePhase: false,
+            /** Walk through all building collision (lobby toggle; like GHOST for walls). */
+            walkThroughBuildings: false
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1024,6 +1049,40 @@
                 btn.classList.toggle('ring-2', state.schoolGameMode);
                 btn.classList.toggle('ring-amber-300', state.schoolGameMode);
             }
+        }
+
+        function getWalkThroughBuildings() {
+            try {
+                if (localStorage.getItem(LS_WALKTHROUGH_BUILDINGS) === '1') return true;
+            } catch (_) { /* */ }
+            return false;
+        }
+
+        function setWalkThroughBuildings(v) {
+            state.walkThroughBuildings = !!v;
+            try {
+                localStorage.setItem(LS_WALKTHROUGH_BUILDINGS, state.walkThroughBuildings ? '1' : '0');
+            } catch (_) { /* */ }
+            const btn = document.getElementById('lobby-walkthrough-btn');
+            if (btn) {
+                btn.textContent = state.walkThroughBuildings ? 'Walk through buildings: On' : 'Walk through buildings: Off';
+                btn.classList.toggle('ring-2', state.walkThroughBuildings);
+                btn.classList.toggle('ring-cyan-300', state.walkThroughBuildings);
+            }
+        }
+
+        function playerIgnoresWalls() {
+            return state.walkThroughBuildings
+                || state.activeSecrets.includes('GHOST')
+                || state.activeSecrets.includes('MURDER');
+        }
+
+        function buildingTypeLabel(t) {
+            if (t === 'school' || (t === 'store' && state.schoolGameMode)) return 'SCHOOL';
+            if (t === 'home') return 'HOME';
+            if (t === 'house') return 'HOUSE';
+            if (t === 'ruins') return 'RUINS';
+            return String(t || '').toUpperCase();
         }
 
         function syncWorkModalLayout(pIdx) {
@@ -1940,8 +1999,8 @@
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            minimapCanvas.width = 140;
-            minimapCanvas.height = 140;
+            minimapCanvas.width = MINIMAP_PX;
+            minimapCanvas.height = MINIMAP_PX;
         }
 
         function showOrbHuntIntro() {
@@ -2698,7 +2757,7 @@
                     
                     const nx = p.x + mx, ny = p.y + my; 
                     
-                    const isGhost = state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER');
+                    const isGhost = playerIgnoresWalls() || state.activeSecrets.includes('MURDER');
                     const hitBuilding = !isGhost && state.buildings.some(b => buildingBlocksMovement(b) && nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
                     
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
@@ -2857,7 +2916,21 @@
             c.fillStyle = '#14532d'; c.fillRect(0,0,4000,4000);
             c.fillStyle = '#334155';
             for(let i=0; i<4000; i+=GRID_SIZE) { c.fillRect(i-100, 0, 200, 4000); c.fillRect(0, i-100, 4000, 200); }
-            state.buildings.forEach(b => { c.fillStyle = b.color; c.fillRect(b.x, b.y, b.w, b.h); c.fillStyle = 'white'; c.font = 'bold 16px sans-serif'; c.textAlign = 'center'; if (b.type !== 'house') { const lbl = b.type === 'school' ? 'SCHOOL' : b.type.toUpperCase(); c.fillText(lbl, b.x + b.w/2, b.y + b.h/2); } });
+            state.buildings.forEach(b => {
+                c.fillStyle = b.color;
+                c.fillRect(b.x, b.y, b.w, b.h);
+                const cx = b.x + b.w / 2;
+                const cy = b.y + b.h / 2;
+                const short = buildingTypeLabel(b.type);
+                c.font = 'bold 12px system-ui,Segoe UI,sans-serif';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.lineWidth = 3;
+                c.strokeStyle = 'rgba(0,0,0,0.8)';
+                c.fillStyle = '#f8fafc';
+                c.strokeText(short, cx, cy);
+                c.fillText(short, cx, cy);
+            });
 
             if (state.orbHuntActive && state.orb && !state.orbCollected) {
                 const ox = state.orb.x, oy = state.orb.y;
@@ -2890,7 +2963,7 @@
             state.players.forEach(p => { 
                 if(!p.inVehicle) { 
                     c.save(); c.translate(p.x, p.y); c.rotate(p.angle); 
-                    if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
+                    if (playerIgnoresWalls()) c.globalAlpha = 0.5;
                     c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2);
                     c.fillStyle = p.color; c.fill();
                     c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2);
@@ -2952,34 +3025,68 @@
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
             ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
-            ctxM.clearRect(0,0,140,140); const s = 140/4000;
-            state.buildings.forEach(b => { if(b.type!=='house'){ ctxM.fillStyle = b.color; ctxM.fillRect(b.x*s, b.y*s, b.w*s, b.h*s); }});
-            if (state.orbHuntActive && state.orb && !state.orbCollected) {
-                ctxM.fillStyle = '#22d3ee';
-                ctxM.beginPath();
-                ctxM.arc(state.orb.x * s, state.orb.y * s, 4, 0, Math.PI * 2);
-                ctxM.fill();
+            const ms = ctxM;
+            const s = MINIMAP_PX / 4000;
+            const mmBg = state.walkThroughBuildings || playerIgnoresWalls() ? 'rgba(15,23,42,0.95)' : 'rgba(0,0,0,0.7)';
+            ms.clearRect(0, 0, MINIMAP_PX, MINIMAP_PX);
+            ms.fillStyle = mmBg;
+            ms.fillRect(0, 0, MINIMAP_PX, MINIMAP_PX);
+            ms.fillStyle = 'rgba(15, 118, 110, 0.5)';
+            ms.fillRect(0, 0, MINIMAP_PX, 5);
+            ms.fillRect(0, 0, 5, MINIMAP_PX);
+            ms.fillStyle = 'rgba(30, 41, 59, 0.85)';
+            for (let gx = 0; gx < 4000; gx += GRID_SIZE) {
+                ms.fillRect((gx - 5) * s, 0, 10 * s, MINIMAP_PX);
+                ms.fillRect(0, (gx - 5) * s, MINIMAP_PX, 10 * s);
             }
-            state.civilians.forEach(c => { ctxM.fillStyle = '#f97316'; ctxM.beginPath(); ctxM.arc(c.x*s, c.y*s, 2, 0, Math.PI*2); ctxM.fill(); });
-            state.players.forEach(p => { if(p){
-                ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2);
-                ctxM.fillStyle = p.color; ctxM.fill();
-                ctxM.strokeStyle = 'rgba(15,23,42,0.9)'; ctxM.lineWidth = 1; ctxM.stroke();
+            state.buildings.forEach(b => {
+                const px = b.x * s, py = b.y * s, pw = b.w * s, ph = b.h * s;
+                ms.fillStyle = b.color;
+                ms.fillRect(px, py, Math.max(1, pw), Math.max(1, ph));
+            });
+            state.buildings.forEach(b => {
+                if (b.w * s < 3 || b.h * s < 2) return;
+                const full = buildingTypeLabel(b.type);
+                const short = (b.w * s < 12) ? (full.length > 3 ? full.slice(0, 3) : full) : full;
+                ms.save();
+                ms.font = (b.w * s < 12) ? '600 3px system-ui,Segoe UI,sans-serif' : '600 4px system-ui,Segoe UI,sans-serif';
+                ms.textAlign = 'center';
+                ms.textBaseline = 'middle';
+                const tx = b.x * s + (b.w * s) / 2;
+                const ty = b.y * s + (b.h * s) / 2;
+                ms.strokeStyle = 'rgba(0,0,0,0.75)';
+                ms.lineWidth = 0.4;
+                ms.fillStyle = '#e2e8f0';
+                ms.strokeText(short, tx, ty);
+                ms.fillText(short, tx, ty);
+                ms.restore();
+            });
+            if (state.orbHuntActive && state.orb && !state.orbCollected) {
+                ms.fillStyle = '#22d3ee';
+                ms.beginPath();
+                ms.arc(state.orb.x * s, state.orb.y * s, 4, 0, Math.PI * 2);
+                ms.fill();
+            }
+            state.civilians.forEach(c => { ms.fillStyle = '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
+            state.players.forEach(p => { if (p) {
+                ms.beginPath(); ms.arc(p.x * s, p.y * s, 3, 0, Math.PI * 2);
+                ms.fillStyle = p.color; ms.fill();
+                ms.strokeStyle = 'rgba(15,23,42,0.9)'; ms.lineWidth = 1; ms.stroke();
             }});
             if (state.playMode === 'online') {
                 const REMOTE_COLORS = ['#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444'];
                 let ci = 0;
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
-                    ctxM.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
-                    ctxM.beginPath();
-                    ctxM.arc(rp.x * s, rp.y * s, 3, 0, Math.PI * 2);
-                    ctxM.fill();
+                    ms.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
+                    ms.beginPath();
+                    ms.arc(rp.x * s, rp.y * s, 3, 0, Math.PI * 2);
+                    ms.fill();
                     ci++;
                 }
             }
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
-                state.police.forEach(v => { const flash = Math.floor(state.frameCount / 5) % 2 === 0; ctxM.fillStyle = flash ? '#ff0000' : '#0000ff'; ctxM.beginPath(); ctxM.arc(v.x * s, v.y * s, 3, 0, Math.PI * 2); ctxM.fill(); });
+                state.police.forEach(v => { const flash = Math.floor(state.frameCount / 5) % 2 === 0; ms.fillStyle = flash ? '#ff0000' : '#0000ff'; ms.beginPath(); ms.arc(v.x * s, v.y * s, 3, 0, Math.PI * 2); ms.fill(); });
             }
         }
 
@@ -3675,8 +3782,12 @@
             applySchoolSafeGameRules();
             applySchoolSafeUI();
             setSchoolGameMode(getSchoolGameMode());
+            setWalkThroughBuildings(getWalkThroughBuildings());
             document.getElementById('lobby-school-mode-btn')?.addEventListener('click', () => {
                 setSchoolGameMode(!getSchoolGameMode());
+            });
+            document.getElementById('lobby-walkthrough-btn')?.addEventListener('click', () => {
+                setWalkThroughBuildings(!getWalkThroughBuildings());
             });
             consumeJoinFromUrl();
             await initSupabaseAndSession();
