@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel City - Evolution 6.16</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Pixel City Evolution 1</title>
+    <meta name="description" content="Pixel City — multiplayer city game. Self-hosted CSS; Supabase client bundled. Sign in for online play.">
+    <link rel="stylesheet" href="assets/tailwind.css">
+    <script src="supabase-config.js"></script>
+    <!--SUPABASE_BUILD_INJECT-->
+    <script src="config.js"></script>
     <style>
         body {
             margin: 0;
@@ -18,6 +22,7 @@
         canvas {
             display: block;
             image-rendering: pixelated;
+            image-rendering: crisp-edges; /* chunky upscale (N64-style internal res) */
         }
         #ui-layer {
             position: absolute;
@@ -130,32 +135,181 @@
         .spin-anim { animation: pulse 0.1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
         /* School-safe hook: [data-school-safe="1"] { ... } for future CSS */
+
+        #in-game-phone-btn {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 350;
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #38bdf8;
+            box-shadow: 0 4px 20px rgba(56, 189, 248, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        #in-game-phone-btn:active { transform: scale(0.95); }
+
+        #owner-dashboard-fab {
+            position: fixed;
+            bottom: 80px;
+            left: 16px;
+            z-index: 1150;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #7c3aed, #5b21b6);
+            border: 2px solid #a78bfa;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            font-size: 22px;
+        }
+        #owner-dashboard-fab:active { transform: scale(0.95); }
+        #owner-dashboard-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            background: rgba(10, 10, 20, 0.92);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 16px;
+            overflow-y: auto;
+            pointer-events: auto;
+        }
+        #owner-dashboard-overlay.open { display: flex; }
+        .pixel-bot-face {
+            display: grid;
+            grid-template-columns: repeat(6, 10px);
+            grid-template-rows: repeat(6, 10px);
+            gap: 0;
+            image-rendering: pixelated;
+        }
+        .pixel-bot-face span {
+            width: 10px;
+            height: 10px;
+            background: #1e293b;
+            display: block;
+        }
+        .pixel-bot-face span.p-on { background: #fde047; }
+        .pixel-bot-face span.p-skin { background: #fcd34d; }
+        .pixel-bot-face span.p-blush { background: #f472b6; }
+        @keyframes pixel-blink {
+            0%, 92%, 100% { opacity: 1; }
+            94%, 98% { opacity: 0.15; }
+        }
+        .pixel-bot-face .p-eye { animation: pixel-blink 4s infinite; }
+        #smartphone-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 360;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            pointer-events: auto;
+        }
+        #smartphone-overlay.open { display: flex; }
+        .phone-bezel {
+            width: 100%;
+            max-width: 360px;
+            height: min(85vh, 640px);
+            background: #020617;
+            border-radius: 28px;
+            border: 4px solid #334155;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .phone-notch {
+            height: 22px;
+            background: #020617;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #64748b;
+            font-weight: bold;
+        }
+        .phone-body-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        .phone-iframe-wrap {
+            flex: 1;
+            min-height: 200px;
+            background: #000;
+        }
+        .phone-iframe-wrap iframe {
+            width: 100%;
+            height: 100%;
+            min-height: 220px;
+            border: 0;
+        }
+        .calc-btn {
+            min-height: 44px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            border-radius: 10px;
+            background: #334155;
+            color: white;
+            border: none;
+        }
+        .calc-btn.op { background: #7c3aed; }
+        .calc-btn.eq { background: #059669; }
+        #mini-game-cosmic, #mini-game-zombie, #mini-game-pixel {
+            touch-action: manipulation;
+        }
     </style>
     <!-- School builds: set window.__PIXELCITY_SCHOOL_SAFE__ = true in a script before the module, or use ?schoolSafe=1 -->
 </head>
 <body>
 
     <div id="sign-in-screen">
-        <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
-        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6">Sign in to continue</p>
-        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-4">
+        <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
+        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Multiplayer works at school if IT allows this site + <span class="text-cyan-400/90">*.supabase.co</span>. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / same-screen two players.</p>
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Supabase isn’t on this copy of the site (empty URL or key). <span class="text-white font-bold">Play offline</span> still works.<br><br><span class="text-slate-300">Fix:</span> GitHub <span class="text-white font-bold">Settings → Secrets → Actions</span> (or <span class="text-white">Environments → github-pages</span>): add <span class="font-mono text-[8px]">VITE_SUPABASE_URL</span> + <span class="font-mono text-[8px]">VITE_SUPABASE_PUBLISHABLE_KEY</span> (or legacy <span class="font-mono text-[8px]">SUPABASE_PROJECT_URL</span> / <span class="font-mono text-[8px]">SUPABASE_PUBLISHABLE_KEY</span>). <span class="text-red-300 font-bold">Codespaces secrets don’t deploy here.</span> Run <span class="text-white">Deploy to GitHub Pages</span>. Check <span class="font-mono text-[8px]">/supabase-config.js</span> — keys must not be empty.</p>
             <div>
-                <label for="player-name-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Your name</label>
-                <input type="text" id="player-name-input" autocomplete="username" placeholder="Enter your name" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+                <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
+                <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <div>
+                <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username</label>
+                <input type="text" id="auth-username-input" autocomplete="username" placeholder="Your username" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <div>
+                <label for="auth-password-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Password</label>
+                <input type="password" id="auth-password-input" autocomplete="current-password" placeholder="••••••••" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
             </div>
             <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
-            <button type="button" id="sign-in-continue-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest">Continue</button>
-            <div id="payment-gate-block" class="hidden pt-4 border-t border-slate-600 space-y-3">
-                <p class="text-xs text-slate-300 leading-relaxed">This is <span class="text-white font-bold">real money</span>: pay <span class="text-green-400 font-black">$1.00 USD</span> with a credit or debit card to unlock the game. (Not in-game cash.)</p>
-                <button type="button" id="pay-usd1-btn" class="bg-green-600 hover:bg-green-500 text-white w-full py-3 rounded-lg font-bold interactive">Pay $1 USD with card</button>
-                <p id="pay-config-hint" class="text-[10px] text-slate-500 text-center">Site owner: set your Stripe Payment Link in the script (see README).</p>
+            <div class="flex gap-2">
+                <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white flex-1 py-3 rounded-lg font-bold interactive text-sm">Sign in</button>
+                <button type="button" id="auth-signup-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white flex-1 py-3 rounded-lg font-bold interactive text-sm">Sign up</button>
             </div>
+            <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive">Play offline (no account)</button>
         </div>
     </div>
 
     <div id="lobby-screen">
-        <h1 class="text-4xl md:text-6xl font-black text-blue-500 mb-2 italic">PIXEL CITY</h1>
-        <p class="text-blue-300 mb-2 uppercase tracking-[0.3em] text-[10px] font-bold text-center">Evolution 6.16 (Anti-Zoom Fix)</p>
+        <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
+        <p class="text-blue-300 mb-2 text-[10px] md:text-xs font-bold text-center italic px-2">you didn't think Thomas could make this did ya</p>
         <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
         <p id="lobby-wins-display" class="text-yellow-400 font-black mb-6 text-sm">🏆 Wins: 0</p>
         
@@ -170,13 +324,39 @@
 
             <div>
                 <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Mode</h2>
-                <div class="flex gap-2">
-                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
-                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">2 PLAYERS</button>
+                <div class="flex gap-2 flex-wrap justify-center">
+                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
+                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
+                    <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
+                </div>
+                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Multiplayer (online): same map + live friend dots. Sign in → host or join code → Start game. Works on filtered networks when Supabase is allowlisted.</p>
+                <div id="online-lobby-panel" class="hidden mt-2 space-y-2 text-left">
+                    <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — get invite link</button>
+                    <div class="flex gap-2">
+                        <input type="text" id="online-join-code-input" placeholder="Friend code" maxlength="8" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 uppercase interactive">
+                        <button type="button" id="online-join-btn" class="bg-slate-600 hover:bg-slate-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">Join</button>
+                    </div>
+                    <p id="online-session-msg" class="text-[10px] text-cyan-300/90 min-h-[1rem]"></p>
+                    <div id="online-invite-block" class="hidden space-y-1">
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Invite link</p>
+                        <a id="online-invite-link" href="#" class="text-[9px] text-sky-400 break-all underline interactive block"></a>
+                        <button type="button" id="online-copy-invite-btn" class="w-full bg-slate-700 text-white text-[10px] font-bold py-2 rounded interactive">Copy invite link</button>
+                    </div>
                 </div>
             </div>
 
-            <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-lg font-bold interactive uppercase tracking-widest mt-2">Start Game</button>
+            <div class="pt-2 border-t border-slate-700 text-left">
+                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest text-center">Friends</h2>
+                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in to sync friends. Offline play keeps a local list only.</p>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="friend-add-input" placeholder="Friend's username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive">
+                    <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">ADD</button>
+                </div>
+                <p id="friend-add-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem]"></p>
+                <ul id="friends-list-ul" class="max-h-36 overflow-y-auto space-y-1 text-xs"></ul>
+            </div>
+
+            <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-xl font-bold interactive uppercase tracking-widest mt-2 ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">Start game</button>
             
             <div class="pt-2 border-t border-slate-700">
                 <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300">Secret Modes</button>
@@ -217,6 +397,7 @@
                 </ul>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">Enter these in the "Secret Modes" box.</p>
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
+                <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/explode</span> <span class="font-mono text-amber-400/90">/destroy</span> · <span class="font-mono text-amber-400/90">/kill</span> · <span class="font-mono text-amber-400/90">/teleport all</span></p>
             </div>
         </div>
     </div>
@@ -228,6 +409,11 @@
     </div>
 
     <div id="ui-layer">
+        <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto">
+            <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer</div>
+            <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
+            <div id="session-player-count" class="text-[9px] text-cyan-300 font-bold"></div>
+        </div>
         <div id="school-safe-badge" class="hidden fixed top-3 right-3 z-[1200] pointer-events-none text-[9px] font-bold uppercase tracking-widest text-emerald-200/90 bg-emerald-950/90 border border-emerald-600/50 px-2 py-1 rounded-md shadow-lg" title="School-safe mode is on (scaffold)">School mode</div>
         <!-- Shared HUD -->
         <div class="flex justify-between items-start bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit mt-4">
@@ -332,6 +518,13 @@
             Message
         </div>
 
+        <button type="button" id="in-game-phone-btn" class="interactive" title="Smartphone" aria-label="Open smartphone">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="2" width="12" height="20" rx="2"/>
+                <path d="M12 18h.01"/>
+            </svg>
+        </button>
+
         <!-- GOD PANEL UI (GODLY code or admin PIN) -->
         <div id="god-panel-btn" class="hidden fixed top-4 right-4 bg-yellow-500 text-black font-black px-4 py-2 rounded-lg interactive z-[300] shadow-[0_0_15px_rgba(234,179,8,0.8)] border-2 border-white cursor-pointer">
             GOD MODE
@@ -367,6 +560,151 @@
         <button onclick="window.restartGame()" class="btn bg-blue-500 text-white px-12 py-4 rounded-lg text-xl interactive mx-auto block">RESTART</button>
     </div>
 
+    <div id="smartphone-overlay" class="interactive">
+        <div class="phone-bezel relative">
+            <div class="phone-notch"><span id="phone-clock">12:00</span></div>
+            <div id="phone-view-home" class="phone-body-scroll flex flex-col bg-gradient-to-b from-slate-900 to-slate-950">
+                <div class="p-3 border-b border-slate-800">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">PixelPhone</p>
+                    <p class="text-lg font-black text-white">Apps</p>
+                </div>
+                <div class="grid grid-cols-4 gap-3 p-4">
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="messages">
+                        <span class="w-12 h-12 rounded-2xl bg-green-600 flex items-center justify-center text-xl">💬</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Messages</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="store">
+                        <span class="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center text-xl">🛒</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Store</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="vidking">
+                        <span class="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-xl">▶</span>
+                        <span class="text-[9px] text-slate-300 font-bold">VidKing</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="calc">
+                        <span class="w-12 h-12 rounded-2xl bg-amber-600 flex items-center justify-center text-xl font-black text-white">+</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Calc</span>
+                    </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="web">
+                        <span class="w-12 h-12 rounded-2xl bg-sky-600 flex items-center justify-center text-xl">🌐</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Web</span>
+                    </button>
+                </div>
+                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web opens in a new tab (URL or Google safe search). VidKing: curated videos.</p>
+            </div>
+            <div id="phone-view-messages" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
+                <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Messages</span>
+                </div>
+                <div id="phone-chat-log" class="flex-1 overflow-y-auto p-2 space-y-2 text-sm min-h-[200px]"></div>
+                <div class="p-2 border-t border-slate-800 flex gap-2 bg-slate-900">
+                    <input type="text" id="phone-chat-input" placeholder="Message… /help if admin" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-base interactive">
+                    <button type="button" id="phone-chat-send" class="bg-green-600 text-white px-3 rounded-lg font-bold text-sm interactive">Send</button>
+                </div>
+            </div>
+            <div id="phone-view-store" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
+                <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">App Store</span>
+                </div>
+                <div class="p-3 space-y-2">
+                    <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="cosmic">
+                        <div class="font-bold text-white">Cosmic Clicker</div>
+                        <div class="text-[10px] text-slate-400">Tap stars • buy upgrades</div>
+                    </button>
+                    <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="zombie">
+                        <div class="font-bold text-white">Zombie Dash</div>
+                        <div class="text-[10px] text-slate-400">Swipe lanes • survive</div>
+                    </button>
+                    <button type="button" class="phone-open-game w-full text-left bg-slate-800 border border-slate-600 rounded-xl p-3 interactive" data-game="pixel">
+                        <div class="font-bold text-white">Pixel Jump</div>
+                        <div class="text-[10px] text-slate-400">Tap to hop obstacles</div>
+                    </button>
+                </div>
+            </div>
+            <div id="phone-view-vidking" class="hidden flex flex-col bg-black h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">VidKing</span>
+                </div>
+                <div class="flex-1 flex flex-col min-h-0 p-2">
+                    <select id="vidking-picker" class="bg-slate-800 text-white text-xs rounded-lg p-2 mb-2 interactive"></select>
+                    <div class="phone-iframe-wrap flex-1 rounded-lg overflow-hidden">
+                        <iframe id="vidking-frame" title="VidKing video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+            <div id="phone-view-calc" class="phone-body-scroll hidden flex flex-col bg-slate-950 p-3 h-full">
+                <div class="flex items-center gap-2 mb-3">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Calculator</span>
+                </div>
+                <div id="calc-display" class="bg-slate-800 text-right text-2xl font-mono text-white p-4 rounded-xl mb-2 min-h-[3rem]">0</div>
+                <div class="grid grid-cols-4 gap-2 flex-1">
+                    <button type="button" class="calc-btn interactive" data-c="C">C</button>
+                    <button type="button" class="calc-btn interactive" data-c="(">(</button>
+                    <button type="button" class="calc-btn interactive" data-c=")">)</button>
+                    <button type="button" class="calc-btn op interactive" data-c="/">÷</button>
+                    <button type="button" class="calc-btn interactive" data-c="7">7</button>
+                    <button type="button" class="calc-btn interactive" data-c="8">8</button>
+                    <button type="button" class="calc-btn interactive" data-c="9">9</button>
+                    <button type="button" class="calc-btn op interactive" data-c="*">×</button>
+                    <button type="button" class="calc-btn interactive" data-c="4">4</button>
+                    <button type="button" class="calc-btn interactive" data-c="5">5</button>
+                    <button type="button" class="calc-btn interactive" data-c="6">6</button>
+                    <button type="button" class="calc-btn op interactive" data-c="-">−</button>
+                    <button type="button" class="calc-btn interactive" data-c="1">1</button>
+                    <button type="button" class="calc-btn interactive" data-c="2">2</button>
+                    <button type="button" class="calc-btn interactive" data-c="3">3</button>
+                    <button type="button" class="calc-btn op interactive" data-c="+">+</button>
+                    <button type="button" class="calc-btn interactive col-span-2" data-c="0">0</button>
+                    <button type="button" class="calc-btn interactive" data-c=".">.</button>
+                    <button type="button" class="calc-btn eq interactive" data-c="=">=</button>
+                </div>
+            </div>
+            <div id="phone-view-web" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0 flex-wrap">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Web</span>
+                </div>
+                <p class="text-[9px] text-amber-400/90 px-2 py-1 bg-amber-950/30">Opens in a <span class="text-white font-bold">new tab</span>. Type a <span class="text-white">URL</span> or <span class="text-white">search</span> (Google, safe search on).</p>
+                <div class="flex gap-1 p-2 shrink-0">
+                    <input type="search" id="phone-web-search" placeholder="URL or search…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive">
+                    <button type="button" id="phone-web-go" class="bg-sky-600 text-white px-3 rounded-lg font-bold text-xs interactive">Go</button>
+                </div>
+                <div class="flex-1 min-h-[200px] flex flex-col items-center justify-center p-4 text-center bg-slate-900/80 m-2 rounded-xl border border-slate-700">
+                    <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> to open the web in your browser.</p>
+                    <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open start page</button>
+                </div>
+            </div>
+            <div id="phone-view-game" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" id="phone-game-close" class="text-cyan-400 text-sm font-bold interactive px-2">← Store</button>
+                    <span id="phone-game-title" class="text-white font-bold text-sm">Game</span>
+                </div>
+                <div id="mini-game-cosmic" class="hidden flex-1 flex flex-col items-center justify-center p-4 text-center">
+                    <p class="text-cyan-400 font-black text-xl mb-2">Cosmic Clicker</p>
+                    <p id="cosmic-count" class="text-4xl font-black text-white mb-2">0</p>
+                    <p id="cosmic-rate" class="text-xs text-slate-400 mb-4">per second: 0</p>
+                    <button type="button" id="cosmic-tap" class="bg-indigo-600 text-white text-lg font-black px-8 py-6 rounded-2xl interactive mb-4">TAP</button>
+                    <button type="button" id="cosmic-buy" class="bg-violet-700 text-white text-sm font-bold px-4 py-2 rounded-lg interactive">Buy +1/s (cost <span id="cosmic-cost">10</span>)</button>
+                </div>
+                <div id="mini-game-zombie" class="hidden flex-1 flex flex-col p-2 relative bg-slate-900">
+                    <p class="text-center text-xs text-slate-400 mb-1">Tap left / right side to switch lane</p>
+                    <p class="text-center font-mono text-green-400 mb-2">Score: <span id="zombie-score">0</span></p>
+                    <canvas id="zombie-canvas" width="300" height="360" class="mx-auto rounded-lg bg-slate-800 max-w-full interactive"></canvas>
+                </div>
+                <div id="mini-game-pixel" class="hidden flex-1 flex flex-col p-2 bg-slate-900">
+                    <p class="text-center text-xs text-slate-400 mb-1">Tap / Space to jump</p>
+                    <p class="text-center font-mono text-amber-400 mb-2">Score: <span id="pixel-score">0</span></p>
+                    <canvas id="pixel-canvas" width="300" height="320" class="mx-auto rounded-lg bg-sky-950 max-w-full interactive"></canvas>
+                </div>
+            </div>
+        </div>
+        <button type="button" id="smartphone-close-x" class="absolute top-3 right-3 text-white/80 text-2xl font-light interactive w-10 h-10" aria-label="Close phone">×</button>
+    </div>
+
     <div id="victory-overlay">
         <h1 class="text-6xl font-black text-yellow-500 mb-2 text-center uppercase italic">President</h1>
         <div class="bg-slate-900/90 border border-purple-500 p-6 rounded-xl mb-6 mx-auto max-w-sm text-center">
@@ -392,18 +730,92 @@
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block w-64 rounded-lg">NEW RUN</button>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <div id="orb-hunt-modal" class="fixed inset-0 bg-black/85 hidden flex-col items-center justify-center z-[500] interactive text-white p-6">
+        <div class="bg-slate-900 border-2 border-cyan-500 rounded-2xl p-6 max-w-md shadow-[0_0_30px_rgba(34,211,238,0.4)]">
+            <h2 class="text-2xl font-black text-cyan-400 text-center mb-3 uppercase tracking-widest">The Orb</h2>
+            <p id="orb-hunt-instructions" class="text-sm text-slate-200 leading-relaxed text-center mb-4"></p>
+            <p class="text-xs text-slate-400 text-center mb-4">The orb sits where your <span class="text-white font-bold">safe house</span> used to be. Walk through the ruins to reach it.</p>
+            <button type="button" id="orb-hunt-dismiss" class="w-full bg-cyan-600 hover:bg-cyan-500 py-3 rounded-lg font-black interactive">GOT IT</button>
+        </div>
+    </div>
 
-        // CONFIG
-        /** Real $1 USD: create a Stripe Payment Link for $1 and set success URL to this site with ?access=paid */
-        const STRIPE_PAYMENT_LINK_URL = '';
-        const LS_ACCESS_PAID = 'pixelCityAccessPaid';
-        const SS_PENDING_NAME = 'pixelCitySignInName';
-        const BYPASS_SIGNIN_NAME = '4789';
-        /** Persisted when toggled via URL; read on load. */
+    <div id="orb-win-overlay" class="fixed inset-0 bg-black/95 hidden flex-col items-center justify-center z-[550] interactive text-white p-6">
+        <h1 id="orb-win-title" class="text-5xl md:text-6xl font-black text-cyan-400 mb-2 text-center uppercase">You found it!</h1>
+        <p id="orb-win-sub" class="text-slate-300 text-center mb-8 max-w-sm"></p>
+        <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
+    </div>
+
+    <button type="button" id="owner-dashboard-fab" class="interactive" title="Owner dashboard" aria-label="Open owner dashboard">📊</button>
+
+    <div id="owner-dashboard-overlay" class="interactive text-white">
+        <div class="w-full max-w-lg bg-slate-900 border-2 border-violet-500 rounded-2xl shadow-2xl p-4 mt-4 mb-8">
+            <div class="flex items-center justify-between gap-2 mb-4">
+                <h2 class="text-lg font-black text-violet-300 uppercase tracking-widest">Owner dashboard</h2>
+                <button type="button" id="owner-dashboard-close" class="text-slate-400 hover:text-white text-2xl leading-none px-2">×</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3 text-center">
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Users</div>
+                    <div id="dash-stat-users" class="text-2xl font-black text-white">—</div>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Active 24h</div>
+                    <div id="dash-stat-active" class="text-2xl font-black text-emerald-400">—</div>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Sessions</div>
+                    <div id="dash-stat-sessions" class="text-2xl font-black text-cyan-400">—</div>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <div class="text-[9px] text-slate-500 uppercase font-bold">Sessions 7d</div>
+                    <div id="dash-stat-sessions7" class="text-2xl font-black text-amber-400">—</div>
+                </div>
+                <div class="col-span-2 bg-violet-950/90 rounded-lg p-4 border border-violet-500/60">
+                    <div class="text-[9px] text-violet-300 uppercase font-bold tracking-widest">Online right now</div>
+                    <div id="dash-stat-online-now" class="text-4xl font-black text-violet-100 leading-tight">—</div>
+                    <p class="text-[8px] text-slate-500 mt-1">Users with a heartbeat in the last <span class="text-slate-400">90 seconds</span> (game pings ~every 25s while signed in).</p>
+                </div>
+            </div>
+            <p class="text-[9px] text-slate-500 text-center mb-2">Friend edges: <span id="dash-stat-friends" class="text-slate-300 font-bold">—</span> · Updated <span id="dash-stat-time" class="text-slate-400">—</span></p>
+            <p id="dash-stat-err" class="text-[10px] text-red-400 text-center min-h-[1rem] mb-4"></p>
+            <button type="button" id="owner-dashboard-refresh" class="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg font-bold text-sm mb-6">Refresh analytics</button>
+
+            <div class="border-t border-slate-700 pt-4 flex gap-3 items-start">
+                <div class="pixel-bot-face shrink-0" aria-hidden="true">
+                    <span></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span></span>
+                    <span class="p-skin"></span><span class="p-skin"></span><span class="p-eye p-on"></span><span class="p-skin"></span><span class="p-eye p-on"></span><span class="p-skin"></span>
+                    <span class="p-skin"></span><span class="p-blush"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-blush"></span>
+                    <span class="p-skin"></span><span class="p-skin"></span><span></span><span class="p-on"></span><span></span><span class="p-skin"></span>
+                    <span></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span></span>
+                    <span></span><span></span><span class="p-skin"></span><span class="p-skin"></span><span></span><span></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-1">Assistant</p>
+                    <ul id="dash-assistant-tips" class="text-[11px] text-slate-300 space-y-2 leading-snug list-disc pl-4"></ul>
+                </div>
+            </div>
+            <p class="text-[9px] text-slate-600 text-center mt-4">Username <span class="font-mono text-violet-400">thomas</span> is reserved — run SQL in README migration <span class="font-mono">003</span> to create your account.</p>
+        </div>
+    </div>
+
+    <!-- Supabase: CI reads VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY (GitHub secrets) → window.__SUPABASE_* Never commit secrets. -->
+    <script src="vendor/supabase.min.js"></script>
+    <script type="module">
+        const { createClient } = window.supabase || {};
+        if (typeof createClient !== 'function') {
+            console.error('Pixel City: vendor/supabase.min.js failed to load.');
+        }
+
+        const LS_FRIENDS = 'pixelCityFriends';
+        const LS_LAST_USER = 'pixelCityLastUser';
+        const LS_SESSION = 'pixelCitySession';
+        const ONLINE_BROADCAST_MS = 120;
+        const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
+        const JAIL_FRAMES_PER_SEC = 60;
+        const jailFramesPolice = () => (35 + Math.floor(Math.random() * 26)) * JAIL_FRAMES_PER_SEC;
+        const JAIL_FRAMES_SLASH_CMD = 30 * JAIL_FRAMES_PER_SEC;
+        /** Persisted when toggled via ?schoolSafe= / ?school= or build flag; read on load. */
         const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
 
         const GRID_SIZE = 500;
@@ -417,6 +829,14 @@
             { id: 'porsche', name: 'Porsche 911', price: 10000, topSpeed: 75, accel: 2.0, color: '#475569' },
             { id: 'lambo', name: 'Aventador LAMBO', price: 100000, topSpeed: 150, accel: 4.0, color: '#fbbf24' }
         ];
+
+        function fastLamboTypeForNuke() {
+            return { id: 'lambo', name: 'Aventador LAMBO', price: 0, topSpeed: 220, accel: 5.0, color: '#fbbf24' };
+        }
+
+        function fastLamboTypeExplode() {
+            return { id: 'lambo', name: 'Aventador LAMBO', price: 0, topSpeed: 260, accel: 6.0, color: '#fbbf24' };
+        }
 
         let savedWins = parseInt(localStorage.getItem('pixelCityWins') || '0');
 
@@ -446,7 +866,18 @@
             policeDelay: 0,
             activeSecrets: [],
             winCount: savedWins,
-            playerName: ''
+            playerName: '',
+            profileUsername: '',
+            supabaseUserId: null,
+            playMode: 'solo',
+            worldSeed: null,
+            onlineSessionCode: null,
+            isOnlineHost: false,
+            remotePlayers: {},
+            cityNuked: false,
+            orbHuntActive: false,
+            orbCollected: false,
+            orb: null
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -494,17 +925,24 @@
             if (lobbyTag) lobbyTag.classList.toggle('hidden', !state.schoolSafe);
         }
 
+        let supabase = null;
+        let supabaseRealtimeChannel = null;
+        let lastOnlineBroadcast = 0;
+        let pendingJoinCodeFromUrl = null;
+        let onlineRealtimeReady = false;
+
+        const ORB_PICKUP_RADIUS = 38;
+        const ORB_VISUAL_RADIUS = 22;
+
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
-        }
-
-        function hasPaidAccess() {
-            return localStorage.getItem(LS_ACCESS_PAID) === '1';
         }
 
         function showLobbyFromSignIn() {
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
+            setInGamePhoneVisible(false);
+            updateOwnerDashboardFabVisibility();
         }
 
         function isSignInScreenVisible() {
@@ -521,29 +959,577 @@
             return !isSignInScreenVisible() && !isLobbyScreenVisible();
         }
 
-        function handlePaymentReturnUrl() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('access') !== 'paid') return;
-            localStorage.setItem(LS_ACCESS_PAID, '1');
-            const pending = sessionStorage.getItem(SS_PENDING_NAME);
-            sessionStorage.removeItem(SS_PENDING_NAME);
-            params.delete('access');
-            const q = params.toString();
-            const path = window.location.pathname + (q ? '?' + q : '') + window.location.hash;
-            history.replaceState({}, '', path);
-            const msgEl = document.getElementById('sign-in-msg');
-            if (pending) {
-                state.playerName = pending;
-                const input = document.getElementById('player-name-input');
-                if (input) input.value = pending;
-                if (msgEl) msgEl.textContent = '';
-                showLobbyFromSignIn();
-            } else if (msgEl) {
-                msgEl.textContent = 'Payment received. Enter your name and tap Continue.';
+        function getSupabaseConfig() {
+            const url = typeof window.__SUPABASE_URL__ === 'string' ? window.__SUPABASE_URL__.trim() : '';
+            const keyPub = typeof window.__SUPABASE_PUBLISHABLE_KEY__ === 'string' ? window.__SUPABASE_PUBLISHABLE_KEY__.trim() : '';
+            const keyLegacy = typeof window.__SUPABASE_ANON_KEY__ === 'string' ? window.__SUPABASE_ANON_KEY__.trim() : '';
+            const key = keyPub || keyLegacy;
+            return { url, key, ok: !!(url && key) };
+        }
+
+        function normalizeUsername(s) {
+            return (s || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 32);
+        }
+
+        const OWNER_DASHBOARD_USERNAME = 'thomas';
+
+        function isOwnerDashboardUser() {
+            return !!(state.supabaseUserId && normalizeUsername(state.profileUsername) === OWNER_DASHBOARD_USERNAME);
+        }
+
+        function updateOwnerDashboardFabVisibility() {
+            const fab = document.getElementById('owner-dashboard-fab');
+            if (!fab) return;
+            fab.style.display = isOwnerDashboardUser() ? 'flex' : 'none';
+        }
+
+        const ASSISTANT_TIPS = [
+            '“Online right now” uses last_seen within 90s — run SQL migration 004 if it stays blank.',
+            'If sign-in says “not configured”, check GitHub Actions secrets (not Codespaces) and redeploy Pages.',
+            'Multiplayer needs *.supabase.co allowlisted on school Wi‑Fi.',
+            'Run migration 003 in Supabase SQL Editor for admin analytics RPC + reserved username thomas.',
+            'If Realtime friends vanish, try PixelPhone → /connect or re-host the session code.',
+            'Publishable key sb_publishable_… is preferred over legacy anon JWT in GitHub secrets.',
+            'Custom domain must serve the full deploy (or index.html with injected keys), not an old copy.',
+            'If jail timer looks wrong, hard refresh — jail uses ~60 frames per second.',
+            'Orb hunt only after nuke; if stuck, NEW RUN from victory or orb overlay.'
+        ];
+
+        function renderAssistantTips() {
+            const ul = document.getElementById('dash-assistant-tips');
+            if (!ul) return;
+            ul.innerHTML = '';
+            ASSISTANT_TIPS.forEach(tip => {
+                const li = document.createElement('li');
+                li.textContent = tip;
+                ul.appendChild(li);
+            });
+        }
+
+        async function refreshOwnerDashboardAnalytics() {
+            const errEl = document.getElementById('dash-stat-err');
+            if (errEl) errEl.textContent = '';
+            if (!supabase || !state.supabaseUserId) {
+                if (errEl) errEl.textContent = 'Sign in required.';
+                return;
+            }
+            const { data, error } = await supabase.rpc('admin_dashboard_snapshot', { p_user_id: state.supabaseUserId });
+            if (error) {
+                if (errEl) errEl.textContent = error.message || 'RPC failed — run migration 003 in Supabase?';
+                return;
+            }
+            if (!data || !data.ok) {
+                if (errEl) errEl.textContent = (data && data.error) ? String(data.error) : 'Forbidden';
+                return;
+            }
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v != null ? String(v) : '—'; };
+            set('dash-stat-users', data.users_total);
+            set('dash-stat-active', data.users_seen_24h);
+            set('dash-stat-sessions', data.game_sessions_total);
+            set('dash-stat-sessions7', data.game_sessions_active_7d);
+            set('dash-stat-online-now', data.users_online_now != null ? data.users_online_now : '—');
+            set('dash-stat-friends', data.friends_edges_total);
+            set('dash-stat-time', data.generated_at || '—');
+        }
+
+        function openOwnerDashboard() {
+            if (!isOwnerDashboardUser()) return;
+            const ov = document.getElementById('owner-dashboard-overlay');
+            if (!ov) return;
+            ov.classList.add('open');
+            renderAssistantTips();
+            void refreshOwnerDashboardAnalytics();
+        }
+
+        function closeOwnerDashboard() {
+            document.getElementById('owner-dashboard-overlay')?.classList.remove('open');
+        }
+
+        function loadLocalFriends() {
+            try {
+                const raw = localStorage.getItem(LS_FRIENDS);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr.filter(x => typeof x === 'string') : [];
+            } catch { return []; }
+        }
+
+        function saveLocalFriends(list) {
+            localStorage.setItem(LS_FRIENDS, JSON.stringify([...new Set(list)]));
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        const friendOnlineStatus = {};
+
+        function mulberry32(a) {
+            return function () {
+                let t = (a += 0x6d2b79f5);
+                t = Math.imul(t ^ (t >>> 15), t | 1);
+                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function hashWorldSeed(s) {
+            const str = String(s);
+            let h = 2166136261 >>> 0;
+            for (let i = 0; i < str.length; i++) {
+                h ^= str.charCodeAt(i);
+                h = Math.imul(h, 16777619) >>> 0;
+            }
+            return h;
+        }
+
+        function rngForWorld() {
+            const s = state.worldSeed;
+            let hi;
+            if (s != null && s !== '') hi = hashWorldSeed(s);
+            else hi = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+            return mulberry32(hi);
+        }
+
+        function generateCity() {
+            const rnd = rngForWorld();
+            state.buildings = [];
+            for (let x = 0; x < WORLD_SIZE; x += GRID_SIZE) {
+                for (let y = 0; y < WORLD_SIZE; y += GRID_SIZE) {
+                    let type = 'house', color = COLORS[Math.floor(rnd() * COLORS.length)];
+                    if (x === 2000 && y === 2000) { type = 'home'; color = '#000'; }
+                    else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }
+                    else if (x === 500 && y === 500) { type = 'jail'; color = '#475569'; }
+                    else if (x === 500 && y === 3500) { type = 'dealership'; color = '#3b82f6'; }
+                    else if (rnd() > 0.85) { type = 'store'; color = '#10b981'; }
+                    state.buildings.push({ x: x + 100, y: y + 100, w: 300, h: 300, type, color });
+                }
             }
         }
 
-        let auth, db;
+        async function fetchCloudFriendnames() {
+            if (!supabase || !state.supabaseUserId) return [];
+            const { data: rows, error } = await supabase.from('friends').select('friend_id').eq('user_id', state.supabaseUserId);
+            if (error || !rows || rows.length === 0) return [];
+            const ids = rows.map(r => r.friend_id);
+            const { data: profs } = await supabase.from('users').select('username').in('id', ids);
+            return (profs || []).map(p => p.username).filter(Boolean);
+        }
+
+        async function getMergedFriendnames() {
+            const local = loadLocalFriends();
+            if (!supabase || !state.supabaseUserId) return local;
+            const cloud = await fetchCloudFriendnames();
+            return [...new Set([...cloud, ...local])];
+        }
+
+        async function updateFriendsListUIAsync() {
+            const ul = document.getElementById('friends-list-ul');
+            if (!ul) return;
+            ul.innerHTML = '';
+            const friends = await getMergedFriendnames();
+            if (friends.length === 0) {
+                ul.innerHTML = '<li class="text-slate-500 text-center py-2">No friends yet</li>';
+                return;
+            }
+            await refreshFriendPresence();
+            friends.forEach(name => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between gap-2 bg-slate-900/80 px-2 py-1.5 rounded border border-slate-700';
+                const online = friendOnlineStatus[name];
+                const dot = online ? '🟢' : '⚪';
+                li.innerHTML = `<span class="text-slate-200">${dot} ${escapeHtml(name)}</span><div class="flex gap-1 shrink-0"></div>`;
+                const wrap = li.querySelector('div');
+                if (state.playMode === 'online' && supabase && state.supabaseUserId) {
+                    const j = document.createElement('button');
+                    j.type = 'button';
+                    j.className = 'text-[10px] bg-cyan-800 hover:bg-cyan-700 px-2 py-0.5 rounded font-bold interactive';
+                    j.textContent = 'Join';
+                    j.onclick = () => startOnlineWithFriend(name);
+                    wrap.appendChild(j);
+                }
+                const rm = document.createElement('button');
+                rm.type = 'button';
+                rm.className = 'text-[10px] text-red-400 hover:text-red-300 interactive';
+                rm.textContent = '✕';
+                rm.onclick = async () => {
+                    saveLocalFriends(loadLocalFriends().filter(f => f !== name));
+                    if (supabase && state.supabaseUserId) {
+                        await supabase.rpc('remove_friend', { p_user_id: state.supabaseUserId, p_friend_username: name });
+                    }
+                    delete friendOnlineStatus[name];
+                    updateFriendsListUIAsync();
+                };
+                wrap.appendChild(rm);
+                ul.appendChild(li);
+            });
+        }
+
+        function updateFriendsListUI() {
+            updateFriendsListUIAsync();
+        }
+
+        async function refreshFriendPresence() {
+            if (!supabase || !state.supabaseUserId) return;
+            const friends = await getMergedFriendnames();
+            friends.forEach(un => { friendOnlineStatus[un] = false; });
+            if (friends.length === 0) return;
+            const { data, error } = await supabase
+                .from('users')
+                .select('username, last_seen')
+                .in('username', friends);
+            if (error || !data) return;
+            const now = Date.now();
+            data.forEach(row => {
+                const un = row.username;
+                const seen = row.last_seen ? new Date(row.last_seen).getTime() : 0;
+                friendOnlineStatus[un] = now - seen < 90000;
+            });
+        }
+
+        let presenceInterval = null;
+
+        async function upsertMyPresence() {
+            if (!supabase || !state.supabaseUserId) return;
+            await supabase.rpc('user_heartbeat', { p_user_id: state.supabaseUserId });
+        }
+
+        async function addFriendByUsername(raw) {
+            const un = normalizeUsername(raw);
+            const msg = document.getElementById('friend-add-msg');
+            if (!un || un.length < 2) {
+                if (msg) msg.textContent = 'Enter a valid username.';
+                return;
+            }
+            if (state.profileUsername && un === state.profileUsername) {
+                if (msg) msg.textContent = "You can't add yourself.";
+                return;
+            }
+            if (supabase && state.supabaseUserId) {
+                const { data, error } = await supabase.rpc('add_friend_by_username', { p_user_id: state.supabaseUserId, p_target_username: un });
+                if (error) {
+                    if (msg) msg.textContent = error.message || 'Could not add friend.';
+                    return;
+                }
+                if (data && !data.ok) {
+                    if (msg) msg.textContent = data.error || 'Could not add friend.';
+                    return;
+                }
+                if (msg) msg.textContent = 'Friend added.';
+            } else {
+                const list = loadLocalFriends();
+                if (!list.includes(un)) list.push(un);
+                saveLocalFriends(list);
+                if (msg) msg.textContent = 'Saved locally (sign in to sync).';
+            }
+            document.getElementById('friend-add-input').value = '';
+            updateFriendsListUIAsync();
+        }
+
+        function teardownOnlineRealtime() {
+            onlineRealtimeReady = false;
+            if (supabaseRealtimeChannel && supabase) {
+                supabase.removeChannel(supabaseRealtimeChannel);
+                supabaseRealtimeChannel = null;
+            }
+            state.remotePlayers = {};
+            state.onlineSessionCode = null;
+            state.isOnlineHost = false;
+            const badge = document.getElementById('session-code-badge');
+            if (badge) badge.classList.add('hidden');
+            const invite = document.getElementById('online-invite-block');
+            if (invite) invite.classList.add('hidden');
+        }
+
+        function disconnectRealtimeOnly() {
+            onlineRealtimeReady = false;
+            if (supabaseRealtimeChannel && supabase) {
+                supabase.removeChannel(supabaseRealtimeChannel);
+                supabaseRealtimeChannel = null;
+            }
+            state.remotePlayers = {};
+        }
+
+        function applyExplodeDestroyWorld(opts) {
+            const fromNet = opts && opts.fromNetwork;
+            state.buildings = [];
+            state.police = [];
+            state.civilians = [];
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            state.orb = null;
+            state.orbHuntActive = false;
+            state.orbCollected = false;
+            state.cityNuked = true;
+            if (state.isJailed) {
+                state.isJailed = false;
+                state.jailTime = 0;
+                const jo = document.getElementById('jail-overlay');
+                if (jo) jo.style.display = 'none';
+            }
+            window.closePlayerModal(0);
+            if (state.players[1]) window.closePlayerModal(1);
+            state.vehicles = [];
+            const t = fastLamboTypeExplode();
+            state.players.forEach((p, i) => {
+                if (!p) return;
+                if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; }
+                const typeCopy = JSON.parse(JSON.stringify(t));
+                const v = {
+                    x: 2000 + i * 140,
+                    y: 2150,
+                    angle: 0,
+                    speed: 0,
+                    type: typeCopy,
+                    occupied: true
+                };
+                state.vehicles.push(v);
+                p.inVehicle = v;
+                p.x = v.x;
+                p.y = v.y;
+                p.angle = v.angle;
+            });
+            if (!fromNet) {
+                const flash = document.getElementById('nuke-flash');
+                if (flash) {
+                    flash.style.display = 'block';
+                    flash.style.opacity = '0.85';
+                    setTimeout(() => { flash.style.display = 'none'; }, 400);
+                }
+            }
+            showMessage(fromNet ? 'WORLD OBLITERATED (admin).' : 'WORLD OBLITERATED.');
+        }
+
+        function putPlayerInJail(frames, releaseMsg) {
+            const jail = state.buildings.find(b => b.type === 'jail');
+            state.isJailed = true;
+            state.jailTime = Math.max(1, Math.floor(frames));
+            state.police = [];
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            window.closePlayerModal(0);
+            if (state.players[1]) window.closePlayerModal(1);
+            state.players.forEach((p, i) => {
+                if (!p) return;
+                if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; }
+                p.speed = 0;
+                if (jail) { p.x = jail.x + jail.w / 2 + (i * 20); p.y = jail.y + jail.h / 2; }
+                else { p.x = 2000 + i * 30; p.y = 2200; }
+            });
+            const el = document.getElementById('jail-timer');
+            if (el) el.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
+            const bailBtn = document.getElementById('pay-bail-btn');
+            if (bailBtn) bailBtn.innerText = `Pay Bail ($${state.bailPrice})`;
+            document.getElementById('jail-overlay').style.display = 'flex';
+            if (releaseMsg) showMessage(releaseMsg);
+        }
+
+        function subscribeToSessionChannel(code) {
+            return subscribeToSessionChannelAsync(code);
+        }
+
+        function subscribeToSessionChannelAsync(code) {
+            if (!supabase || !code) return Promise.resolve();
+            disconnectRealtimeOnly();
+            const topic = `pixel-city-${code}`;
+            const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
+            ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
+                if (!payload || payload.uid === state.supabaseUserId) return;
+                state.remotePlayers[payload.uid] = {
+                    x: payload.x, y: payload.y, angle: payload.angle || 0,
+                    inVehicle: !!payload.inVehicle,
+                    username: payload.u || 'Friend',
+                    lastSeen: performance.now()
+                };
+            });
+            ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
+                if (payload && payload.uid) delete state.remotePlayers[payload.uid];
+            });
+            ch.on('broadcast', { event: 'admin_cmd' }, ({ payload }) => {
+                if (!payload || !payload.kind) return;
+                const myId = state.supabaseUserId;
+                const myName = normalizeUsername(state.profileUsername || state.playerName || '');
+                if (payload.kind === 'jail_all') {
+                    if (myId && payload.exceptUid !== myId) putPlayerInJail(JAIL_FRAMES_SLASH_CMD, 'Remote admin jailed you.');
+                    return;
+                }
+                if (payload.kind === 'jail_user' && payload.targetUsername) {
+                    if (myName && myName === normalizeUsername(payload.targetUsername))
+                        putPlayerInJail(JAIL_FRAMES_SLASH_CMD, 'Remote admin jailed you.');
+                    return;
+                }
+                if (payload.kind === 'tp_all' && payload.exceptUid !== myId && state.players[0]) {
+                    state.players[0].x = Number(payload.x) || state.players[0].x;
+                    state.players[0].y = Number(payload.y) || state.players[0].y;
+                    if (state.players[0].inVehicle) {
+                        state.players[0].inVehicle.x = state.players[0].x;
+                        state.players[0].inVehicle.y = state.players[0].y;
+                    }
+                    showMessage('Teleported to admin.');
+                    return;
+                }
+                if (payload.kind === 'world_obliterate') {
+                    applyExplodeDestroyWorld({ fromNetwork: true });
+                }
+            });
+            supabaseRealtimeChannel = ch;
+            return new Promise((resolve) => {
+                ch.subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        onlineRealtimeReady = true;
+                        resolve();
+                    }
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') resolve();
+                });
+            });
+        }
+
+        function buildJoinInviteUrl(code) {
+            try {
+                const u = new URL(window.location.href);
+                u.searchParams.set('join', code);
+                return u.toString();
+            } catch {
+                return `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(code)}`;
+            }
+        }
+
+        function updateOnlineInviteUI(code) {
+            const block = document.getElementById('online-invite-block');
+            const a = document.getElementById('online-invite-link');
+            if (!block || !a) return;
+            if (!code || !state.isOnlineHost) {
+                block.classList.add('hidden');
+                return;
+            }
+            const href = buildJoinInviteUrl(code);
+            a.href = href;
+            a.textContent = href;
+            block.classList.remove('hidden');
+        }
+
+        function consumeJoinFromUrl() {
+            try {
+                const p = new URLSearchParams(window.location.search);
+                const raw = (p.get('join') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                if (raw.length >= 4) pendingJoinCodeFromUrl = raw;
+                if (p.has('join')) {
+                    p.delete('join');
+                    const q = p.toString();
+                    history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash);
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        async function tryApplyPendingJoinFromUrl() {
+            if (!pendingJoinCodeFromUrl || !supabase || !state.supabaseUserId) return;
+            const code = pendingJoinCodeFromUrl;
+            pendingJoinCodeFromUrl = null;
+            state.playMode = 'online';
+            state.playerMode = 1;
+            applyModeButtonStyles();
+            updateLobbyHints();
+            const inp = document.getElementById('online-join-code-input');
+            if (inp) inp.value = code;
+            await joinOnlineSession(code);
+        }
+
+        async function broadcastAdminCmd(payload) {
+            if (!onlineRealtimeReady || !supabaseRealtimeChannel) return false;
+            try {
+                await supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload });
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function broadcastMyPosition() {
+            if (!onlineRealtimeReady || !supabaseRealtimeChannel || !state.players[0] || !state.supabaseUserId) return;
+            const now = performance.now();
+            if (now - lastOnlineBroadcast < ONLINE_BROADCAST_MS) return;
+            lastOnlineBroadcast = now;
+            const p = state.players[0];
+            supabaseRealtimeChannel.send({
+                type: 'broadcast',
+                event: 'pos',
+                payload: {
+                    uid: state.supabaseUserId,
+                    u: state.profileUsername || state.playerName || 'player',
+                    x: p.x, y: p.y, angle: p.angle,
+                    inVehicle: !!p.inVehicle
+                }
+            });
+        }
+
+        async function hostOnlineSession() {
+            const el = document.getElementById('online-session-msg');
+            if (!supabase || !state.supabaseUserId) {
+                if (el) el.textContent = 'Sign in to host an online game.';
+                return;
+            }
+            const seed = Math.floor(Math.random() * 9007199254740990);
+            let code = '';
+            for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+            const { error } = await supabase.from('game_sessions').upsert({
+                code,
+                host_id: state.supabaseUserId,
+                world_seed: seed,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'code' });
+            if (error) {
+                if (el) el.textContent = error.message;
+                return;
+            }
+            state.onlineSessionCode = code;
+            state.isOnlineHost = true;
+            state.worldSeed = seed;
+            await subscribeToSessionChannelAsync(code);
+            if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
+            updateOnlineInviteUI(code);
+        }
+
+        async function joinOnlineSession(rawCode) {
+            const el = document.getElementById('online-session-msg');
+            const code = (rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+            if (!code) {
+                if (el) el.textContent = 'Enter a code.';
+                return;
+            }
+            if (!supabase) {
+                if (el) el.textContent = 'Supabase not configured.';
+                return;
+            }
+            const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id').eq('code', code).maybeSingle();
+            if (error || !data) {
+                if (el) el.textContent = 'Invalid or expired code.';
+                return;
+            }
+            state.onlineSessionCode = code;
+            state.isOnlineHost = data.host_id === state.supabaseUserId;
+            state.worldSeed = data.world_seed;
+            await subscribeToSessionChannelAsync(code);
+            if (el) el.textContent = `Joined ${code} — same map as host. Press Start game.`;
+            if (!state.isOnlineHost) {
+                const block = document.getElementById('online-invite-block');
+                if (block) block.classList.add('hidden');
+            }
+        }
+
+        async function startOnlineWithFriend(username) {
+            const un = normalizeUsername(username);
+            if (!supabase || !state.supabaseUserId) return;
+            const { data: row } = await supabase.from('users').select('id').eq('username', un).maybeSingle();
+            if (!row) return;
+            document.getElementById('mode-online').click();
+            const msg = document.getElementById('online-session-msg');
+            if (state.isOnlineHost && state.onlineSessionCode) {
+                if (msg) msg.textContent = `Tell ${un} to join code: ${state.onlineSessionCode}`;
+                return;
+            }
+            if (msg) msg.textContent = `Ask ${un} for their host code, then enter it above.`;
+        }
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const minimapCanvas = document.getElementById('minimapCanvas');
@@ -561,6 +1547,17 @@
         const lobbyWinsDisplay = document.getElementById('lobby-wins-display');
         
         const activeTouches = {};
+
+        const VIDKING_VIDEOS = [
+            { id: 'v1', title: 'NASA: Our Solar System (kids)', src: 'https://www.youtube-nocookie.com/embed/libKVRa01L8?rel=0&modestbranding=1' },
+            { id: 'v2', title: 'SciShow Kids: Why is the sky blue?', src: 'https://www.youtube-nocookie.com/embed/ojXN5C9T2W8?rel=0&modestbranding=1' },
+            { id: 'v3', title: 'National Geographic Kids: Animals', src: 'https://www.youtube-nocookie.com/embed/3QcuBOUoX8Q?rel=0&modestbranding=1' },
+            { id: 'v4', title: 'Numberblocks-style counting (PBS)', src: 'https://www.youtube-nocookie.com/embed/DR-cfDsHCGA?rel=0&modestbranding=1' }
+        ];
+
+        let phoneChatUnsub = null;
+        let zombieRaf = null;
+        let pixelRaf = null;
 
         // CORE HELPERS
         function dist(x1, y1, x2, y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
@@ -595,21 +1592,86 @@
             minimapCanvas.height = 140;
         }
 
+        function showOrbHuntIntro() {
+            const modal = document.getElementById('orb-hunt-modal');
+            const body = document.getElementById('orb-hunt-instructions');
+            if (!modal || !body) return;
+            if (state.playerMode === 2) {
+                body.textContent = 'The city is ash. A glowing Orb waits where your home stood. First player to walk into the Orb wins the hunt. Player 1: use E near the Orb. Player 2: use Shift near the Orb.';
+            } else if (state.playMode === 'online') {
+                body.textContent = 'The city is ash. The Orb is at the old safe house. First player (you or your online friend) to reach it and press E wins. Your friend appears as a magenta dot.';
+            } else {
+                body.textContent = 'The city is ash. A glowing Orb waits where your home used to be. Walk to the Orb and press E when you are close to claim it and win.';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function hideOrbHuntIntro() {
+            const modal = document.getElementById('orb-hunt-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function tryCollectOrb(pIdx) {
+            if (!state.orbHuntActive || state.orbCollected || !state.orb) return false;
+            const p = state.players[pIdx];
+            if (!p || p.inVehicle) return false;
+            if (dist(p.x, p.y, state.orb.x, state.orb.y) > ORB_PICKUP_RADIUS) return false;
+            state.orbCollected = true;
+            state.orbHuntActive = false;
+            state.isGameOver = true;
+            state.wantedLevel = 0;
+            state.police = [];
+            state.policeDelay = 0;
+            hideOrbHuntIntro();
+            const overlay = document.getElementById('orb-win-overlay');
+            const title = document.getElementById('orb-win-title');
+            const sub = document.getElementById('orb-win-sub');
+            if (overlay && title && sub) {
+                if (state.playerMode === 2) {
+                    title.textContent = pIdx === 0 ? 'Player 1 wins!' : 'Player 2 wins!';
+                    sub.textContent = 'Reached the Orb first.';
+                } else if (state.playMode === 'online') {
+                    title.textContent = 'You win!';
+                    sub.textContent = 'You reached the Orb first.';
+                } else {
+                    title.textContent = 'You win!';
+                    sub.textContent = 'You found the Orb.';
+                }
+                overlay.style.display = 'flex';
+            }
+            return true;
+        }
+
         window.dropNuke = () => {
             document.getElementById('victory-overlay').style.display = 'none';
             const flash = document.getElementById('nuke-flash');
             flash.style.display = 'block';
             flash.style.opacity = '1';
+
+            const home = state.buildings.find(b => b.type === 'home');
+            const cx = home ? home.x + home.w / 2 : 2150;
+            const cy = home ? home.y + home.h / 2 : 2150;
+            state.orb = { x: cx, y: cy };
             
             // Annihilate the City
             state.buildings.forEach(b => {
                 b.type = 'ruins';
                 b.color = '#1f2937'; // Dark slate/ash color
             });
-            state.vehicles = [];
             state.police = [];
             state.civilians = [];
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
             state.players.forEach(p => { if (p) p.inVehicle = null; });
+            const fastLambo = fastLamboTypeForNuke();
+            state.vehicles = [
+                { x: cx - 80, y: cy + 40, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false },
+                { x: cx + 80, y: cy + 40, angle: Math.PI, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false }
+            ];
+            state.cityNuked = true;
+            state.orbHuntActive = true;
+            state.orbCollected = false;
+            state.isGameOver = false;
             
             // Fade out the flash slowly
             let op = 1;
@@ -622,7 +1684,8 @@
                 }
             }, 50);
             
-            showMessage("CITY DESTROYED.");
+            showMessage("CITY DESTROYED. FIND THE ORB.");
+            showOrbHuntIntro();
         };
 
         window.restartGame = () => {
@@ -637,6 +1700,16 @@
             state.isGameOver = false;
             state.isJailed = false;
             state.jailTime = 0;
+            state.cityNuked = false;
+            state.orbHuntActive = false;
+            state.orbCollected = false;
+            state.orb = null;
+            state.remotePlayers = {};
+            if (state.playMode !== 'online') teardownOnlineRealtime();
+            else if (state.onlineSessionCode) void subscribeToSessionChannelAsync(state.onlineSessionCode);
+            hideOrbHuntIntro();
+            const orbWin = document.getElementById('orb-win-overlay');
+            if (orbWin) orbWin.style.display = 'none';
             
             // Reapply starting funds if admin/rich
             if (state.isAdmin || state.activeSecrets.includes('4789')) {
@@ -846,10 +1919,11 @@
         function handleInteraction(pIdx) {
             const p = state.players[pIdx];
             if (!p || p.isRobbing || state.isJailed) return;
+            if (tryCollectOrb(pIdx)) return;
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
             
             const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
-            if (bNear) {
+            if (bNear && bNear.type !== 'ruins') {
                 if (bNear.type === 'store') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
@@ -865,30 +1939,86 @@
             if (vNear && !vNear.occupied && !bNear) { p.inVehicle = vNear; vNear.occupied = true; p.x = vNear.x; p.y = vNear.y; }
         }
 
-        async function initAuthAndData() {
-            try {
-                if (typeof __firebase_config !== 'undefined') {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                    else await signInAnonymously(auth);
-                }
-            } catch(e) {
-                console.log("Firebase setup skipped or unavailable.");
+        async function loadMyProfile() {
+            if (!supabase || !state.supabaseUserId) return;
+            const { data, error } = await supabase.from('users').select('username').eq('id', state.supabaseUserId).maybeSingle();
+            if (!error && data && data.username) {
+                state.profileUsername = data.username;
+                state.playerName = data.username;
             }
-            if(lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+        }
+
+        function saveSession(userId, username) {
+            localStorage.setItem(LS_SESSION, JSON.stringify({ userId, username }));
+            localStorage.setItem(LS_LAST_USER, username);
+        }
+
+        function loadSession() {
+            try {
+                const raw = localStorage.getItem(LS_SESSION);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function clearSession() {
+            localStorage.removeItem(LS_SESSION);
+            state.supabaseUserId = null;
+            state.profileUsername = '';
+            state.playerName = '';
+        }
+
+        function startPresenceLoop() {
+            if (presenceInterval) clearInterval(presenceInterval);
+            presenceInterval = setInterval(async () => {
+                await upsertMyPresence();
+                await refreshFriendPresence();
+                updateFriendsListUIAsync();
+            }, 25000);
+            upsertMyPresence();
+            refreshFriendPresence();
+            updateFriendsListUIAsync();
+        }
+
+        async function initSupabaseAndSession() {
+            const cfg = getSupabaseConfig();
+            const hint = document.getElementById('supabase-config-hint');
+            if (!cfg.ok) {
+                if (hint) hint.classList.remove('hidden');
+                supabase = null;
+            } else if (typeof createClient !== 'function') {
+                if (hint) {
+                    hint.textContent = 'Game bundle error: vendor/supabase.min.js missing. Redeploy from the latest repo.';
+                    hint.classList.remove('hidden');
+                }
+                supabase = null;
+            } else {
+                if (hint) hint.classList.add('hidden');
+                supabase = createClient(cfg.url, cfg.key, {
+                    auth: { persistSession: false, autoRefreshToken: false }
+                });
+                const saved = loadSession();
+                if (saved && saved.userId) {
+                    state.supabaseUserId = saved.userId;
+                    state.profileUsername = saved.username || '';
+                    state.playerName = saved.username || '';
+                    startPresenceLoop();
+                }
+            }
+            const netMsg = document.getElementById('friends-network-msg');
+            const c = getSupabaseConfig();
+            if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!state.supabaseUserId);
+            if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+            updateOwnerDashboardFabVisibility();
         }
 
         function setupFullTouch() {
             window.addEventListener('touchstart', (e) => {
-                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 if (e.target.closest('.interactive')) return; 
 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
-                    const pIdx = (state.playerMode === 2 && touch.clientX > window.innerWidth / 2) ? 1 : 0;
+                    const pIdx = (state.playerMode === 2 && state.playMode !== 'online' && touch.clientX > window.innerWidth / 2) ? 1 : 0;
                     
                     activeTouches[touch.identifier] = {
                         pIdx: pIdx,
@@ -901,7 +2031,7 @@
             }, {passive: false});
 
             window.addEventListener('touchmove', (e) => {
-                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -922,7 +2052,7 @@
             }, {passive: false});
 
             window.addEventListener('touchend', (e) => {
-                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isLobbyScreenVisible()) return;
+                if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -945,13 +2075,40 @@
             });
         }
 
-        function joinRoom() {
+        async function joinRoom() {
+            if (state.playMode === 'online') {
+                if (!supabase || !state.supabaseUserId) {
+                    showMessage('Sign in for multiplayer.');
+                    return;
+                }
+                if (!state.onlineSessionCode) {
+                    showMessage('Host or join with a code first.');
+                    return;
+                }
+            } else {
+                state.worldSeed = null;
+            }
+
             document.getElementById('lobby-screen').style.display = 'none';
+            setInGamePhoneVisible(true);
+            updateOwnerDashboardFabVisibility();
             state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#fff', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
-            if (state.playerMode === 2) {
+            if (state.playMode === 'online') {
+                state.playerMode = 1;
+                document.getElementById('p1-modals').classList.add('hidden');
+                await subscribeToSessionChannelAsync(state.onlineSessionCode);
+                const badge = document.getElementById('session-code-badge');
+                const codeEl = document.getElementById('session-code-display');
+                if (badge && codeEl && state.onlineSessionCode) {
+                    codeEl.textContent = state.onlineSessionCode;
+                    badge.classList.remove('hidden');
+                }
+            } else if (state.playerMode === 2) {
                 state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
                 document.getElementById('p1-modals').classList.remove('hidden');
+            } else {
+                document.getElementById('p1-modals').classList.add('hidden');
             }
             
             if (state.deviceMode === 'phone') {
@@ -993,7 +2150,7 @@
                 }
 
                 // PLAYER 2
-                if (code === 'ShiftRight' && state.players[1]) { if(state.players[1].activeJob) window.handleWork(1); else if(state.players[1].menuType) selectMenuItem(1); else handleInteraction(1); }
+                if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) { if(state.players[1].activeJob) window.handleWork(1); else if(state.players[1].menuType) selectMenuItem(1); else handleInteraction(1); }
                 if (state.players[1] && state.players[1].menuType) {
                     if (k === 'arrowup') { state.players[1].menuSelection = Math.max(0, state.players[1].menuSelection-1); updateMenuUI(1); }
                     if (k === 'arrowdown') { const m = state.players[1].menuType === 'store' ? JOBS.length-1 : (state.players[1].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
@@ -1003,19 +2160,9 @@
             requestAnimationFrame(gameLoop);
         }
 
-        function generateCity() {
-            state.buildings = [];
-            for(let x=0; x<WORLD_SIZE; x+=GRID_SIZE) {
-                for(let y=0; y<WORLD_SIZE; y+=GRID_SIZE) {
-                    let type = 'house', color = COLORS[Math.floor(Math.random()*COLORS.length)];
-                    if (x===2000 && y===2000) { type='home'; color='#000'; }
-                    else if (x===3500 && y===3500) { type='bank'; color='#fbbf24'; }
-                    else if (x===500 && y===500) { type='jail'; color='#475569'; }
-                    else if (x===500 && y===3500) { type='dealership'; color='#3b82f6'; }
-                    else if (Math.random()>0.85) { type='store'; color='#10b981'; }
-                    state.buildings.push({ x: x+100, y: y+100, w: 300, h: 300, type, color });
-                }
-            }
+        function buildingBlocksMovement(b) {
+            if (b.type === 'ruins' && state.orbHuntActive) return false;
+            return true;
         }
 
         function update() {
@@ -1095,8 +2242,9 @@
                     else if (state.keys[controls.r]) { if (v.angle !== 0) { if (isIntersection(v.x, v.y) || v.angle === Math.PI) { v.y = Math.round(v.y/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x+20, v.y)) v.angle = 0; } } }
                     const nextX = v.x + Math.cos(v.angle) * v.type.topSpeed, nextY = v.y + Math.sin(v.angle) * v.type.topSpeed;
                     
-                    const hitBuilding = state.buildings.some(b => nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
-                    if (!hitBuilding && getRoadAt(nextX, nextY)) { v.x = nextX; v.y = nextY; }
+                    const hitBuilding = state.buildings.some(b => buildingBlocksMovement(b) && nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
+                    const openWorld = state.buildings.length === 0;
+                    if (!hitBuilding && (openWorld || getRoadAt(nextX, nextY))) { v.x = nextX; v.y = nextY; }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
                 } else {
                     let mx=0, my=0; 
@@ -1108,21 +2256,32 @@
                     const nx = p.x + mx, ny = p.y + my; 
                     
                     const isGhost = state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER');
-                    const hitBuilding = !isGhost && state.buildings.some(b => nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
+                    const hitBuilding = !isGhost && state.buildings.some(b => buildingBlocksMovement(b) && nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
                     
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
-                    p.x = Math.max(20, Math.min(3980, p.x)); p.y = Math.max(20, Math.min(3980, p.y)); 
+                    p.x = Math.max(20, Math.min(3980, Math.round(p.x)));
+                    p.y = Math.max(20, Math.min(3980, Math.round(p.y)));
                     if(mx!==0 || my!==0) p.angle = Math.atan2(my, mx);
                 }
                 const pr = document.getElementById(`prompt-${idx}`); if (pr) {
-                    const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
+                    const subEl = document.getElementById(`prompt-sub-${idx}`);
+                    if (state.orbHuntActive && state.orb && !p.inVehicle && !p.activeJob && !p.menuType) {
+                        const dOrb = dist(p.x, p.y, state.orb.x, state.orb.y);
+                        pr.style.opacity = "1";
+                        if (subEl) {
+                            if (dOrb <= ORB_PICKUP_RADIUS) subEl.innerText = idx === 0 ? "ORB — press E" : "ORB — press Shift";
+                            else subEl.innerText = "Find the Orb";
+                        }
+                    } else {
+                    const bNear = state.buildings.find(b => b.type !== 'ruins' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
                     const vNear = state.vehicles.find(v => dist(p.x, p.y, v.x, v.y) < 80 && !v.occupied);
-                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) { pr.style.opacity = "1"; document.getElementById(`prompt-sub-${idx}`).innerText = bNear ? bNear.type : (vNear ? vNear.type.name : ""); } else pr.style.opacity = "0";
+                    if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) { pr.style.opacity = "1"; if (subEl) subEl.innerText = bNear ? bNear.type : (vNear ? vNear.type.name : ""); } else pr.style.opacity = "0";
+                    }
                 }
             });
 
             // Handle Police Chases
-            if (state.wantedLevel > 0 && !state.isPresident) {
+            if (state.wantedLevel > 0 && !state.isPresident && !state.cityNuked) {
                 if (state.policeDelay > 0) { state.policeDelay--; state.police = []; }
                 else {
                     if (state.police.length < 6) {
@@ -1137,13 +2296,9 @@
                         v.x += Math.cos(v.angle) * v.speed; v.y += Math.sin(v.angle) * v.speed;
                         state.players.forEach((p, pIdx) => { 
                             if (p && dist(v.x, v.y, p.x, p.y) < 40) {
-                                state.arrestCount++; state.isJailed = true; state.jailTime = Math.min(60, state.arrestCount * 10); state.bailPrice = state.arrestCount * 100;
+                                state.arrestCount++; state.bailPrice = state.arrestCount * 100;
                                 state.police = []; window.closePlayerModal(pIdx);
-                                state.players.forEach(p => { if(p.inVehicle){ p.inVehicle.occupied=false; p.inVehicle=null; } p.speed=0; });
-                                const jail = state.buildings.find(b => b.type === 'jail');
-                                if (jail) state.players.forEach((p, i) => { if(p){p.x=jail.x+jail.w/2+(i*20); p.y=jail.y+jail.h/2;} });
-                                document.getElementById('pay-bail-btn').innerText = `Pay Bail ($${state.bailPrice})`;
-                                document.getElementById('jail-overlay').style.display = 'flex';
+                                putPlayerInJail(jailFramesPolice(), 'BUSTED!');
                             }
                         });
                     });
@@ -1151,56 +2306,201 @@
             }
 
             if (state.isJailed && state.jailTime > 0) {
-                state.jailTime--; document.getElementById('jail-timer').innerText = `${Math.ceil(state.jailTime/60)}s`;
+                state.jailTime--;
+                const jt = document.getElementById('jail-timer');
+                if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
                 if (state.jailTime <= 0) {
                     state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
                     const h = state.buildings.find(b => b.type === 'home');
-                    state.players.forEach((p, i) => { if(p&&h) { p.x = h.x+h.w/2+(i*20); p.y = h.y+h.h+30; } });
+                    state.players.forEach((p, i) => {
+                        if (!p) return;
+                        if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
+                        else { p.x = 2000 + i * 40; p.y = 2200; }
+                    });
                     state.policeDelay = 3600; showMessage("RELEASED.");
                 }
             }
 
-            if (state.playerMode === 1 && state.players[0]) state.camera = { x: state.players[0].x - canvas.width/2, y: state.players[0].y - canvas.height/2 };
-            else if (state.players.length > 1) { state.cameras[0] = { x: state.players[0].x - canvas.width/4, y: state.players[0].y - canvas.height/2 }; state.cameras[1] = { x: state.players[1].x - canvas.width/4, y: state.players[1].y - canvas.height/2 }; }
+            const CAM_LERP = 0.12;
+            if (state.playerMode === 1 && state.players[0]) {
+                const tx = state.players[0].x - canvas.width/2, ty = state.players[0].y - canvas.height/2;
+                state.camera.x += (tx - state.camera.x) * CAM_LERP;
+                state.camera.y += (ty - state.camera.y) * CAM_LERP;
+                state.camera.x = Math.round(state.camera.x);
+                state.camera.y = Math.round(state.camera.y);
+            } else if (state.players.length > 1) {
+                const tx0 = state.players[0].x - canvas.width/4, ty0 = state.players[0].y - canvas.height/2;
+                state.cameras[0].x += (tx0 - state.cameras[0].x) * CAM_LERP;
+                state.cameras[0].y += (ty0 - state.cameras[0].y) * CAM_LERP;
+                state.cameras[0].x = Math.round(state.cameras[0].x);
+                state.cameras[0].y = Math.round(state.cameras[0].y);
+                const tx1 = state.players[1].x - canvas.width/4, ty1 = state.players[1].y - canvas.height/2;
+                state.cameras[1].x += (tx1 - state.cameras[1].x) * CAM_LERP;
+                state.cameras[1].y += (ty1 - state.cameras[1].y) * CAM_LERP;
+                state.cameras[1].x = Math.round(state.cameras[1].x);
+                state.cameras[1].y = Math.round(state.cameras[1].y);
+            }
+
+            if (state.playMode === 'online' && supabaseRealtimeChannel && state.players[0]) {
+                broadcastMyPosition();
+                const now = performance.now();
+                for (const uid in state.remotePlayers) {
+                    if (now - state.remotePlayers[uid].lastSeen > 10000) delete state.remotePlayers[uid];
+                }
+                const countEl = document.getElementById('session-player-count');
+                if (countEl) {
+                    const total = 1 + Object.keys(state.remotePlayers).length;
+                    countEl.textContent = `${total}/10 players`;
+                }
+            }
             
             // Apply Reality Visual Filter
             canvas.style.filter = state.activeSecrets.includes('REALITY') ? 'grayscale(80%) contrast(0.8)' : 'none';
         }
 
-        function renderScene(camera, clipX, clipY, clipW, clipH) {
-            ctx.save(); ctx.beginPath(); ctx.rect(clipX, clipY, clipW, clipH); ctx.clip();
-            ctx.translate(clipX - camera.x, clipY - camera.y);
-            ctx.fillStyle = '#14532d'; ctx.fillRect(0,0,4000,4000);
-            ctx.fillStyle = '#334155';
-            for(let i=0; i<4000; i+=GRID_SIZE) { ctx.fillRect(i-100, 0, 200, 4000); ctx.fillRect(0, i-100, 4000, 200); }
-            state.buildings.forEach(b => { ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = 'white'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; if(b.type !== 'house') ctx.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
+        /** N64-style: world drawn at low res then scaled up (chunky pixels) */
+        const N64_RENDER_SCALE = 3;
+        let gameBuffer = null;
+        let gameBufCtx = null;
+
+        function ensureGameBuffer(w, h) {
+            if (!gameBuffer) {
+                gameBuffer = document.createElement('canvas');
+                gameBufCtx = gameBuffer.getContext('2d');
+                if (gameBufCtx) {
+                    gameBufCtx.imageSmoothingEnabled = false;
+                }
+            }
+            const bw = Math.max(64, Math.floor(w / N64_RENDER_SCALE));
+            const bh = Math.max(64, Math.floor(h / N64_RENDER_SCALE));
+            if (gameBuffer.width !== bw || gameBuffer.height !== bh) {
+                gameBuffer.width = bw;
+                gameBuffer.height = bh;
+            }
+            return gameBufCtx;
+        }
+
+        function renderScene(targetCtx, camera, clipX, clipY, clipW, clipH) {
+            const c = targetCtx;
+            c.save(); c.beginPath(); c.rect(clipX, clipY, clipW, clipH); c.clip();
+            c.translate(clipX - camera.x, clipY - camera.y);
+            c.fillStyle = '#14532d'; c.fillRect(0,0,4000,4000);
+            c.fillStyle = '#334155';
+            for(let i=0; i<4000; i+=GRID_SIZE) { c.fillRect(i-100, 0, 200, 4000); c.fillRect(0, i-100, 4000, 200); }
+            state.buildings.forEach(b => { c.fillStyle = b.color; c.fillRect(b.x, b.y, b.w, b.h); c.fillStyle = 'white'; c.font = 'bold 16px sans-serif'; c.textAlign = 'center'; if(b.type !== 'house') c.fillText(b.type.toUpperCase(), b.x + b.w/2, b.y + b.h/2); });
+
+            if (state.orbHuntActive && state.orb && !state.orbCollected) {
+                const ox = state.orb.x, oy = state.orb.y;
+                const pulse = 0.85 + 0.15 * Math.sin(state.frameCount * 0.08);
+                c.save();
+                c.translate(ox, oy);
+                c.globalAlpha = pulse;
+                const g = c.createRadialGradient(0, 0, 4, 0, 0, ORB_VISUAL_RADIUS + 12);
+                g.addColorStop(0, '#fff');
+                g.addColorStop(0.35, '#22d3ee');
+                g.addColorStop(0.7, '#a5f3fc');
+                g.addColorStop(1, 'rgba(34,211,238,0)');
+                c.fillStyle = g;
+                c.beginPath();
+                c.arc(0, 0, ORB_VISUAL_RADIUS + 12, 0, Math.PI * 2);
+                c.fill();
+                c.fillStyle = '#ecfeff';
+                c.beginPath();
+                c.arc(0, 0, ORB_VISUAL_RADIUS * 0.45, 0, Math.PI * 2);
+                c.fill();
+                c.restore();
+            }
             
-            // Render Civilians
-            state.civilians.forEach(c => {
-                ctx.save(); ctx.translate(c.x, c.y); ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill(); ctx.restore();
+            state.civilians.forEach(cv => {
+                c.save(); c.translate(cv.x, cv.y); c.fillStyle = '#f97316'; c.beginPath(); c.arc(0,0,8,0,Math.PI*2); c.fill(); c.restore();
             });
 
-            state.vehicles.forEach(v => { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.angle); ctx.fillStyle = v.type.color; ctx.fillRect(-25, -15, 50, 30); ctx.restore(); });
-            state.police.forEach(v => { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.angle); ctx.fillStyle = '#fff'; ctx.fillRect(-25, -15, 50, 30); ctx.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; ctx.fillRect(0,-15,10,30); ctx.restore(); });
+            state.vehicles.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = v.type.color; c.fillRect(-25, -15, 50, 30); c.restore(); });
+            state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#fff'; c.fillRect(-25, -15, 50, 30); c.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; c.fillRect(0,-15,10,30); c.restore(); });
             state.players.forEach(p => { 
                 if(!p.inVehicle) { 
-                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); 
-                    if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) ctx.globalAlpha = 0.5;
-                    ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); 
-                    ctx.restore(); 
+                    c.save(); c.translate(p.x, p.y); c.rotate(p.angle); 
+                    if(state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
+                    c.fillStyle = p.color; c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.fill(); 
+                    c.restore(); 
                 }
             });
-            ctx.restore();
+            if (state.playMode === 'online') {
+                const REMOTE_COLORS = ['#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444'];
+                let ci = 0;
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    c.save();
+                    c.translate(rp.x, rp.y);
+                    c.rotate(rp.angle || 0);
+                    c.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
+                    c.strokeStyle = '#fff';
+                    c.lineWidth = 2;
+                    c.beginPath();
+                    c.arc(0, 0, 10, 0, Math.PI * 2);
+                    c.fill();
+                    c.stroke();
+                    c.fillStyle = '#fff';
+                    c.font = 'bold 11px sans-serif';
+                    c.textAlign = 'center';
+                    c.fillText(rp.username || 'Friend', 0, -16);
+                    c.restore();
+                    ci++;
+                }
+            }
+            c.restore();
         }
 
         function draw() {
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            if (state.playerMode === 1) renderScene(state.camera, 0, 0, canvas.width, canvas.height);
-            else { renderScene(state.cameras[0], 0, 0, canvas.width/2, canvas.height); renderScene(state.cameras[1], canvas.width/2, 0, canvas.width/2, canvas.height); ctx.fillStyle = '#000'; ctx.fillRect(canvas.width/2-2, 0, 4, canvas.height); }
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const bc = ensureGameBuffer(cw, ch);
+            if (!bc) return;
+            bc.imageSmoothingEnabled = false;
+            const bw = gameBuffer.width;
+            const bh = gameBuffer.height;
+            const ox = Math.floor((cw - bw * N64_RENDER_SCALE) / 2);
+            const oy = Math.floor((ch - bh * N64_RENDER_SCALE) / 2);
+            bc.fillStyle = '#0f172a';
+            bc.fillRect(0, 0, bw, bh);
+
+            if (state.playerMode === 1) {
+                renderScene(bc, state.camera, 0, 0, bw, bh);
+            } else {
+                const half = Math.floor(bw / 2);
+                renderScene(bc, state.cameras[0], 0, 0, half, bh);
+                renderScene(bc, state.cameras[1], half, 0, bw - half, bh);
+                bc.fillStyle = '#000';
+                bc.fillRect(half - 1, 0, 2, bh);
+            }
+
+            ctx.imageSmoothingEnabled = false;
+            ctx.clearRect(0, 0, cw, ch);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
             ctxM.clearRect(0,0,140,140); const s = 140/4000;
             state.buildings.forEach(b => { if(b.type!=='house'){ ctxM.fillStyle = b.color; ctxM.fillRect(b.x*s, b.y*s, b.w*s, b.h*s); }});
+            if (state.orbHuntActive && state.orb && !state.orbCollected) {
+                ctxM.fillStyle = '#22d3ee';
+                ctxM.beginPath();
+                ctxM.arc(state.orb.x * s, state.orb.y * s, 4, 0, Math.PI * 2);
+                ctxM.fill();
+            }
             state.civilians.forEach(c => { ctxM.fillStyle = '#f97316'; ctxM.beginPath(); ctxM.arc(c.x*s, c.y*s, 2, 0, Math.PI*2); ctxM.fill(); });
             state.players.forEach(p => { if(p){ ctxM.fillStyle = p.color; ctxM.beginPath(); ctxM.arc(p.x*s, p.y*s, 3, 0, Math.PI*2); ctxM.fill(); }});
+            if (state.playMode === 'online') {
+                const REMOTE_COLORS = ['#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444'];
+                let ci = 0;
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    ctxM.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
+                    ctxM.beginPath();
+                    ctxM.arc(rp.x * s, rp.y * s, 3, 0, Math.PI * 2);
+                    ctxM.fill();
+                    ci++;
+                }
+            }
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
                 state.police.forEach(v => { const flash = Math.floor(state.frameCount / 5) % 2 === 0; ctxM.fillStyle = flash ? '#ff0000' : '#0000ff'; ctxM.beginPath(); ctxM.arc(v.x * s, v.y * s, 3, 0, Math.PI * 2); ctxM.fill(); });
             }
@@ -1208,68 +2508,792 @@
 
         function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
+        function applyModeButtonStyles() {
+            const solo = document.getElementById('mode-solo');
+            const duo = document.getElementById('mode-duo');
+            const onl = document.getElementById('mode-online');
+            const active = 'bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            const inactiveBlue = 'border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            const inactiveCyan = 'border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            const activeCyan = 'bg-cyan-600 border-2 border-cyan-400 text-white flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
+            if (state.playMode === 'online') {
+                solo.className = inactiveBlue;
+                duo.className = inactiveBlue;
+                onl.className = activeCyan;
+            } else if (state.playerMode === 2) {
+                solo.className = inactiveBlue;
+                duo.className = active;
+                onl.className = inactiveCyan;
+            } else {
+                solo.className = active;
+                duo.className = inactiveBlue;
+                onl.className = inactiveCyan;
+            }
+        }
+
+        function updateLobbyHints() {
+            const onlineHint = document.getElementById('online-mode-hint');
+            const panel = document.getElementById('online-lobby-panel');
+            if (onlineHint) onlineHint.classList.toggle('hidden', state.playMode !== 'online');
+            if (panel) panel.classList.toggle('hidden', state.playMode !== 'online');
+            if (state.playMode === 'online') {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>Online: WASD + E (friend sees you live)</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Online: drag to move, tap to interact</p>";
+            } else if (state.playerMode === 2) {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
+            } else {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD to Move, E to Interact</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Drag to Move, Tap to Interact</p>";
+            }
+            updateFriendsListUIAsync();
+        }
+
+        function isPhoneGameViewOpen() {
+            const g = document.getElementById('phone-view-game');
+            return g && !g.classList.contains('hidden');
+        }
+
+        function setInGamePhoneVisible(show) {
+            const b = document.getElementById('in-game-phone-btn');
+            if (b) b.style.display = show ? 'flex' : 'none';
+            updateOwnerDashboardFabVisibility();
+        }
+
+        function phoneShowView(name) {
+            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-game'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const show = id === `phone-view-${name}`;
+                el.classList.toggle('hidden', !show);
+                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-game'));
+            });
+        }
+
+        function phoneGoHome() {
+            stopMiniGames();
+            phoneShowView('home');
+        }
+
+        function stopMiniGames() {
+            if (zombieRaf) { cancelAnimationFrame(zombieRaf); zombieRaf = null; }
+            if (pixelRaf) { cancelAnimationFrame(pixelRaf); pixelRaf = null; }
+        }
+
+        function phoneAppendChatLine(from, text, self) {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            const row = document.createElement('div');
+            row.className = `rounded-lg px-2 py-1 max-w-[92%] ${self ? 'bg-green-800 ml-auto text-right' : 'bg-slate-800 text-slate-100'}`;
+            row.innerHTML = `<span class="text-[10px] text-slate-400 block">${from}</span><span>${escapePhoneText(text)}</span>`;
+            log.appendChild(row);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function phoneAppendSystemLine(text) {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            const row = document.createElement('div');
+            row.className = 'rounded-lg px-2 py-1 max-w-[95%] mx-auto bg-amber-950/80 border border-amber-600/60 text-amber-100 text-xs text-center';
+            row.innerHTML = escapePhoneText(text);
+            log.appendChild(row);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        /** Lobby Admin Login (PIN) only — slash commands in Messages */
+        function canUsePhoneSlashCommands() {
+            return !!state.isAdmin;
+        }
+
+        async function runPhoneSlashCommand(raw) {
+            const t = raw.trim();
+            const lower = t.toLowerCase();
+            if (lower === '/help' || lower === '/codes' || lower === '/admin') {
+                return {
+                    ok: true,
+                    lines: [
+                        'Admin slash commands:',
+                        '/give $N — add cash',
+                        '/spawn — safe house',
+                        '/event — screen event',
+                        '/server — status',
+                        '/connect — refresh multiplayer channel',
+                        '/kill USER — jail that player 30s (online)',
+                        '/kill all — jail everyone except you 30s (online)',
+                        '/teleport all — pull others to you (online)',
+                        '/explode or /destroy or /destroyer — empty city + Lambo for everyone (multiplayer sync)'
+                    ]
+                };
+            }
+            const giveM = t.match(/^\/give\s*\$?\s*([\d,]+)/i);
+            if (giveM) {
+                const n = parseInt(String(giveM[1]).replace(/,/g, ''), 10);
+                if (Number.isFinite(n) && n > 0 && n <= 1e12) {
+                    state.money += n;
+                    updateMoneyUI();
+                    return { ok: true, lines: [`+ $${n.toLocaleString()} (wallet updated)`] };
+                }
+                return { ok: false, lines: ['Invalid amount for /give'] };
+            }
+            if (lower === '/event') {
+                const flash = document.getElementById('jackpot-flash');
+                if (flash) {
+                    flash.style.display = 'flex';
+                    setTimeout(() => { flash.style.display = 'none'; }, 900);
+                }
+                showMessage('EVENT!');
+                return { ok: true, lines: ['Event fired.'] };
+            }
+            if (lower === '/spawn') {
+                const h = state.buildings.find(b => b.type === 'home');
+                if (state.players[0]) {
+                    if (h) {
+                        state.players[0].x = h.x + h.w / 2;
+                        state.players[0].y = h.y + h.h + 30;
+                    } else {
+                        state.players[0].x = 2000;
+                        state.players[0].y = 2200;
+                    }
+                    state.players[0].inVehicle = null;
+                }
+                return { ok: true, lines: [h ? 'Spawned at safe house.' : 'Spawned at map center (no buildings).'] };
+            }
+            if (lower === '/server') {
+                const sup = !!supabase;
+                const onl = state.playMode === 'online';
+                const code = state.onlineSessionCode || '—';
+                const rt = typeof onlineRealtimeReady !== 'undefined' && onlineRealtimeReady;
+                return {
+                    ok: true,
+                    lines: [`supabase=${sup} online=${onl} code=${code} realtime=${rt}`]
+                };
+            }
+            if (lower === '/connect') {
+                if (state.playMode === 'online' && state.onlineSessionCode && supabase) {
+                    void subscribeToSessionChannelAsync(state.onlineSessionCode);
+                    return { ok: true, lines: ['Refreshing session channel…'] };
+                }
+                return { ok: true, lines: ['Use MULTIPLAYER + join/host first.'] };
+            }
+            if (lower === '/kill' || lower.startsWith('/kill ')) {
+                const rest = t.slice(5).trim();
+                if (!rest || lower === '/kill') {
+                    return { ok: false, lines: ['Use /kill USERNAME or /kill all'] };
+                }
+                if (rest.toLowerCase() === 'all') {
+                    if (state.playMode !== 'online' || !state.supabaseUserId) {
+                        return { ok: true, lines: ['/kill all works in MULTIPLAYER when signed in.'] };
+                    }
+                    const ok = await broadcastAdminCmd({ kind: 'jail_all', exceptUid: state.supabaseUserId });
+                    return { ok: true, lines: [ok ? 'Jailed other players ~30s (not you).' : 'Could not send (reconnect /connect).'] };
+                }
+                if (state.playMode !== 'online' || !state.supabaseUserId) {
+                    const victim = normalizeUsername(rest);
+                    if (victim && victim === normalizeUsername(state.profileUsername || state.playerName))
+                        putPlayerInJail(JAIL_FRAMES_SLASH_CMD, 'Jailed.');
+                    else return { ok: true, lines: ['Online: /kill targets friends in session. Offline: only matches your username.'] };
+                    return { ok: true, lines: ['Jailed 30s.'] };
+                }
+                const ok = await broadcastAdminCmd({ kind: 'jail_user', targetUsername: rest.trim() });
+                return { ok: true, lines: [ok ? `Jail sent for "${rest.trim()}".` : 'Could not send.'] };
+            }
+            if (lower === '/teleport' || lower.startsWith('/teleport')) {
+                const sub = lower.replace(/^\/teleport\s*/, '');
+                if (!sub.startsWith('all')) {
+                    return { ok: false, lines: ['Use /teleport all'] };
+                }
+                if (state.playMode !== 'online' || !state.supabaseUserId || !state.players[0]) {
+                    return { ok: true, lines: ['/teleport all needs MULTIPLAYER + sign in.'] };
+                }
+                const p = state.players[0];
+                const ok = await broadcastAdminCmd({
+                    kind: 'tp_all',
+                    x: p.x,
+                    y: p.y,
+                    exceptUid: state.supabaseUserId
+                });
+                return { ok: true, lines: [ok ? 'Teleported others to you.' : 'Could not send.'] };
+            }
+            if (lower === '/explode' || lower === '/destroy' || lower === '/destroyer') {
+                applyExplodeDestroyWorld({ fromNetwork: false });
+                if (state.playMode === 'online' && state.supabaseUserId) {
+                    const ok = await broadcastAdminCmd({ kind: 'world_obliterate' });
+                    return { ok: true, lines: [ok ? 'Obliterated world for everyone in session.' : 'Local only — could not sync (use /connect).'] };
+                }
+                return { ok: true, lines: ['Obliterated (local). Use MULTIPLAYER to sync to friends.'] };
+            }
+            return { ok: false, lines: ['Unknown command. Try /help'] };
+        }
+
+        function escapePhoneText(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        const LS_PHONE_CHAT = 'pixelCityPhoneChat';
+
+        function loadLocalPhoneChat() {
+            try {
+                const raw = localStorage.getItem(LS_PHONE_CHAT);
+                return raw ? JSON.parse(raw) : [];
+            } catch { return []; }
+        }
+
+        function saveLocalPhoneChat(entries) {
+            localStorage.setItem(LS_PHONE_CHAT, JSON.stringify(entries.slice(-80)));
+        }
+
+        function renderLocalPhoneChat() {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            log.innerHTML = '';
+            const me = state.playerName || 'You';
+            loadLocalPhoneChat().forEach(e => {
+                phoneAppendChatLine(e.from, e.text, e.from === me);
+            });
+        }
+
+        let phoneChatChannel = null;
+
+        function teardownPhoneChatChannel() {
+            if (phoneChatChannel && supabase) {
+                supabase.removeChannel(phoneChatChannel);
+                phoneChatChannel = null;
+            }
+            phoneChatUnsub = null;
+        }
+
+        function subscribePhoneChat() {
+            const log = document.getElementById('phone-chat-log');
+            if (!log) return;
+            log.innerHTML = '';
+            teardownPhoneChatChannel();
+            if (!supabase) {
+                renderLocalPhoneChat();
+                return;
+            }
+            const ch = supabase.channel('pixel-city-global-chat', { config: { broadcast: { self: true } } });
+            ch.on('broadcast', { event: 'phone_text' }, ({ payload }) => {
+                if (!payload || !payload.text) return;
+                const from = payload.from || 'Player';
+                const self = from === (state.playerName || state.profileUsername || 'You');
+                phoneAppendChatLine(from, String(payload.text).slice(0, 500), self);
+            });
+            ch.subscribe();
+            phoneChatChannel = ch;
+            phoneChatUnsub = () => teardownPhoneChatChannel();
+        }
+
+        async function sendPhoneChat() {
+            const input = document.getElementById('phone-chat-input');
+            const text = (input && input.value) ? input.value.trim() : '';
+            if (!text || text.length > 500) return;
+            const from = state.playerName || state.profileUsername || 'Player';
+            input.value = '';
+
+            if (text.startsWith('/')) {
+                if (!canUsePhoneSlashCommands()) {
+                    phoneAppendSystemLine('Slash commands are admin-only. Use Admin Login in the lobby first.');
+                    return;
+                }
+                const r = await runPhoneSlashCommand(text);
+                (r.lines || []).forEach(line => phoneAppendSystemLine(line));
+                return;
+            }
+
+            if (phoneChatChannel) {
+                try {
+                    await phoneChatChannel.send({
+                        type: 'broadcast',
+                        event: 'phone_text',
+                        payload: { from, text }
+                    });
+                    return;
+                } catch (_) { /* fall through */ }
+            }
+            const arr = loadLocalPhoneChat();
+            arr.push({ from, text, t: Date.now() });
+            saveLocalPhoneChat(arr);
+            phoneAppendChatLine(from, text, true);
+        }
+
+        function initVidKing() {
+            const sel = document.getElementById('vidking-picker');
+            const frame = document.getElementById('vidking-frame');
+            if (!sel || !frame) return;
+            if (sel.options.length === 0) {
+                VIDKING_VIDEOS.forEach((v, i) => {
+                    const o = document.createElement('option');
+                    o.value = String(i);
+                    o.textContent = v.title;
+                    sel.appendChild(o);
+                });
+                sel.onchange = () => {
+                    const v = VIDKING_VIDEOS[parseInt(sel.value, 10) || 0];
+                    if (v) frame.src = v.src;
+                };
+            }
+            const v = VIDKING_VIDEOS[parseInt(sel.value, 10) || 0];
+            if (v) frame.src = v.src;
+        }
+
+        function initCalculator() {
+            const root = document.getElementById('phone-view-calc');
+            if (root?.dataset.calcInit === '1') return;
+            if (root) root.dataset.calcInit = '1';
+            const disp = document.getElementById('calc-display');
+            let cur = '0';
+            const render = () => { if (disp) disp.textContent = cur || '0'; };
+            document.querySelectorAll('#phone-view-calc .calc-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const c = btn.getAttribute('data-c');
+                    if (c === 'C') cur = '0';
+                    else if (c === '=') {
+                        try {
+                            const safe = cur.replace(/[^0-9+\-*/().\s]/g, '');
+                            if (!safe) return;
+                            const v = Function('"use strict"; return (' + safe + ')')();
+                            cur = String(typeof v === 'number' && isFinite(v) ? Math.round(v * 1e9) / 1e9 : 'Err');
+                        } catch { cur = 'Err'; }
+                    } else {
+                        if (cur === '0' && /[0-9.]/.test(c)) cur = c;
+                        else if (cur === 'Err') cur = c;
+                        else cur += c;
+                    }
+                    render();
+                };
+            });
+            cur = '0';
+            render();
+        }
+
+        const WEB_START_URL = 'https://www.google.com/?safe=active';
+
+        function googleSafeSearchUrl(query) {
+            const q = (query || '').trim().slice(0, 500);
+            return `https://www.google.com/search?q=${encodeURIComponent(q)}&safe=active`;
+        }
+
+        function resolveWebOpenUrl(raw) {
+            const s = (raw || '').trim().slice(0, 2000);
+            if (!s) return WEB_START_URL;
+
+            if (/^https?:\/\//i.test(s)) {
+                try {
+                    const u = new URL(s);
+                    if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+                } catch (_) { /* fall through */ }
+                return googleSafeSearchUrl(s);
+            }
+
+            const noSpaces = !/\s/.test(s);
+            const looksLikeHost = /^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}(:\d+)?(\/[^\s]*)?$/i.test(s);
+
+            if (noSpaces && looksLikeHost) {
+                try {
+                    return new URL('https://' + s).href;
+                } catch (_) { /* search */ }
+            }
+
+            if (noSpaces && /^www\./i.test(s)) {
+                try { return new URL('https://' + s).href; } catch (_) { /* search */ }
+            }
+
+            return googleSafeSearchUrl(s);
+        }
+
+        function openWebInNewTab(query) {
+            const status = document.getElementById('phone-web-status');
+            const url = resolveWebOpenUrl(query);
+            const w = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!w) {
+                if (status) status.innerHTML = '<span class="text-red-400 font-bold">Popup blocked.</span> Allow popups for this site, then tap Go again.';
+                return false;
+            }
+            if (status) {
+                const term = (query || '').trim();
+                const short = url.length > 56 ? url.slice(0, 54) + '…' : url;
+                status.textContent = term ? `Opened: ${short}` : 'Opened start page in a new tab.';
+            }
+            return true;
+        }
+
+        function resetWebAppHint() {
+            const status = document.getElementById('phone-web-status');
+            if (status) status.textContent = 'Enter a URL or search, tap Go, or use Start page below.';
+        }
+
+        let cosmicState = { count: 0, perSec: 0, cost: 10 };
+
+        function resetCosmic() {
+            cosmicState = { count: 0, perSec: 0, cost: 10 };
+            const c = document.getElementById('cosmic-count');
+            const r = document.getElementById('cosmic-rate');
+            const co = document.getElementById('cosmic-cost');
+            if (c) c.textContent = '0';
+            if (r) r.textContent = 'per second: 0';
+            if (co) co.textContent = '10';
+        }
+
+        function tickCosmic() {
+            if (cosmicState.perSec <= 0) return;
+            cosmicState.count += cosmicState.perSec / 10;
+            const el = document.getElementById('cosmic-count');
+            if (el) el.textContent = String(Math.floor(cosmicState.count));
+        }
+        setInterval(tickCosmic, 100);
+
+        function initCosmicGame() {
+            resetCosmic();
+            const tap = document.getElementById('cosmic-tap');
+            const buy = document.getElementById('cosmic-buy');
+            if (tap) tap.onclick = () => {
+                cosmicState.count += 1;
+                const el = document.getElementById('cosmic-count');
+                if (el) el.textContent = String(Math.floor(cosmicState.count));
+            };
+            if (buy) buy.onclick = () => {
+                if (cosmicState.count >= cosmicState.cost) {
+                    cosmicState.count -= cosmicState.cost;
+                    cosmicState.perSec += 1;
+                    cosmicState.cost = Math.floor(cosmicState.cost * 1.35);
+                    document.getElementById('cosmic-count').textContent = String(Math.floor(cosmicState.count));
+                    document.getElementById('cosmic-rate').textContent = 'per second: ' + cosmicState.perSec;
+                    document.getElementById('cosmic-cost').textContent = String(cosmicState.cost);
+                }
+            };
+        }
+
+        let zombie = { lane: 1, obs: [], score: 0, last: 0 };
+
+        function runZombie(ts) {
+            const c = document.getElementById('zombie-canvas');
+            if (!c || !isPhoneGameViewOpen()) { zombieRaf = null; return; }
+            const ctxZ = c.getContext('2d');
+            const w = c.width, h = c.height;
+            if (!zombie.last) zombie.last = ts;
+            const dt = Math.min(32, ts - zombie.last);
+            zombie.last = ts;
+            if (Math.random() < 0.02) zombie.obs.push({ lane: Math.floor(Math.random() * 3), y: -30 });
+            zombie.obs.forEach(o => { o.y += dt * 0.15; });
+            zombie.obs = zombie.obs.filter(o => o.y < h + 40);
+            let hit = false;
+            zombie.obs.forEach(o => {
+                if (o.y > h - 100 && o.y < h - 40 && o.lane === zombie.lane) hit = true;
+            });
+            if (hit) {
+                zombie.score = 0;
+                zombie.obs = [];
+            }
+            zombie.score += Math.floor(dt / 200);
+            document.getElementById('zombie-score').textContent = String(zombie.score);
+            ctxZ.fillStyle = '#1e293b';
+            ctxZ.fillRect(0, 0, w, h);
+            for (let i = 0; i < 3; i++) {
+                ctxZ.strokeStyle = '#334155';
+                ctxZ.strokeRect(10 + i * 90, 0, 80, h);
+            }
+            ctxZ.fillStyle = '#22c55e';
+            ctxZ.fillRect(10 + zombie.lane * 90 + 25, h - 55, 30, 40);
+            zombie.obs.forEach(o => {
+                ctxZ.fillStyle = '#ef4444';
+                ctxZ.fillRect(10 + o.lane * 90 + 20, o.y, 40, 28);
+            });
+            zombieRaf = requestAnimationFrame(runZombie);
+        }
+
+        function initZombieGame() {
+            const c = document.getElementById('zombie-canvas');
+            if (!c) return;
+            zombie = { lane: 1, obs: [], score: 0, last: 0 };
+            c.onclick = (e) => {
+                const r = c.getBoundingClientRect();
+                const x = e.clientX - r.left;
+                zombie.lane = x < r.width / 2 ? Math.max(0, zombie.lane - 1) : Math.min(2, zombie.lane + 1);
+            };
+            if (zombieRaf) cancelAnimationFrame(zombieRaf);
+            zombieRaf = requestAnimationFrame(runZombie);
+        }
+
+        let pixel = { y: 0, vy: 0, ground: 260, obs: [], score: 0, last: 0, jumping: false };
+
+        function runPixel(ts) {
+            const c = document.getElementById('pixel-canvas');
+            if (!c || !isPhoneGameViewOpen()) { pixelRaf = null; return; }
+            const ctxP = c.getContext('2d');
+            const w = c.width, h = c.height;
+            if (!pixel.last) pixel.last = ts;
+            const dt = Math.min(30, ts - pixel.last);
+            pixel.last = ts;
+            pixel.vy += 0.35 * (dt / 16);
+            pixel.y += pixel.vy * (dt / 16);
+            if (pixel.y >= pixel.ground) { pixel.y = pixel.ground; pixel.vy = 0; pixel.jumping = false; }
+            pixel.obs.forEach(o => { o.x -= dt * 0.12; });
+            pixel.obs = pixel.obs.filter(o => o.x > -40);
+            if (Math.random() < 0.015) pixel.obs.push({ x: w + 20, w: 24, h: 40 });
+            let dead = false;
+            pixel.obs.forEach(o => {
+                if (o.x < 68 && o.x + o.w > 40 && pixel.y + 36 > pixel.ground - o.h) dead = true;
+            });
+            if (dead) {
+                pixel.score = 0;
+                pixel.obs = [];
+            } else pixel.score += Math.floor(dt / 100);
+            document.getElementById('pixel-score').textContent = String(pixel.score);
+            ctxP.fillStyle = '#0c4a6e';
+            ctxP.fillRect(0, 0, w, h);
+            ctxP.fillStyle = '#78350f';
+            ctxP.fillRect(0, pixel.ground + 36, w, h - pixel.ground);
+            ctxP.fillStyle = '#fbbf24';
+            ctxP.fillRect(44, pixel.y, 32, 36);
+            pixel.obs.forEach(o => {
+                ctxP.fillStyle = '#b91c1c';
+                ctxP.fillRect(o.x, pixel.ground + 36 - o.h, o.w, o.h);
+            });
+            pixelRaf = requestAnimationFrame(runPixel);
+        }
+
+        function pixelJump() {
+            if (!pixel.jumping && pixel.y >= pixel.ground - 1) {
+                pixel.vy = -9;
+                pixel.jumping = true;
+            }
+        }
+
+        function initPixelGame() {
+            const c = document.getElementById('pixel-canvas');
+            if (!c) return;
+            pixel = { y: 260, vy: 0, ground: 260, obs: [], score: 0, last: 0, jumping: false };
+            c.onclick = () => pixelJump();
+            if (pixelRaf) cancelAnimationFrame(pixelRaf);
+            pixelRaf = requestAnimationFrame(runPixel);
+        }
+
+        function openMiniGame(id) {
+            document.getElementById('mini-game-cosmic').classList.add('hidden');
+            document.getElementById('mini-game-zombie').classList.add('hidden');
+            document.getElementById('mini-game-pixel').classList.add('hidden');
+            const title = document.getElementById('phone-game-title');
+            phoneShowView('game');
+            if (id === 'cosmic') {
+                document.getElementById('mini-game-cosmic').classList.remove('hidden');
+                if (title) title.textContent = 'Cosmic Clicker';
+                initCosmicGame();
+            } else if (id === 'zombie') {
+                document.getElementById('mini-game-zombie').classList.remove('hidden');
+                if (title) title.textContent = 'Zombie Dash';
+                initZombieGame();
+            } else {
+                document.getElementById('mini-game-pixel').classList.remove('hidden');
+                if (title) title.textContent = 'Pixel Jump';
+                initPixelGame();
+            }
+        }
+
+        function initSmartphoneUI() {
+            const overlay = document.getElementById('smartphone-overlay');
+            const fab = document.getElementById('in-game-phone-btn');
+            const closeX = document.getElementById('smartphone-close-x');
+
+            const tickClock = () => {
+                const el = document.getElementById('phone-clock');
+                if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            };
+            tickClock();
+            setInterval(tickClock, 30000);
+
+            if (fab) fab.onclick = () => {
+                if (!overlay) return;
+                overlay.classList.add('open');
+                phoneGoHome();
+            };
+            if (closeX) closeX.onclick = () => {
+                if (overlay) overlay.classList.remove('open');
+                stopMiniGames();
+                teardownPhoneChatChannel();
+            };
+            overlay?.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('open');
+                    stopMiniGames();
+                    teardownPhoneChatChannel();
+                }
+            });
+
+            document.querySelectorAll('.phone-app-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const app = btn.getAttribute('data-phone-app');
+                    if (app === 'messages') {
+                        phoneShowView('messages');
+                        subscribePhoneChat();
+                    } else if (app === 'store') phoneShowView('store');
+                    else if (app === 'vidking') {
+                        phoneShowView('vidking');
+                        initVidKing();
+                    } else if (app === 'calc') {
+                        phoneShowView('calc');
+                        initCalculator();
+                    } else if (app === 'web') {
+                        phoneShowView('web');
+                        resetWebAppHint();
+                    }
+                };
+            });
+
+            document.querySelectorAll('.phone-back').forEach(btn => {
+                btn.onclick = () => phoneGoHome();
+            });
+
+            document.getElementById('phone-chat-send').onclick = () => sendPhoneChat();
+            document.getElementById('phone-chat-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendPhoneChat();
+            });
+
+            document.querySelectorAll('.phone-open-game').forEach(btn => {
+                btn.onclick = () => openMiniGame(btn.getAttribute('data-game'));
+            });
+            document.getElementById('phone-game-close').onclick = () => {
+                stopMiniGames();
+                phoneShowView('store');
+            };
+
+            document.getElementById('phone-web-go').onclick = () => {
+                const v = document.getElementById('phone-web-search');
+                openWebInNewTab(v ? v.value : '');
+            };
+            document.getElementById('phone-web-search')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    openWebInNewTab(e.target.value || '');
+                }
+            });
+            document.getElementById('phone-web-open-home')?.addEventListener('click', () => {
+                openWebInNewTab('');
+            });
+
+            window.addEventListener('keydown', (e) => {
+                const game = document.getElementById('mini-game-pixel');
+                if (game && !game.classList.contains('hidden') && (e.code === 'Space' || e.key === ' ')) {
+                    e.preventDefault();
+                    pixelJump();
+                }
+            });
+        }
+
         async function startApp() {
             initSchoolSafeMode();
             applySchoolSafeGameRules();
             applySchoolSafeUI();
-
-            handlePaymentReturnUrl();
+            consumeJoinFromUrl();
+            await initSupabaseAndSession();
+            await tryApplyPendingJoinFromUrl();
 
             const signInMsg = document.getElementById('sign-in-msg');
-            const nameInput = document.getElementById('player-name-input');
-            const paymentBlock = document.getElementById('payment-gate-block');
-            const payBtn = document.getElementById('pay-usd1-btn');
-            const payHint = document.getElementById('pay-config-hint');
+            const gatewayInput = document.getElementById('auth-gateway-input');
+            const userInput = document.getElementById('auth-username-input');
+            const passInput = document.getElementById('auth-password-input');
 
-            if (payHint) payHint.classList.toggle('hidden', !!STRIPE_PAYMENT_LINK_URL);
+            if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
 
-            function tryEnterLobbyFromSignIn() {
-                const raw = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
-                if (!raw) {
-                    if (signInMsg) signInMsg.textContent = 'Enter your name.';
-                    return;
+            document.getElementById('auth-signin-btn').onclick = async () => {
+                const gateway = gatewayInput ? gatewayInput.value : '';
+                const username = normalizeUsername(userInput && userInput.value);
+                const password = passInput ? passInput.value : '';
+                if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
+                if (!username || !password) { if (signInMsg) signInMsg.textContent = 'Username and password required.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Server not configured.'; return; }
+                const { data, error } = await supabase.rpc('user_signin', { p_gateway: gateway, p_username: username, p_password: password });
+                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
+                state.supabaseUserId = data.user_id;
+                state.profileUsername = data.username;
+                state.playerName = data.username;
+                saveSession(data.user_id, data.username);
+                startPresenceLoop();
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
+                await tryApplyPendingJoinFromUrl();
+                updateOwnerDashboardFabVisibility();
+            };
+
+            document.getElementById('auth-signup-btn').onclick = async () => {
+                const gateway = gatewayInput ? gatewayInput.value : '';
+                const username = normalizeUsername(userInput && userInput.value);
+                const password = passInput ? passInput.value : '';
+                if (!gateway) { if (signInMsg) signInMsg.textContent = 'Gateway password required.'; return; }
+                if (!username || username.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
+                if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be 6+ characters.'; return; }
+                if (!supabase) { if (signInMsg) signInMsg.textContent = 'Server not configured.'; return; }
+                const { data, error } = await supabase.rpc('user_signup', { p_gateway: gateway, p_username: username, p_password: password });
+                if (error) { if (signInMsg) signInMsg.textContent = error.message; return; }
+                if (!data.ok) { if (signInMsg) signInMsg.textContent = data.error; return; }
+                state.supabaseUserId = data.user_id;
+                state.profileUsername = data.username;
+                state.playerName = data.username;
+                saveSession(data.user_id, data.username);
+                startPresenceLoop();
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
+                await tryApplyPendingJoinFromUrl();
+                updateOwnerDashboardFabVisibility();
+            };
+
+            document.getElementById('auth-guest-btn').onclick = () => {
+                pendingJoinCodeFromUrl = null;
+                state.playerName = 'Guest';
+                state.profileUsername = '';
+                state.supabaseUserId = null;
+                clearSession();
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
+                updateOwnerDashboardFabVisibility();
+            };
+
+            document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
+            document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
+            document.getElementById('owner-dashboard-refresh')?.addEventListener('click', () => { void refreshOwnerDashboardAnalytics(); });
+            document.getElementById('owner-dashboard-overlay')?.addEventListener('click', (e) => {
+                if (e.target.id === 'owner-dashboard-overlay') closeOwnerDashboard();
+            });
+
+            document.getElementById('friend-add-btn').onclick = () => {
+                const v = document.getElementById('friend-add-input');
+                addFriendByUsername(v ? v.value : '');
+            };
+
+            document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
+            document.getElementById('online-join-btn').onclick = async () => {
+                const v = document.getElementById('online-join-code-input');
+                await joinOnlineSession(v ? v.value : '');
+            };
+
+            document.getElementById('online-copy-invite-btn')?.addEventListener('click', async () => {
+                const code = state.onlineSessionCode;
+                if (!code) return;
+                const text = buildJoinInviteUrl(code);
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showMessage('Invite link copied!');
+                } catch {
+                    showMessage('Copy failed — tap the link to share');
                 }
-                state.playerName = raw;
-                const bypass = raw === BYPASS_SIGNIN_NAME;
-                if (bypass || hasPaidAccess()) {
-                    if (signInMsg) signInMsg.textContent = '';
-                    if (paymentBlock) paymentBlock.classList.add('hidden');
-                    showLobbyFromSignIn();
-                    return;
-                }
-                if (signInMsg) signInMsg.textContent = 'Pay $1 USD (real card) once to play, or use the special name to skip.';
-                if (paymentBlock) paymentBlock.classList.remove('hidden');
-            }
-
-            document.getElementById('sign-in-continue-btn').onclick = tryEnterLobbyFromSignIn;
-            if (nameInput) {
-                nameInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') tryEnterLobbyFromSignIn();
-                });
-            }
-            if (payBtn) {
-                payBtn.onclick = () => {
-                    const raw = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
-                    if (!raw) {
-                        if (signInMsg) signInMsg.textContent = 'Enter your name first, then pay.';
-                        return;
-                    }
-                    state.playerName = raw;
-                    sessionStorage.setItem(SS_PENDING_NAME, raw);
-                    if (!STRIPE_PAYMENT_LINK_URL) {
-                        if (signInMsg) signInMsg.textContent = 'Payment link not configured yet. Ask the site owner to add Stripe Payment Link URL in index.html.';
-                        return;
-                    }
-                    const payUrl = new URL(STRIPE_PAYMENT_LINK_URL);
-                    payUrl.searchParams.set('client_reference_id', raw.slice(0, 200));
-                    window.location.href = payUrl.toString();
-                };
-            }
+            });
 
             window.addEventListener('resize', resize);
             resize();
-            const setPC = () => { state.deviceMode = 'computer'; document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.playerMode===1) hintContainer.innerHTML="<p class='text-white'>P1: WASD + E</p>"; else hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; };
-            const setPh = () => { state.deviceMode = 'phone'; document.getElementById('device-phone').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('device-pc').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; hintContainer.innerHTML="<p class='text-white'>Drag to Move, Tap to Interact</p>"; };
+            const setPC = () => {
+                state.deviceMode = 'computer';
+                document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                updateLobbyHints();
+            };
+            const setPh = () => {
+                state.deviceMode = 'phone';
+                document.getElementById('device-phone').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                document.getElementById('device-pc').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                updateLobbyHints();
+            };
             
             document.getElementById('device-pc').onclick = setPC;
             document.getElementById('device-phone').onclick = setPh;
@@ -1279,8 +3303,29 @@
                 setPh();
             }
 
-            document.getElementById('mode-solo').onclick = () => { state.playerMode = 1; document.getElementById('mode-solo').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('mode-duo').className = "text-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.deviceMode==='computer') hintContainer.innerHTML="<p class='text-white'>P1: WASD to Move, E to Interact</p>"; else hintContainer.innerHTML="<p class='text-white'>Drag to Move, Tap to Interact</p>"; };
-            document.getElementById('mode-duo').onclick = () => { state.playerMode = 2; document.getElementById('mode-duo').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; document.getElementById('mode-solo').className = "text-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive"; if(state.deviceMode==='computer') hintContainer.innerHTML="<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>"; else hintContainer.innerHTML="<p class='text-white'>Drag Sides to Move, Tap to Interact</p>"; };
+            document.getElementById('mode-solo').onclick = () => {
+                state.playMode = 'solo';
+                state.playerMode = 1;
+                document.getElementById('online-invite-block')?.classList.add('hidden');
+                applyModeButtonStyles();
+                updateLobbyHints();
+            };
+            document.getElementById('mode-duo').onclick = () => {
+                state.playMode = 'solo';
+                state.playerMode = 2;
+                document.getElementById('online-invite-block')?.classList.add('hidden');
+                applyModeButtonStyles();
+                updateLobbyHints();
+            };
+            document.getElementById('mode-online').onclick = () => {
+                state.playMode = 'online';
+                state.playerMode = 1;
+                if (state.onlineSessionCode && state.isOnlineHost) updateOnlineInviteUI(state.onlineSessionCode);
+                applyModeButtonStyles();
+                updateLobbyHints();
+            };
+            applyModeButtonStyles();
+            updateLobbyHints();
             
             // Player Cheat Codes
             document.getElementById('secret-toggle-btn').onclick = () => { document.getElementById('secret-input-area').classList.toggle('hidden'); };
@@ -1289,7 +3334,7 @@
                 if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
                 else if (code === 'RICH') { if(!state.activeSecrets.includes('RICH')) state.activeSecrets.push('RICH'); showSecretMsg('RICH ACTIVATED'); }
                 else if (code === 'GHOST') { if(!state.activeSecrets.includes('GHOST')) state.activeSecrets.push('GHOST'); showSecretMsg('GHOST ACTIVATED'); }
-                else if (code === 'MURDER') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
+                else if (code === 'MURDER' || code === 'CHAOS') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
                 else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
                 else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
                 else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame()) gpb.classList.remove('hidden'); }
@@ -1327,10 +3372,17 @@
             const godCops = document.getElementById('god-cops-btn');
             if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
 
-            document.getElementById('join-btn').onclick = joinRoom;
-            document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (p && h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } }); } else showMessage("Not enough money!"); };
+            document.getElementById('join-btn').onclick = () => { void joinRoom(); };
+            const orbDismiss = document.getElementById('orb-hunt-dismiss');
+            if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
+            document.getElementById('pay-bail-btn').onclick = () => { if (state.money >= state.bailPrice) { state.money -= state.bailPrice; state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none'; updateMoneyUI(); const h = state.buildings.find(b => b.type === 'home'); state.players.forEach((p, i) => { if (!p) return; if (h) { p.x = h.x + (h.w/2) + (i*20); p.y = h.y + h.h + 30; } else { p.x = 2000 + i * 40; p.y = 2200; } }); } else showMessage("Not enough money!"); };
             
-            await initAuthAndData();
+            initSmartphoneUI();
+            if (supabase && state.supabaseUserId) {
+                showLobbyFromSignIn();
+            } else {
+                updateFriendsListUIAsync();
+            }
         }
         startApp();
     </script>
