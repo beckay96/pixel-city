@@ -997,6 +997,7 @@
         const CAMERA_ZOOM = 0.82;
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
         const JAIL_LINE_TIMES = 5;
+        const BEN_HOUSE_CASH = 75000;
 
         /** One space between words, trim, compare to canonical school jail line */
         function normalizeJailLineInput(s) {
@@ -1073,6 +1074,7 @@
             orbHuntActive: false,
             orbCollected: false,
             orb: null,
+            benHouseRobbed: false,
             /** “School mode” from lobby: school building + academic jobs + stricter jail. */
             schoolGameMode: false,
             jailLineCount: 0,
@@ -1150,6 +1152,8 @@
 
         function buildingTypeLabel(t) {
             if (t === 'admin_hall') return 'ADMN';
+            if (t === 'ben_hall') return "BEN'S";
+            if (t === 'invisible') return '';
             if (t === 'school' || (t === 'store' && state.schoolGameMode)) return 'SCHOOL';
             if (t === 'home') return 'HOME';
             if (t === 'house') return 'HOUSE';
@@ -1639,6 +1643,16 @@
             return mulberry32(hi);
         }
 
+        /** Edge walkway (no draw / no collision) + Ben’s House near bank; one-time cash, no wanted level */
+        function placeBenHouseAndEdgeWalkway() {
+            state.buildings = state.buildings.filter(b => b.type !== 'ben_hall' && b.type !== 'invisible');
+            if (state.benHouseRobbed) return;
+            /* Invisible strip along top edge: walk through the map border near the bank quadrant */
+            state.buildings.push({ x: 3200, y: 0, w: 500, h: 32, type: 'invisible', color: '#000000' });
+            /* Just south-east of the bank — path from top edge to here is open along the road */
+            state.buildings.push({ x: 3920, y: 3580, w: 240, h: 240, type: 'ben_hall', color: '#6d28d9' });
+        }
+
         function generateCity() {
             const rnd = rngForWorld();
             state.buildings = [];
@@ -1654,6 +1668,7 @@
                     state.buildings.push({ x: x + 100, y: y + 100, w: 300, h: 300, type, color });
                 }
             }
+            placeBenHouseAndEdgeWalkway();
         }
 
         async function fetchCloudFriendnames() {
@@ -1801,6 +1816,7 @@
 
         function applyExplodeDestroyWorld(opts) {
             const fromNet = opts && opts.fromNetwork;
+            state.benHouseRobbed = true;
             state.buildings = [];
             state.police = [];
             state.civilians = [];
@@ -2264,6 +2280,7 @@
             
             // Annihilate the City
             state.buildings.forEach(b => {
+                if (b.type === 'ben_hall' || b.type === 'invisible') return;
                 b.type = 'ruins';
                 b.color = '#1f2937'; // Dark slate/ash color
             });
@@ -2298,6 +2315,7 @@
         };
 
         window.restartGame = () => {
+            state.benHouseRobbed = false;
             state.money = 0;
             state.wantedLevel = 0;
             state.policeDelay = 0;
@@ -2592,8 +2610,18 @@
             if (tryCollectOrb(pIdx)) return;
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
             
-            const bNear = state.buildings.find(b => dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
+            const bNear = state.buildings.find(b => b.type !== 'invisible' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
             if (bNear && bNear.type !== 'ruins') {
+                if (bNear.type === 'ben_hall' && !state.benHouseRobbed) {
+                    state.benHouseRobbed = true;
+                    state.money += BEN_HOUSE_CASH;
+                    updateMoneyUI();
+                    const stars = document.getElementById('wanted-stars');
+                    if (stars) stars.classList.add('hidden');
+                    showMessage(`Ben's place — you grabbed $${BEN_HOUSE_CASH.toLocaleString()}. (No cops — that was the one time.)`);
+                    placeBenHouseAndEdgeWalkway();
+                    return;
+                }
                 if (bNear.type === 'admin_hall') {
                     openAdminSkinModal();
                 } else if (bNear.type === 'store' || bNear.type === 'school') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
@@ -2874,7 +2902,7 @@
         }
 
         function buildingBlocksMovement(b) {
-            if (b.type === 'admin_hall') return false;
+            if (b.type === 'invisible' || b.type === 'admin_hall') return false;
             if (b.type === 'ruins' && state.orbHuntActive) return false;
             return true;
         }
@@ -2993,13 +3021,15 @@
                             else subEl.innerText = "Find the Orb";
                         }
                     } else {
-                    const bNear = state.buildings.find(b => b.type !== 'ruins' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
+                    const bNear = state.buildings.find(b => b.type !== 'ruins' && b.type !== 'invisible' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
                     const vNear = state.vehicles.find(v => dist(p.x, p.y, v.x, v.y) < 80 && !v.occupied);
                     if ((bNear || vNear) && !p.inVehicle && !p.activeJob && !p.menuType) {
                         pr.style.opacity = "1";
                         if (subEl) {
                             if (bNear) {
                                 if (bNear.type === 'admin_hall') subEl.innerText = 'admin house (skins)';
+                                else if (bNear.type === 'ben_hall' && !state.benHouseRobbed) subEl.innerText = "ben's — press E ($75k, once)";
+                                else if (bNear.type === 'ben_hall') subEl.innerText = "ben's (empty)";
                                 else if (bNear.type === 'school' || (bNear.type === 'store' && state.schoolGameMode)) subEl.innerText = 'school';
                                 else subEl.innerText = bNear.type;
                             } else subEl.innerText = vNear ? vNear.type.name : '';
@@ -3146,6 +3176,7 @@
             for(let i=0; i<4000; i+=GRID_SIZE) { c.fillRect(i-100, 0, 200, 4000); c.fillRect(0, i-100, 4000, 200); }
             const glow = 0.6 + 0.4 * Math.sin(state.frameCount * 0.06);
             state.buildings.forEach(b => {
+                if (b.type === 'invisible') return;
                 c.save();
                 c.fillStyle = b.color;
                 c.fillRect(b.x, b.y, b.w, b.h);
@@ -3161,14 +3192,14 @@
                 c.restore();
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
-                const short = b.type === 'admin_hall' ? 'Admin house' : buildingTypeLabel(b.type);
+                const short = b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : buildingTypeLabel(b.type));
                 c.save();
-                c.font = b.type === 'admin_hall' ? 'bold 10px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
+                c.font = (b.type === 'admin_hall' || b.type === 'ben_hall') ? 'bold 10px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
                 c.textAlign = 'center';
                 c.textBaseline = 'middle';
                 c.lineWidth = 3;
                 c.strokeStyle = 'rgba(0,0,0,0.85)';
-                c.fillStyle = b.type === 'admin_hall' ? '#a5f3fc' : '#f8fafc';
+                c.fillStyle = b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : '#f8fafc');
                 c.strokeText(short, cx, cy);
                 c.fillText(short, cx, cy);
                 c.restore();
@@ -3291,13 +3322,15 @@
                 ms.fillRect(0, (gx - 5) * s, MINIMAP_PX, 10 * s);
             }
             state.buildings.forEach(b => {
+                if (b.type === 'invisible') return;
                 const px = b.x * s, py = b.y * s, pw = b.w * s, ph = b.h * s;
                 ms.fillStyle = b.color;
                 ms.fillRect(px, py, Math.max(1, pw), Math.max(1, ph));
             });
             state.buildings.forEach(b => {
+                if (b.type === 'invisible') return;
                 if (b.w * s < 3 || b.h * s < 2) return;
-                const full = buildingTypeLabel(b.type);
+                const full = b.type === 'ben_hall' ? "Ben" : buildingTypeLabel(b.type);
                 const short = (b.w * s < 12) ? (full.length > 3 ? full.slice(0, 3) : full) : full;
                 ms.save();
                 ms.font = (b.w * s < 12) ? '600 3px system-ui,Segoe UI,sans-serif' : '600 4px system-ui,Segoe UI,sans-serif';
