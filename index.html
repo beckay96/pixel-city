@@ -2359,16 +2359,25 @@
             } catch { return null; }
         }
 
+        function stopPresenceLoop() {
+            if (presenceInterval) {
+                clearInterval(presenceInterval);
+                presenceInterval = null;
+            }
+        }
+
         function clearSession() {
             localStorage.removeItem(LS_SESSION);
             state.supabaseUserId = null;
             state.profileUsername = '';
             state.playerName = '';
+            stopPresenceLoop();
             recomputeIsAdmin();
             updateOwnerDashboardFabVisibility();
         }
 
         function startPresenceLoop() {
+            if (!state.supabaseUserId) return;
             if (presenceInterval) clearInterval(presenceInterval);
             presenceInterval = setInterval(async () => {
                 await upsertMyPresence();
@@ -3730,9 +3739,16 @@
                 state.playerName = 'Guest';
                 state.profileUsername = '';
                 state.supabaseUserId = null;
+                state.playMode = 'solo';
+                state.playerMode = 1;
+                state.worldSeed = null;
+                teardownOnlineRealtime();
                 clearSession();
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
+                applyModeButtonStyles();
+                updateLobbyHints();
+                document.getElementById('online-invite-block')?.classList.add('hidden');
                 updateOwnerDashboardFabVisibility();
             };
 
