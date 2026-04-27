@@ -519,7 +519,7 @@
             </div>
         </div>
         <!-- Shared HUD -->
-        <div class="flex justify-between items-start bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit mt-4">
+        <div class="flex flex-wrap justify-between items-start gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit max-w-[98vw] mt-4">
             <div class="px-4 border-r border-slate-700">
                 <div class="text-xl font-black text-green-400" id="money-display">$0</div>
                 <div class="text-[8px] text-slate-400 uppercase font-bold text-center">Wallet</div>
@@ -527,7 +527,18 @@
             <div class="px-4 text-center">
                 <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-tighter">Goal: $100k</div>
             </div>
+            <div class="px-2 text-left text-[8px] text-cyan-200/90 max-w-[11rem] font-bold" id="loadout-hint-p0">
+                <span class="text-slate-500 block uppercase tracking-tighter">Loadout P1</span>
+                <span id="loadout-weapon-0" class="text-rose-300">—</span>
+                <span id="loadout-tele-0" class="block text-violet-300">—</span>
+            </div>
+            <div id="loadout-wrap-1" class="hidden px-2 text-left text-[8px] text-emerald-200/90 max-w-[11rem] font-bold">
+                <span class="text-slate-500 block uppercase tracking-tighter">Loadout P2</span>
+                <span id="loadout-weapon-1" class="text-rose-300">—</span>
+                <span id="loadout-tele-1" class="block text-violet-300">—</span>
+            </div>
         </div>
+        <p class="text-[8px] text-slate-500 text-center max-w-md mx-auto mt-1 pointer-events-none px-2">Gadget kit: with pads to place, press <span class="text-cyan-300 font-bold">Q</span> to drop each. Two pads = one link. Weapon: <span class="text-rose-300 font-bold">F</span> to fire. Nuke = hit only, no round end.</p>
 
         <!-- Viewport Aware Modals for P1 -->
         <div id="p0-modals" class="p0-view">
@@ -572,6 +583,18 @@
                 </div>
                 <button id="start-rob-0" class="bg-orange-500 text-white w-full py-3 rounded-lg font-bold mb-2" onclick="window.startRobbery(0)">Spin Wheel</button>
                 <button id="exit-rob-0" class="bg-slate-700 text-white w-full py-2 rounded-lg font-bold" onclick="window.closePlayerModal(0)">Leave</button>
+            </div>
+            <div id="gadget-modal-0" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-2 text-violet-300 text-center uppercase">Gizmo &amp; Gadgets</h2>
+                <p class="text-[9px] text-slate-400 mb-2">You get <b class="text-white">2 link pads</b> per buy. After buying, stand where you want a pad and press <b class="text-cyan-300">Q</b> to place. Pads cannot be picked up. Walk into one to warp to the other. Stand still on a pad: it does <b>not</b> warp.</p>
+                <div class="gadget-list-0 job-list space-y-2 mb-2"></div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
+            </div>
+            <div id="weapon-modal-0" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-2 text-rose-300 text-center uppercase">Warden Arms</h2>
+                <p class="text-[9px] text-slate-400 mb-2">Equip one weapon. Press <b class="text-rose-300">F</b> in-game to use. PvP nuke only hits other players; it does <b>not</b> end the run.</p>
+                <div class="weapon-list-0 job-list space-y-2 mb-2"></div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
             <div id="prompt-0" class="absolute bottom-[35%] left-1/4 -translate-x-1/2 text-center pointer-events-none opacity-0 transition-opacity">
                 <div class="font-bold text-white mb-1 text-sm prompt-lbl">Press E</div>
@@ -622,6 +645,18 @@
                 </div>
                 <button id="start-rob-1" class="bg-orange-500 text-white w-full py-3 rounded-lg font-bold mb-2" onclick="window.startRobbery(1)">Spin Wheel</button>
                 <button id="exit-rob-1" class="bg-slate-700 text-white w-full py-2 rounded-lg font-bold" onclick="window.closePlayerModal(1)">Leave</button>
+            </div>
+            <div id="gadget-modal-1" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-2 text-violet-300 text-center uppercase">Gizmo &amp; Gadgets</h2>
+                <p class="text-[9px] text-slate-400 mb-2">2 pads per set — <b class="text-cyan-300">Q</b> to place, walk in to link-warp. No pickup.</p>
+                <div class="gadget-list-1 job-list space-y-2 mb-2"></div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
+            </div>
+            <div id="weapon-modal-1" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-2 text-rose-300 text-center uppercase">Warden Arms</h2>
+                <p class="text-[9px] text-slate-400 mb-2"><b class="text-rose-300">F</b> to fire. PvP nuke does not end the game.</p>
+                <div class="weapon-list-1 job-list space-y-2 mb-2"></div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="prompt-1" class="absolute bottom-[35%] left-3/4 -translate-x-1/2 text-center pointer-events-none opacity-0 transition-opacity">
                 <div class="font-bold text-white mb-1 text-sm prompt-lbl">Press SHIFT</div>
@@ -998,6 +1033,25 @@
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
         const JAIL_LINE_TIMES = 5;
         const BEN_HOUSE_CASH = 75000;
+        const TELEPORT_PAD_R = 38;
+        const TELEPORT_REENTER_FRAMES = 8;
+        const PVP_NUKE_RADIUS = 400;
+        const PVP_NUKE_STEAL = 500;
+        const PVP_NUKE_STUN_SEC = 1.2;
+        const GADGET_ITEMS = [
+            { id: 'ion_link', name: 'Ion link pad kit', price: 18000, blurb: '2 pads · Q to place · walk in = warp' },
+            { id: 'dash_cell', name: 'Dash cell pack', price: 22000, blurb: 'Sprint +10% 30s (flavor, see message)' },
+            { id: 'glimmer', name: 'Glimmer cloak', price: 16000, blurb: 'Faint highlight on map' },
+            { id: 'mag_boots', name: 'Mag-lock boots', price: 12000, blurb: 'Grip the grid' },
+            { id: 'quantum_toy', name: 'Quantum puzzle box', price: 9000, blurb: 'Makes a neat beep' }
+        ];
+        const WEAPON_ITEMS = [
+            { id: 'stunner', name: 'Tactical stunner', price: 12000, kind: 'stun' },
+            { id: 'zapper', name: 'Zapper coil', price: 15000, kind: 'zap' },
+            { id: 'pea', name: 'Pea shooter', price: 10000, kind: 'pea' },
+            { id: 'rockets', name: 'Lock rockets', price: 24000, kind: 'rocket' },
+            { id: 'nukette', name: 'Micro nuke (PvP)', price: 50000, kind: 'nuke' }
+        ];
 
         /** One space between words, trim, compare to canonical school jail line */
         function normalizeJailLineInput(s) {
@@ -1075,6 +1129,10 @@
             orbCollected: false,
             orb: null,
             benHouseRobbed: false,
+            teleporterPads: [],
+            nextTeleGroupId: 1,
+            nextPadId: 1,
+            pvpNukeBlasts: [],
             /** “School mode” from lobby: school building + academic jobs + stricter jail. */
             schoolGameMode: false,
             jailLineCount: 0,
@@ -1153,6 +1211,8 @@
         function buildingTypeLabel(t) {
             if (t === 'admin_hall') return 'ADMN';
             if (t === 'ben_hall') return "BEN'S";
+            if (t === 'shop_g') return 'GIZ';
+            if (t === 'shop_w') return 'GUN';
             if (t === 'invisible') return '';
             if (t === 'school' || (t === 'store' && state.schoolGameMode)) return 'SCHOOL';
             if (t === 'home') return 'HOME';
@@ -1167,6 +1227,209 @@
                 if (raw && raw.startsWith('#') && raw.length < 20) return raw;
             } catch (_) { /* */ }
             return DEFAULT_PLAYER_COLOR;
+        }
+
+        function defaultLoadout() {
+            return {
+                weapon: null,
+                lastWeaponFired: 0,
+                stunUntil: 0,
+                telePadsToPlace: 0,
+                telePlaced: 0,
+                teleGroupId: 0,
+                pendingFirstPadId: null,
+                lastTelePadId: -1,
+                teleReenter: 0,
+                gadgetDashUntil: 0
+            };
+        }
+        function ensurePlayerLoadout(p) {
+            if (!p) return;
+            if (!p.loadout) p.loadout = defaultLoadout();
+        }
+        function getWeaponDef(id) {
+            return WEAPON_ITEMS.find(w => w.id === id) || null;
+        }
+        function getGadgetDef(id) {
+            return GADGET_ITEMS.find(g => g.id === id) || null;
+        }
+        function updateLoadoutUI() {
+            for (let i = 0; i < 2; i++) {
+                const wEl = document.getElementById(`loadout-weapon-${i}`);
+                const tEl = document.getElementById(`loadout-tele-${i}`);
+                const p = state.players[i];
+                if (!p || !p.loadout) {
+                    if (wEl) wEl.textContent = '—';
+                    if (tEl) tEl.textContent = '—';
+                    continue;
+                }
+                const wdef = p.loadout.weapon ? getWeaponDef(p.loadout.weapon) : null;
+                if (wEl) wEl.textContent = wdef ? wdef.name : 'No weapon';
+                if (tEl) {
+                    if (p.loadout.telePadsToPlace > 0) {
+                        tEl.textContent = `Pads: place ${p.loadout.telePadsToPlace} (Q) — set ${p.loadout.telePlaced}/2`;
+                    } else {
+                        tEl.textContent = p.loadout.telePlaced >= 2 ? 'Link pads active' : '—';
+                    }
+                }
+            }
+        }
+        function addTeleporterPad(pIdx, x, y) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            const lo = p.loadout;
+            if (!lo || lo.telePadsToPlace <= 0) return;
+            if (lo.telePlaced === 0) {
+                lo.teleGroupId = state.nextTeleGroupId++;
+            }
+            const pad = {
+                id: state.nextPadId++,
+                group: lo.teleGroupId,
+                x, y,
+                owner: pIdx,
+                partnerId: null
+            };
+            if (lo.telePlaced === 0) {
+                state.teleporterPads.push(pad);
+                lo.pendingFirstPadId = pad.id;
+            } else {
+                const first = state.teleporterPads.find(t => t.id === lo.pendingFirstPadId);
+                if (first) {
+                    first.partnerId = pad.id;
+                    pad.partnerId = first.id;
+                }
+                state.teleporterPads.push(pad);
+                lo.pendingFirstPadId = null;
+            }
+            lo.telePlaced++;
+            lo.telePadsToPlace--;
+            showMessage('Pad placed (cannot be picked up).');
+            if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'pad', pad: { id: pad.id, group: pad.group, x: pad.x, y: pad.y, owner: pad.owner, partnerId: pad.partnerId } } });
+            }
+            updateLoadoutUI();
+        }
+        function clearTeleporterPadsForGroup(groupId) {
+            state.teleporterPads = state.teleporterPads.filter(t => t.group !== groupId);
+            if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'tele_clear', groupId } });
+            }
+        }
+        function getPartnerPad(pad) {
+            if (!pad || pad.partnerId == null) return null;
+            return state.teleporterPads.find(t => t.id === pad.partnerId) || null;
+        }
+        function findTelePadAtForPlayer(p, px, py) {
+            for (const pad of state.teleporterPads) {
+                if (dist(px, py, pad.x, pad.y) < TELEPORT_PAD_R) return pad;
+            }
+            return null;
+        }
+        function otherPlayerInRadius(px, py, r, myIdx) {
+            for (let j = 0; j < state.players.length; j++) {
+                if (j === myIdx || !state.players[j]) continue;
+                if (state.players[j].inVehicle) continue;
+                if (dist(px, py, state.players[j].x, state.players[j].y) < r) return { idx: j, p: state.players[j] };
+            }
+            for (const uid in state.remotePlayers) {
+                const rp = state.remotePlayers[uid];
+                if (dist(px, py, rp.x, rp.y) < r) return { idx: -1, remote: rp, uid };
+            }
+            return null;
+        }
+        function stunLocalPlayer(pIdx, ms) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            ensurePlayerLoadout(p);
+            const t = state.frameCount + Math.ceil((ms / 1000) * JAIL_FRAMES_PER_SEC);
+            p.loadout.stunUntil = Math.max(p.loadout.stunUntil || 0, t);
+        }
+        function menuMaxForPlayer(p) {
+            if (!p || !p.menuType) return 0;
+            if (p.menuType === 'store') return (state.schoolGameMode ? SCHOOL_JOBS.length : JOBS.length) - 1;
+            if (p.menuType === 'dealer') return VEHICLE_TYPES.length - 1;
+            if (p.menuType === 'gadget') return GADGET_ITEMS.length - 1;
+            if (p.menuType === 'weapon') return WEAPON_ITEMS.length - 1;
+            return 0;
+        }
+        function openGadgetModal(pIdx) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            p.menuType = 'gadget';
+            p.menuSelection = 0;
+            document.getElementById(`gadget-modal-${pIdx}`).style.display = 'block';
+            updateMenuUI(pIdx);
+        }
+        function openWeaponModal(pIdx) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            p.menuType = 'weapon';
+            p.menuSelection = 0;
+            document.getElementById(`weapon-modal-${pIdx}`).style.display = 'block';
+            updateMenuUI(pIdx);
+        }
+        function processTeleporterPads() {
+            state.players.forEach((p, idx) => {
+                if (!p || p.inVehicle) return;
+                ensurePlayerLoadout(p);
+                if (p.loadout.stunUntil > state.frameCount) return;
+                const lo = p.loadout;
+                const onPad = findTelePadAtForPlayer(p, p.x, p.y);
+                if (!onPad) {
+                    lo.lastTelePadId = -1;
+                    return;
+                }
+                if (!onPad.partnerId) return;
+                if (lo.lastTelePadId === onPad.id) return;
+                const dest = getPartnerPad(onPad);
+                if (!dest) return;
+                p.x = dest.x;
+                p.y = dest.y;
+                lo.lastTelePadId = dest.id;
+                showMessage('Link pad warp!');
+            });
+        }
+        function processPvpNukeVfx() {
+            state.pvpNukeBlasts = state.pvpNukeBlasts.filter(b => {
+                b.r = Math.min((b.maxR || PVP_NUKE_RADIUS), (b.r || 0) + (b.maxR || PVP_NUKE_RADIUS) * 0.08);
+                b.until = (b.until != null) ? b.until - 1 : 0;
+                return b.until > 0;
+            });
+        }
+        function fireWeapon(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || p.menuType || p.activeJob || state.isJailed || p.inVehicle) return;
+            ensurePlayerLoadout(p);
+            const w = p.loadout.weapon;
+            if (!w) { showMessage('No weapon — open Warden Arms'); return; }
+            const def = getWeaponDef(w);
+            if (!def) return;
+            const now = state.frameCount;
+            if (now - (p.loadout.lastWeaponFired || 0) < 35) return;
+            p.loadout.lastWeaponFired = now;
+            const t = otherPlayerInRadius(p.x, p.y, 260, pIdx);
+            if (def.kind === 'nuke') {
+                if (!t) { showMessage('No player in range for micro nuke'); return; }
+                state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
+                if (t.idx >= 0) {
+                    state.money += PVP_NUKE_STEAL;
+                    updateMoneyUI();
+                    stunLocalPlayer(t.idx, PVP_NUKE_STUN_SEC * 1000);
+                    showMessage(`Micro nuke! +$${PVP_NUKE_STEAL} — stun (run continues)`);
+                } else {
+                    showMessage('Micro nuke! (other player is far away in online mode)');
+                }
+            } else {
+                if (t && t.idx >= 0) {
+                    stunLocalPlayer(t.idx, def.kind === 'rocket' ? 1200 : 650);
+                    showMessage(`${def.name} connected!`);
+                } else {
+                    showMessage('No player in range');
+                }
+            }
+            if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y } });
+            }
         }
 
         function applyPlayerSkinToAll() {
@@ -1653,6 +1916,23 @@
             state.buildings.push({ x: 3920, y: 3580, w: 240, h: 240, type: 'ben_hall', color: '#6d28d9' });
         }
 
+        /** Five small shop cells along the edge near the bank (grid 3000,3000) */
+        function placeSpecialShops() {
+            state.buildings = state.buildings.filter(b => b.type !== 'shop_g' && b.type !== 'shop_w');
+            const bankX = 3600;
+            const bankY = 3600;
+            const gap = 8;
+            const w = 88;
+            const h = 88;
+            const y0 = bankY - 120;
+            for (let i = 0; i < 5; i++) {
+                const x = bankX - 280 + i * (w + gap);
+                const type = i % 2 === 0 ? 'shop_g' : 'shop_w';
+                const color = type === 'shop_g' ? '#7c3aed' : '#be123c';
+                state.buildings.push({ x, y: y0, w, h, type, color, shopIndex: i });
+            }
+        }
+
         function generateCity() {
             const rnd = rngForWorld();
             state.buildings = [];
@@ -1669,6 +1949,7 @@
                 }
             }
             placeBenHouseAndEdgeWalkway();
+            placeSpecialShops();
         }
 
         async function fetchCloudFriendnames() {
@@ -1817,6 +2098,8 @@
         function applyExplodeDestroyWorld(opts) {
             const fromNet = opts && opts.fromNetwork;
             state.benHouseRobbed = true;
+            state.teleporterPads = [];
+            state.pvpNukeBlasts = [];
             state.buildings = [];
             state.police = [];
             state.civilians = [];
@@ -1970,6 +2253,19 @@
             });
             ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
                 if (payload && payload.uid) delete state.remotePlayers[payload.uid];
+            });
+            ch.on('broadcast', { event: 'pvp_fx' }, ({ payload }) => {
+                if (!payload) return;
+                if (payload.k === 'pad' && payload.pad) {
+                    const p = payload.pad;
+                    if (!state.teleporterPads.find(t => t.id === p.id)) state.teleporterPads.push(p);
+                }
+                if (payload.k === 'tele_clear' && payload.groupId != null) {
+                    state.teleporterPads = state.teleporterPads.filter(t => t.group !== payload.groupId);
+                }
+                if (payload.k === 'shot' && payload.kind === 'nuke') {
+                    state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 25, hit: true });
+                }
             });
             ch.on('broadcast', { event: 'admin_cmd' }, ({ payload }) => {
                 if (!payload || !payload.kind) return;
@@ -2277,6 +2573,8 @@
             const cx = home ? home.x + home.w / 2 : 2150;
             const cy = home ? home.y + home.h / 2 : 2150;
             state.orb = { x: cx, y: cy };
+            state.teleporterPads = [];
+            state.pvpNukeBlasts = [];
             
             // Annihilate the City
             state.buildings.forEach(b => {
@@ -2316,6 +2614,10 @@
 
         window.restartGame = () => {
             state.benHouseRobbed = false;
+            state.nextTeleGroupId = 1;
+            state.nextPadId = 1;
+            state.teleporterPads = [];
+            state.pvpNukeBlasts = [];
             state.money = 0;
             state.wantedLevel = 0;
             state.policeDelay = 0;
@@ -2367,6 +2669,7 @@
                 p.menuType = null;
                 p.menuSelection = 0;
                 p.color = i === 0 ? skinR : '#4ade80';
+                p.loadout = defaultLoadout();
                 window.closePlayerModal(i);
             });
             
@@ -2520,6 +2823,8 @@
             const stTitle = document.getElementById(`store-title-${pIdx}`);
             if (stTitle) stTitle.textContent = state.schoolGameMode ? '\uD83C\uDFEB School' : '\uD83D\uDED2 Store';
             const dealerList = document.querySelector(`#dealer-modal-${pIdx} .car-list`);
+            const gList = document.querySelector(`.gadget-list-${pIdx}`);
+            const wList = document.querySelector(`.weapon-list-${pIdx}`);
             
             if (p.menuType === 'store' && storeList) {
                 storeList.innerHTML = '';
@@ -2550,6 +2855,24 @@
                     btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
                     dealerList.appendChild(btn);
                 });
+            } else if (p.menuType === 'gadget' && gList) {
+                gList.innerHTML = '';
+                GADGET_ITEMS.forEach((g, i) => {
+                    const btn = document.createElement('div');
+                    btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
+                    btn.innerHTML = `<div class="font-bold uppercase text-sm text-violet-200">${g.name}</div><div class="text-violet-400/90 font-bold text-xs">$${g.price.toLocaleString()}</div><div class="text-slate-500 text-[8px]">${g.blurb}</div>`;
+                    btn.onclick = () => { p.menuSelection = i; updateMenuUI(pIdx); };
+                    gList.appendChild(btn);
+                });
+            } else if (p.menuType === 'weapon' && wList) {
+                wList.innerHTML = '';
+                WEAPON_ITEMS.forEach((g, i) => {
+                    const btn = document.createElement('div');
+                    btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
+                    btn.innerHTML = `<div class="font-bold uppercase text-sm text-rose-200">${g.name}</div><div class="text-rose-400 font-bold text-xs">$${g.price.toLocaleString()}</div>`;
+                    btn.onclick = () => { p.menuSelection = i; updateMenuUI(pIdx); };
+                    wList.appendChild(btn);
+                });
             }
         }
 
@@ -2557,6 +2880,40 @@
             const p = state.players[pIdx];
             if (!p || !p.menuType) return;
 
+            if (p.menuType === 'gadget') {
+                const g = GADGET_ITEMS[p.menuSelection];
+                if (state.money < g.price) { showMessage('Not enough money'); return; }
+                state.money -= g.price;
+                updateMoneyUI();
+                ensurePlayerLoadout(p);
+                if (g.id === 'ion_link') {
+                    p.loadout.telePadsToPlace = (p.loadout.telePadsToPlace || 0) + 2;
+                    p.loadout.telePlaced = 0;
+                    p.loadout.pendingFirstPadId = null;
+                } else if (g.id === 'dash_cell') {
+                    p.loadout.gadgetDashUntil = state.frameCount + 30 * JAIL_FRAMES_PER_SEC;
+                    showMessage('Dash pack online — a bit snappier for a while');
+                } else {
+                    showMessage(`Gadget acquired: ${g.name}`);
+                }
+                document.getElementById(`gadget-modal-${pIdx}`).style.display = 'none';
+                p.menuType = null;
+                updateLoadoutUI();
+                return;
+            }
+            if (p.menuType === 'weapon') {
+                const w = WEAPON_ITEMS[p.menuSelection];
+                if (state.money < w.price) { showMessage('Not enough money'); return; }
+                state.money -= w.price;
+                updateMoneyUI();
+                ensurePlayerLoadout(p);
+                p.loadout.weapon = w.id;
+                showMessage(`${w.name} equipped — F to use`);
+                document.getElementById(`weapon-modal-${pIdx}`).style.display = 'none';
+                p.menuType = null;
+                updateLoadoutUI();
+                return;
+            }
             if (p.menuType === 'store') {
                 p.activeJob = state.schoolGameMode ? SCHOOL_JOBS[p.menuSelection] : JOBS[p.menuSelection];
                 p.schoolTask = null;
@@ -2625,6 +2982,8 @@
                 if (bNear.type === 'admin_hall') {
                     openAdminSkinModal();
                 } else if (bNear.type === 'store' || bNear.type === 'school') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
+                else if (bNear.type === 'shop_g') { openGadgetModal(pIdx); }
+                else if (bNear.type === 'shop_w') { openWeaponModal(pIdx); }
                 else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
@@ -2816,7 +3175,11 @@
             updateIngameSchoolGameBadge();
             updateOwnerDashboardFabVisibility();
             const skin0 = getSavedPlayerSkin();
-            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: skin0, activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
+            state.nextTeleGroupId = 1;
+            state.nextPadId = 1;
+            state.teleporterPads = [];
+            state.pvpNukeBlasts = [];
+            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: skin0, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
             
             if (state.playMode === 'online') {
                 state.playerMode = 1;
@@ -2829,11 +3192,14 @@
                     badge.classList.remove('hidden');
                 }
             } else if (state.playerMode === 2) {
-                state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
+                state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
                 document.getElementById('p1-modals').classList.remove('hidden');
             } else {
                 document.getElementById('p1-modals').classList.add('hidden');
             }
+            const lw1 = document.getElementById('loadout-wrap-1');
+            if (lw1) lw1.classList.toggle('hidden', state.playerMode !== 2);
+            updateLoadoutUI();
             
             if (state.deviceMode === 'phone') {
                 document.querySelectorAll('.nav-hint').forEach(el => el.style.display = 'none');
@@ -2880,8 +3246,19 @@
                 }
                 if (state.players[0] && state.players[0].menuType) {
                     if (k === 'w') { state.players[0].menuSelection = Math.max(0, state.players[0].menuSelection-1); updateMenuUI(0); }
-                    if (k === 's') { const m = state.players[0].menuType === 'store' ? (state.schoolGameMode ? SCHOOL_JOBS.length - 1 : JOBS.length-1) : (state.players[0].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[0].menuSelection = Math.min(m, state.players[0].menuSelection+1); updateMenuUI(0); }
+                    if (k === 's') { const m = menuMaxForPlayer(state.players[0]); state.players[0].menuSelection = Math.min(m, state.players[0].menuSelection+1); updateMenuUI(0); }
                 }
+                if (k === 'q' && state.players[0] && !state.players[0].menuType) {
+                    const p0 = state.players[0];
+                    if (p0 && !p0.inVehicle) {
+                        ensurePlayerLoadout(p0);
+                        if (p0.loadout.telePadsToPlace > 0) {
+                            e.preventDefault();
+                            addTeleporterPad(0, p0.x, p0.y);
+                        }
+                    }
+                }
+                if (k === 'f' && state.players[0] && !state.players[0].menuType) { e.preventDefault(); fireWeapon(0); }
 
                 // PLAYER 2
                 if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) {
@@ -2894,8 +3271,16 @@
                 }
                 if (state.players[1] && state.players[1].menuType) {
                     if (k === 'arrowup') { state.players[1].menuSelection = Math.max(0, state.players[1].menuSelection-1); updateMenuUI(1); }
-                    if (k === 'arrowdown') { const m = state.players[1].menuType === 'store' ? (state.schoolGameMode ? SCHOOL_JOBS.length - 1 : JOBS.length-1) : (state.players[1].menuType === 'dealer' ? VEHICLE_TYPES.length-1 : 0); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
+                    if (k === 'arrowdown') { const m = menuMaxForPlayer(state.players[1]); state.players[1].menuSelection = Math.min(m, state.players[1].menuSelection+1); updateMenuUI(1); }
                 }
+                if (k === 'q' && state.players[1] && !state.players[1].menuType) {
+                    const p1 = state.players[1];
+                    if (p1 && !p1.inVehicle) {
+                        ensurePlayerLoadout(p1);
+                        if (p1.loadout.telePadsToPlace > 0) { e.preventDefault(); addTeleporterPad(1, p1.x, p1.y); }
+                    }
+                }
+                if (k === 'f' && state.players[1] && !state.players[1].menuType) { e.preventDefault(); fireWeapon(1); }
             };
             window.onkeyup = e => state.keys[e.key.toLowerCase()] = false;
             requestAnimationFrame(gameLoop);
@@ -2916,6 +3301,8 @@
         function update() {
             if(state.isGameOver) return;
             state.frameCount++;
+            processPvpNukeVfx();
+            processTeleporterPads();
             
             let customSpeed = 4;
             if (hasGodSettings()) {
@@ -2981,7 +3368,10 @@
 
             state.players.forEach((p, idx) => {
                 if (!p || p.activeJob || p.menuType || p.isRobbing || state.isJailed) return;
+                ensurePlayerLoadout(p);
+                const stunLock = p.loadout.stunUntil > state.frameCount;
                 const controls = idx === 0 ? { u:'w', d:'s', l:'a', r:'d' } : { u:'arrowup', d:'arrowdown', l:'arrowleft', r:'arrowright' };
+                const spd = (p.loadout.gadgetDashUntil > state.frameCount) ? pedSpeed * 1.12 : pedSpeed;
                 if (p.inVehicle) {
                     const v = p.inVehicle;
                     if (state.keys[controls.u]) { if (v.angle !== 3*Math.PI/2) { if (isIntersection(v.x, v.y) || v.angle === Math.PI/2) { v.x = Math.round(v.x/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x, v.y-20)) v.angle = 3*Math.PI/2; } } }
@@ -2994,12 +3384,12 @@
                     const openWorld = state.buildings.length === 0;
                     if (!hitBuilding && (openWorld || getRoadAt(nextX, nextY))) { v.x = nextX; v.y = nextY; }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
-                } else {
+                } else if (!stunLock) {
                     let mx=0, my=0; 
-                    if(state.keys[controls.u]) my-=pedSpeed; 
-                    if(state.keys[controls.d]) my+=pedSpeed; 
-                    if(state.keys[controls.l]) mx-=pedSpeed; 
-                    if(state.keys[controls.r]) mx+=pedSpeed;
+                    if(state.keys[controls.u]) my-=spd; 
+                    if(state.keys[controls.d]) my+=spd; 
+                    if(state.keys[controls.l]) mx-=spd; 
+                    if(state.keys[controls.r]) mx+=spd;
                     
                     const nx = p.x + mx, ny = p.y + my; 
                     
@@ -3031,6 +3421,8 @@
                                 else if (bNear.type === 'ben_hall' && !state.benHouseRobbed) subEl.innerText = "ben's — press E ($75k, once)";
                                 else if (bNear.type === 'ben_hall') subEl.innerText = "ben's (empty)";
                                 else if (bNear.type === 'school' || (bNear.type === 'store' && state.schoolGameMode)) subEl.innerText = 'school';
+                                else if (bNear.type === 'shop_g') subEl.innerText = 'gadget row';
+                                else if (bNear.type === 'shop_w') subEl.innerText = 'weapon row';
                                 else subEl.innerText = bNear.type;
                             } else subEl.innerText = vNear ? vNear.type.name : '';
                         }
@@ -3192,16 +3584,55 @@
                 c.restore();
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
-                const short = b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : buildingTypeLabel(b.type));
+                const short = b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type)));
                 c.save();
-                c.font = (b.type === 'admin_hall' || b.type === 'ben_hall') ? 'bold 10px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
+                c.font = (b.type === 'admin_hall' || b.type === 'ben_hall' || b.type === 'shop_g' || b.type === 'shop_w') ? 'bold 9px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
                 c.textAlign = 'center';
                 c.textBaseline = 'middle';
                 c.lineWidth = 3;
                 c.strokeStyle = 'rgba(0,0,0,0.85)';
-                c.fillStyle = b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : '#f8fafc');
+                c.fillStyle = b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'shop_w' ? '#fecdd3' : '#f8fafc'));
                 c.strokeText(short, cx, cy);
                 c.fillText(short, cx, cy);
+                c.restore();
+            });
+            state.teleporterPads.forEach(tpad => {
+                c.save();
+                c.translate(tpad.x, tpad.y);
+                const pulse = 0.75 + 0.15 * Math.sin(state.frameCount * 0.12);
+                c.strokeStyle = `rgba(6, 182, 212, ${pulse})`;
+                c.lineWidth = 3;
+                c.setLineDash([6, 4]);
+                c.beginPath();
+                c.arc(0, 0, 22, 0, Math.PI * 2);
+                c.stroke();
+                c.setLineDash([]);
+                c.fillStyle = 'rgba(34, 211, 238, 0.2)';
+                c.beginPath();
+                c.arc(0, 0, 18, 0, Math.PI * 2);
+                c.fill();
+                c.fillStyle = '#a5f3fc';
+                c.font = 'bold 9px sans-serif';
+                c.textAlign = 'center';
+                c.textBaseline = 'bottom';
+                c.fillText('LINK', 0, -24);
+                c.restore();
+            });
+            state.pvpNukeBlasts.forEach(n => {
+                c.save();
+                c.translate(n.x, n.y);
+                c.globalAlpha = 0.5;
+                c.strokeStyle = '#f97316';
+                c.lineWidth = 3;
+                c.beginPath();
+                c.arc(0, 0, n.r, 0, Math.PI * 2);
+                c.stroke();
+                c.fillStyle = 'rgba(250, 204, 21, 0.15)';
+                c.fill();
+                c.globalAlpha = 0.4;
+                c.beginPath();
+                c.arc(0, 0, n.r * 0.4, 0, Math.PI * 2);
+                c.fill();
                 c.restore();
             });
 
@@ -3327,10 +3758,17 @@
                 ms.fillStyle = b.color;
                 ms.fillRect(px, py, Math.max(1, pw), Math.max(1, ph));
             });
+            state.teleporterPads.forEach(tpad => {
+                const px = tpad.x * s, py = tpad.y * s;
+                ms.fillStyle = 'rgba(34, 211, 238, 0.85)';
+                ms.beginPath();
+                ms.arc(px, py, 3, 0, Math.PI * 2);
+                ms.fill();
+            });
             state.buildings.forEach(b => {
                 if (b.type === 'invisible') return;
                 if (b.w * s < 3 || b.h * s < 2) return;
-                const full = b.type === 'ben_hall' ? "Ben" : buildingTypeLabel(b.type);
+                const full = b.type === 'ben_hall' ? "Ben" : (b.type === 'shop_g' ? 'Gad' : b.type === 'shop_w' ? 'Wpn' : buildingTypeLabel(b.type));
                 const short = (b.w * s < 12) ? (full.length > 3 ? full.slice(0, 3) : full) : full;
                 ms.save();
                 ms.font = (b.w * s < 12) ? '600 3px system-ui,Segoe UI,sans-serif' : '600 4px system-ui,Segoe UI,sans-serif';
