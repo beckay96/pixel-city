@@ -180,6 +180,31 @@
         }
         #in-game-phone-btn:active { transform: scale(0.95); }
 
+        #lobby-stats-fab {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            z-index: 1150;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #0d9488, #0f766e);
+            border: 2px solid #5eead4;
+            box-shadow: 0 4px 20px rgba(20, 184, 166, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            font-size: 22px;
+        }
+        #lobby-stats-fab:active { transform: scale(0.95); }
+        #lobby-stats-overlay {
+            position: fixed; inset: 0; z-index: 1160; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.75); padding: 16px; pointer-events: auto;
+        }
+        #lobby-stats-overlay.open { display: flex; }
+
         #owner-dashboard-fab {
             position: fixed;
             bottom: 80px;
@@ -431,6 +456,25 @@
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/explode</span> <span class="font-mono text-amber-400/90">/destroy</span> · <span class="font-mono text-amber-400/90">/kill</span> · <span class="font-mono text-amber-400/90">/teleport all</span></p>
             </div>
+        </div>
+    </div>
+
+    <button type="button" id="lobby-stats-fab" class="interactive" title="Server stats" aria-label="Open online player stats">📡</button>
+    <div id="lobby-stats-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-stats-title">
+        <div class="bg-slate-900 border border-teal-500/60 rounded-2xl p-4 max-w-sm w-full shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start gap-2 mb-3">
+                <h2 id="lobby-stats-title" class="text-teal-300 font-black text-sm uppercase tracking-widest">Server activity</h2>
+                <button type="button" id="lobby-stats-close" class="text-slate-400 hover:text-white text-sm font-bold interactive">✕</button>
+            </div>
+            <p class="text-[9px] text-slate-500 mb-3">Online accounts only (from the game database). Updates about every 5s while open.</p>
+            <p id="lobby-stats-err" class="text-[10px] text-amber-400 min-h-[1.25rem] mb-2"></p>
+            <ul class="text-xs space-y-2 text-slate-200">
+                <li class="flex justify-between gap-2 border-b border-slate-700 pb-1"><span class="text-slate-400">Playing now (≈90s)</span><span id="lobby-stat-online" class="font-mono font-bold text-teal-300">—</span></li>
+                <li class="flex justify-between gap-2 border-b border-slate-700 pb-1"><span class="text-slate-400">Active last 24h</span><span id="lobby-stat-24h" class="font-mono font-bold">—</span></li>
+                <li class="flex justify-between gap-2 border-b border-slate-700 pb-1"><span class="text-slate-400">Registered players</span><span id="lobby-stat-users" class="font-mono font-bold">—</span></li>
+                <li class="flex justify-between gap-2 border-b border-slate-700 pb-1"><span class="text-slate-400">Multiplayer rooms (total)</span><span id="lobby-stat-sessions" class="font-mono font-bold">—</span></li>
+                <li class="text-[9px] text-slate-500 pt-1" id="lobby-stat-updated">—</li>
+            </ul>
         </div>
     </div>
 
@@ -901,6 +945,7 @@
         /** Dev-only: optional URL/key override (see README; not shown in the public UI). */
         const LS_SUPABASE_URL_OVERRIDE = 'pixelCitySupabaseUrl';
         const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
+        const LS_LOBBY_STATS_UNLOCKED = 'pixelCityLobbyStatsUnlocked';
         const ONLINE_BROADCAST_MS = 120;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
@@ -965,6 +1010,8 @@
             isAdmin: false,
             /** Lobby PIN 4789 grants cheats; thomas sign-in is owner admin without the PIN. */
             lobbyAdminUnlocked: false,
+            /** Same PIN can unlock live server stats (separate from lobbyAdminUnlocked; see startApp). */
+            lobbyStatsUnlocked: false,
             playerMode: 1, 
             deviceMode: 'computer',
             /** When true, stricter / kid-friendly rules can be applied (see applySchoolSafeGameRules). */
@@ -1248,6 +1295,7 @@
             document.getElementById('lobby-screen').style.display = 'flex';
             setInGamePhoneVisible(false);
             updateOwnerDashboardFabVisibility();
+            updateLobbyStatsFabVisibility();
         }
 
         function isSignInScreenVisible() {
@@ -1291,15 +1339,6 @@
             return msg;
         }
 
-        /** Safari often reports failed fetches as TypeError: Load failed */
-        function formatSupabaseNetworkError(err) {
-            const msg = err && err.message ? String(err.message) : String(err);
-            if (msg.includes('Load failed') || msg === 'Failed to fetch' || msg.includes('NetworkError')) {
-                return 'Connection failed — check Wi‑Fi, ad blockers, and that your Supabase URL uses https://. School networks may block *.supabase.co; try “Play offline” or ask IT to allowlist it.';
-            }
-            return msg;
-        }
-
         function normalizeUsername(s) {
             return (s || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 32);
         }
@@ -1321,10 +1360,68 @@
             recomputeIsAdmin();
         }
 
+        function setLobbyStatsUnlocked(v) {
+            state.lobbyStatsUnlocked = !!v;
+            try {
+                localStorage.setItem(LS_LOBBY_STATS_UNLOCKED, state.lobbyStatsUnlocked ? '1' : '0');
+            } catch (_) { /* */ }
+        }
+
+        function getLobbyStatsUnlockedFromStorage() {
+            try {
+                return localStorage.getItem(LS_LOBBY_STATS_UNLOCKED) === '1';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        let lobbyStatsInterval = null;
+
+        function updateLobbyStatsFabVisibility() {
+            const fab = document.getElementById('lobby-stats-fab');
+            if (!fab) return;
+            const inLobby = isLobbyScreenVisible();
+            fab.style.display = (inLobby && state.lobbyStatsUnlocked) ? 'flex' : 'none';
+        }
+
+        function closeLobbyStatsOverlay() {
+            const o = document.getElementById('lobby-stats-overlay');
+            if (o) o.classList.remove('open');
+            if (lobbyStatsInterval) {
+                clearInterval(lobbyStatsInterval);
+                lobbyStatsInterval = null;
+            }
+        }
+
+        async function refreshLobbyPublicStats() {
+            const errEl = document.getElementById('lobby-stats-err');
+            if (errEl) errEl.textContent = '';
+            if (!supabase) {
+                if (errEl) errEl.textContent = 'Online service not configured on this site — stats unavailable.';
+                return;
+            }
+            const { data, error } = await supabase.rpc('public_server_stats');
+            if (error) {
+                if (errEl) errEl.textContent = formatSupabaseNetworkError(error);
+                return;
+            }
+            if (!data || !data.ok) {
+                if (errEl) errEl.textContent = (data && data.error) ? String(data.error) : 'Stats unavailable. Ask the site owner to run the latest database migration (public_server_stats).';
+                return;
+            }
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v != null ? String(v) : '—'; };
+            set('lobby-stat-online', data.users_online_now);
+            set('lobby-stat-24h', data.users_seen_24h);
+            set('lobby-stat-users', data.users_total);
+            set('lobby-stat-sessions', data.game_sessions_total);
+            set('lobby-stat-updated', data.generated_at ? `Updated ${data.generated_at} UTC` : '—');
+        }
+
         function updateOwnerDashboardFabVisibility() {
             const fab = document.getElementById('owner-dashboard-fab');
             if (!fab) return;
-            fab.style.display = isOwnerDashboardUser() ? 'flex' : 'none';
+            fab.style.display = isOwnerDashboardUser() && !isLobbyScreenVisible() ? 'flex' : 'none';
+            updateLobbyStatsFabVisibility();
         }
 
         const ASSISTANT_TIPS = [
@@ -2617,6 +2714,7 @@
             } else {
                 state.worldSeed = null;
             }
+            closeLobbyStatsOverlay();
 
             document.getElementById('lobby-screen').style.display = 'none';
             setInGamePhoneVisible(true);
@@ -3202,6 +3300,7 @@
         }
 
         function updateLobbyHints() {
+            if (!hintContainer) return;
             const onlineHint = document.getElementById('online-mode-hint');
             const panel = document.getElementById('online-lobby-panel');
             if (onlineHint) onlineHint.classList.toggle('hidden', state.playMode !== 'online');
@@ -3863,6 +3962,7 @@
         }
 
         async function startApp() {
+            state.lobbyStatsUnlocked = getLobbyStatsUnlockedFromStorage();
             initSchoolSafeMode();
             applySchoolSafeGameRules();
             applySchoolSafeUI();
@@ -3963,6 +4063,19 @@
                 document.getElementById('online-invite-block')?.classList.add('hidden');
                 updateOwnerDashboardFabVisibility();
             };
+
+            document.getElementById('lobby-stats-fab')?.addEventListener('click', () => {
+                const o = document.getElementById('lobby-stats-overlay');
+                if (!o || !state.lobbyStatsUnlocked) return;
+                o.classList.add('open');
+                void refreshLobbyPublicStats();
+                if (lobbyStatsInterval) clearInterval(lobbyStatsInterval);
+                lobbyStatsInterval = setInterval(() => { void refreshLobbyPublicStats(); }, 5000);
+            });
+            document.getElementById('lobby-stats-close')?.addEventListener('click', () => closeLobbyStatsOverlay());
+            document.getElementById('lobby-stats-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'lobby-stats-overlay') closeLobbyStatsOverlay();
+            });
 
             document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
             document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
@@ -4076,12 +4189,14 @@
             document.getElementById('admin-apply-btn').onclick = () => {
                 if (document.getElementById('admin-code-input').value === '4789') {
                     setLobbyAdminUnlocked(true);
+                    setLobbyStatsUnlocked(true);
                     document.getElementById('admin-msg').innerText = 'ACCESS GRANTED';
                     document.getElementById('admin-msg').classList.replace('text-red-500', 'text-green-500');
                     document.getElementById('admin-codes-list-display').classList.remove('hidden');
                     document.getElementById('admin-input-area').classList.add('hidden');
                     const gpb = document.getElementById('god-panel-btn');
                     if (gpb && isInGame()) gpb.classList.remove('hidden');
+                    updateLobbyStatsFabVisibility();
                 } else {
                     document.getElementById('admin-msg').innerText = 'DENIED';
                     document.getElementById('admin-code-input').value = '';
@@ -4140,6 +4255,7 @@
             } else {
                 updateFriendsListUIAsync();
             }
+            updateLobbyStatsFabVisibility();
         }
         startApp();
     </script>
