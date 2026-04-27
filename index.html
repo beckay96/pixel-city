@@ -774,8 +774,12 @@
                         <span class="w-12 h-12 rounded-2xl bg-sky-600 flex items-center justify-center text-xl">🌐</span>
                         <span class="text-[9px] text-slate-300 font-bold">Web</span>
                     </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="gps">
+                        <span class="w-12 h-12 rounded-2xl bg-lime-600 flex items-center justify-center text-xl">🧭</span>
+                        <span class="text-[9px] text-slate-300 font-bold">GPS</span>
+                    </button>
                 </div>
-                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web opens in a new tab (URL or Google safe search). VidKing: curated videos.</p>
+                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web opens in a new tab. GPS draws a route on the world (Player 1) after you close the phone.</p>
             </div>
             <div id="phone-view-messages" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
                 <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
@@ -862,6 +866,15 @@
                     <p id="phone-web-status" class="text-xs text-slate-400 mb-3">Tap <span class="text-sky-400 font-bold">Go</span> to open the web in your browser.</p>
                     <button type="button" id="phone-web-open-home" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-lg interactive">Open start page</button>
                 </div>
+            </div>
+            <div id="phone-view-gps" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">GPS</span>
+                </div>
+                <p class="text-[9px] text-slate-400 px-2 py-1">Choose a <span class="text-lime-300 font-bold">building type</span> — the app shows the <span class="text-white font-bold">closest</span> lot. When you <span class="text-cyan-300">close the phone</span>, a cyan line appears on the map (P1). It clears when you reach the building.</p>
+                <p id="phone-gps-hint" class="text-[10px] text-lime-200/90 px-2 min-h-[2.5rem]">No route set. Tap a destination below.</p>
+                <div class="p-2 grid grid-cols-2 gap-1.5 flex-1 min-h-0 content-start" id="phone-gps-grid"></div>
             </div>
             <div id="phone-view-game" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
                 <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
@@ -1141,6 +1154,8 @@
             jailBailMathSolved: false,
             /** School jail: after lines + bail math, short countdown to walk free (or pay bail) */
             jailReleasePhase: false,
+            /** PixelPhone GPS: route for P1 (set in phone; line on map when phone is closed). */
+            gps: { active: false, id: null, x: 0, y: 0, w: 0, h: 0, label: '' }
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1219,6 +1234,148 @@
             if (t === 'house') return 'HOUSE';
             if (t === 'ruins') return 'RUINS';
             return String(t || '').toUpperCase();
+        }
+
+        const GPS_ARRIVAL_PX = 200;
+        /** Ben’s lot (3000,3000 grid + 100 margin). After robbery the building is a normal `house` here. */
+        const BEN_HOUSE_LOT_X = 3100;
+        const BEN_HOUSE_LOT_Y = 3100;
+        const HOME_LOT_X = 2100;
+        const HOME_LOT_Y = 2100;
+        const GPS_LANDMARKS = [
+            { id: 'home', name: 'My home' },
+            { id: 'house', name: 'Houses' },
+            { id: 'ben', name: "Ben's house" },
+            { id: 'admin', name: 'Admin house' },
+            { id: 'store', name: 'Store' },
+            { id: 'school', name: 'School' },
+            { id: 'bank', name: 'Bank' },
+            { id: 'jail', name: 'Jail' },
+            { id: 'dealership', name: 'Dealership' },
+            { id: 'gadget', name: 'Gizmo & gadgets' },
+            { id: 'weapons', name: 'Warden arms' }
+        ];
+
+        function clearGpsRoute() {
+            state.gps = { active: false, id: null, x: 0, y: 0, w: 0, h: 0, label: '' };
+        }
+
+        function buildingMatchesGpsId(b, gpsId) {
+            if (!b || b.type === 'invisible') return false;
+            const t = b.type;
+            if (gpsId === 'admin') return t === 'admin_hall';
+            if (gpsId === 'bank') return t === 'bank';
+            if (gpsId === 'jail') return t === 'jail';
+            if (gpsId === 'dealership') return t === 'dealership';
+            if (gpsId === 'gadget') return t === 'shop_g';
+            if (gpsId === 'weapons') return t === 'shop_w';
+            if (gpsId === 'home') {
+                return t === 'home' || (t === 'ruins' && b.x === HOME_LOT_X && b.y === HOME_LOT_Y);
+            }
+            if (gpsId === 'ben') {
+                if (state.benHouseRobbed) {
+                    return t === 'house' && b.x === BEN_HOUSE_LOT_X && b.y === BEN_HOUSE_LOT_Y;
+                }
+                return t === 'ben_hall';
+            }
+            if (gpsId === 'house') {
+                return t === 'house' && !(b.x === BEN_HOUSE_LOT_X && b.y === BEN_HOUSE_LOT_Y);
+            }
+            if (gpsId === 'store') {
+                if (state.schoolGameMode) return false;
+                return t === 'store';
+            }
+            if (gpsId === 'school') {
+                return t === 'school' || (state.schoolGameMode && t === 'store');
+            }
+            return false;
+        }
+
+        function getClosestGpsTarget(gpsId) {
+            let best = null;
+            let bestD = Infinity;
+            const p = state.players && state.players[0];
+            if (!p) return null;
+            (state.buildings || []).forEach(b => {
+                if (!buildingMatchesGpsId(b, gpsId)) return;
+                const cx = b.x + b.w / 2;
+                const cy = b.y + b.h / 2;
+                const d = dist(p.x, p.y, cx, cy);
+                if (d < bestD) {
+                    bestD = d;
+                    best = { b, cx, cy, d };
+                }
+            });
+            if (!best) return null;
+            return {
+                x: best.b.x,
+                y: best.b.y,
+                w: best.b.w,
+                h: best.b.h,
+                cx: best.cx,
+                cy: best.cy,
+                label: (GPS_LANDMARKS.find(m => m.id === gpsId) || {}).name || gpsId,
+                dist: best.d
+            };
+        }
+
+        function setGpsToClosest(gpsId) {
+            if (!isInGame()) {
+                const el = document.getElementById('phone-gps-hint');
+                if (el) el.textContent = 'Start a run first, then set a route.';
+                return;
+            }
+            const t = getClosestGpsTarget(gpsId);
+            const el = document.getElementById('phone-gps-hint');
+            if (!t) {
+                clearGpsRoute();
+                if (el) {
+                    el.textContent = gpsId === 'store' && state.schoolGameMode
+                        ? 'No store lots in school mode — use School instead.'
+                        : 'No matching building in this map.';
+                }
+                return;
+            }
+            const distText = Math.round(t.dist);
+            state.gps = {
+                active: true,
+                id: gpsId,
+                x: t.x,
+                y: t.y,
+                w: t.w,
+                h: t.h,
+                label: t.label
+            };
+            if (el) {
+                el.textContent = `Closest: ${t.label} · ~${distText}px. Close the phone to see the line on the map.`;
+            }
+        }
+
+        function syncPhoneGpsHint() {
+            const el = document.getElementById('phone-gps-hint');
+            if (!el) return;
+            if (!state.gps.active) {
+                el.textContent = 'No route set. Tap a destination below.';
+                return;
+            }
+            const t = getClosestGpsTarget(state.gps.id);
+            if (t) {
+                el.textContent = `Route: ${t.label} · ~${Math.round(t.dist)}px. Line shows after you close the phone.`;
+            } else {
+                el.textContent = 'That destination is no longer on the map. Pick another.';
+            }
+        }
+
+        function updateGpsArrival() {
+            if (!state.gps || !state.gps.active) return;
+            const p0 = state.players && state.players[0];
+            if (!p0) return;
+            const t = getClosestGpsTarget(state.gps.id);
+            if (!t) {
+                clearGpsRoute();
+                return;
+            }
+            if (t.dist <= GPS_ARRIVAL_PX) clearGpsRoute();
         }
 
         function getSavedPlayerSkin() {
@@ -2097,6 +2254,7 @@
         function applyExplodeDestroyWorld(opts) {
             const fromNet = opts && opts.fromNetwork;
             state.benHouseRobbed = true;
+            clearGpsRoute();
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
             state.buildings = [];
@@ -2563,6 +2721,7 @@
         }
 
         window.dropNuke = () => {
+            clearGpsRoute();
             document.getElementById('victory-overlay').style.display = 'none';
             const flash = document.getElementById('nuke-flash');
             flash.style.display = 'block';
@@ -2612,6 +2771,7 @@
         };
 
         window.restartGame = () => {
+            clearGpsRoute();
             state.benHouseRobbed = false;
             state.nextTeleGroupId = 1;
             state.nextPadId = 1;
@@ -3308,6 +3468,7 @@
             state.frameCount++;
             processPvpNukeVfx();
             processTeleporterPads();
+            updateGpsArrival();
             
             let customSpeed = 4;
             if (hasGodSettings()) {
@@ -3712,6 +3873,30 @@
                     ci++;
                 }
             }
+            const phoneOpen = document.getElementById('smartphone-overlay')?.classList.contains('open');
+            if (state.gps && state.gps.active && clipX === 0 && !phoneOpen) {
+                const p0 = state.players && state.players[0];
+                const t = p0 ? getClosestGpsTarget(state.gps.id) : null;
+                if (p0 && t) {
+                    c.save();
+                    c.setLineDash([10, 8]);
+                    c.strokeStyle = 'rgba(34, 211, 238, 0.95)';
+                    c.lineWidth = 4;
+                    c.shadowColor = 'rgba(8, 47, 73, 0.5)';
+                    c.shadowBlur = 4;
+                    c.beginPath();
+                    c.moveTo(p0.x, p0.y);
+                    c.lineTo(t.cx, t.cy);
+                    c.stroke();
+                    c.setLineDash([]);
+                    c.shadowBlur = 0;
+                    c.fillStyle = 'rgba(34, 211, 238, 0.3)';
+                    c.beginPath();
+                    c.arc(t.cx, t.cy, 14, 0, Math.PI * 2);
+                    c.fill();
+                    c.restore();
+                }
+            }
             c.restore();
         }
 
@@ -3874,12 +4059,12 @@
         }
 
         function phoneShowView(name) {
-            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-game'].forEach(id => {
+            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-gps', 'phone-view-game'].forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
                 const show = id === `phone-view-${name}`;
                 el.classList.toggle('hidden', !show);
-                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-game'));
+                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-gps' || id === 'phone-view-game'));
             });
         }
 
@@ -4415,6 +4600,20 @@
             }
         }
 
+        function initPhoneGpsUI() {
+            const grid = document.getElementById('phone-gps-grid');
+            if (!grid || grid.dataset.built === '1') return;
+            grid.dataset.built = '1';
+            GPS_LANDMARKS.forEach(land => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg px-2 py-2 interactive';
+                b.innerHTML = `<div class="font-bold text-lime-300 text-[10px] leading-tight">${land.name}</div><div class="text-[8px] text-slate-500">Closest of this type</div>`;
+                b.onclick = () => setGpsToClosest(land.id);
+                grid.appendChild(b);
+            });
+        }
+
         function initSmartphoneUI() {
             const overlay = document.getElementById('smartphone-overlay');
             const fab = document.getElementById('in-game-phone-btn');
@@ -4445,6 +4644,7 @@
                 }
             });
 
+            initPhoneGpsUI();
             document.querySelectorAll('.phone-app-btn').forEach(btn => {
                 btn.onclick = () => {
                     const app = btn.getAttribute('data-phone-app');
@@ -4461,6 +4661,10 @@
                     } else if (app === 'web') {
                         phoneShowView('web');
                         resetWebAppHint();
+                    } else if (app === 'gps') {
+                        initPhoneGpsUI();
+                        phoneShowView('gps');
+                        syncPhoneGpsHint();
                     }
                 };
             });
