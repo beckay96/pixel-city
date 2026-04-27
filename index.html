@@ -525,6 +525,14 @@
                 <div class="text-xl font-black text-green-400" id="money-display">$0</div>
                 <div class="text-[8px] text-slate-400 uppercase font-bold text-center">Wallet</div>
             </div>
+            <div class="px-4 text-center min-w-[5.5rem]">
+                <div class="text-[9px] text-rose-400/90 font-bold uppercase tracking-tighter" id="health-p0-label">P1</div>
+                <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-0.5" title="Health"><div id="health-p0-bar" class="h-full bg-emerald-500 rounded-full transition-all" style="width:100%"></div></div>
+            </div>
+            <div id="health-wrap-1" class="hidden px-4 text-center min-w-[5.5rem]">
+                <div class="text-[9px] text-emerald-300/90 font-bold uppercase tracking-tighter" id="health-p1-label">P2</div>
+                <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-0.5" title="Health"><div id="health-p1-bar" class="h-full bg-emerald-500 rounded-full transition-all" style="width:100%"></div></div>
+            </div>
             <div class="px-4 text-center">
                 <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-tighter">Goal: $100k</div>
             </div>
@@ -539,7 +547,14 @@
                 <span id="loadout-tele-1" class="block text-violet-300">—</span>
             </div>
         </div>
-        <p class="text-[8px] text-slate-500 text-center max-w-md mx-auto mt-1 pointer-events-none px-2">Gadget kit: with pads to place, press <span class="text-cyan-300 font-bold">Q</span> to drop each. Two pads = one link. Weapon: <span class="text-rose-300 font-bold">F</span> to fire. Nuke = hit only, no round end.</p>
+        <p class="text-[8px] text-slate-500 text-center max-w-md mx-auto mt-1 pointer-events-none px-2">Gadget: <span class="text-cyan-300 font-bold">Q</span> · Weapon: <span class="text-rose-300 font-bold">F</span> · 2P: <span class="text-emerald-300 font-bold">E</span> revive · <span class="text-slate-300 font-bold">G</span> grab body · HOSP to heal or admit (cash)</p>
+        <p id="spectate-hint" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] text-center text-sm font-bold text-white bg-black/70 px-4 py-2 rounded-lg pointer-events-none">Spectating</p>
+        <div id="hospital-modal" class="modal text-center" style="display:none;">
+            <h2 class="text-xl font-black text-emerald-400 mb-2 uppercase">Hospital</h2>
+            <p id="hospital-modal-line" class="text-sm text-slate-200 mb-3 min-h-[3rem]"></p>
+            <button type="button" id="hospital-admit-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg mb-2">Admit (pay)</button>
+            <button type="button" class="w-full bg-slate-600 text-white py-2 rounded-lg" onclick="document.getElementById('hospital-modal').style.display='none'">Leave</button>
+        </div>
 
         <!-- Viewport Aware Modals for P1 -->
         <div id="p0-modals" class="p0-view">
@@ -1073,6 +1088,14 @@
         const ZOMBIE_CIV_COUNT = 18;
         const ZOMBIE_CIV_COLOR = '#22c55e';
         const ZOMBIE_CIV_COLOR_MINI = '#4ade80';
+        const PLAYER_MAX_HP = 100;
+        const HOSPITAL_ADMIT_COST = 8000;
+        const BLEED_OUT_FRAMES = 15 * 60;
+        const REVIVE_RANGE = 90;
+        const CARRY_OFFSET = 38;
+        const BITE_DMG = 12;
+        const WEP_DMG_STUN = 18;
+        const WEP_DMG_NUKE = 200;
         const TELEPORT_PAD_R = 38;
         const TELEPORT_REENTER_FRAMES = 8;
         const PVP_NUKE_RADIUS = 400;
@@ -1187,7 +1210,10 @@
             /** School jail: after lines + bail math, short countdown to walk free (or pay bail) */
             jailReleasePhase: false,
             /** PixelPhone GPS: route for P1 (set in phone; line on map when phone is closed). */
-            gps: { active: false, id: null, x: 0, y: 0, w: 0, h: 0, label: '' }
+            gps: { active: false, id: null, x: 0, y: 0, w: 0, h: 0, label: '' },
+            spectatePIdx: 0,
+            hospitalAction: null,
+            soloHospModalShown: false
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1256,6 +1282,7 @@
         }
 
         function buildingTypeLabel(t) {
+            if (t === 'hospital') return 'HOSP';
             if (t === 'admin_hall') return 'ADMN';
             if (t === 'ben_hall') return "BEN'S";
             if (t === 'shop_g') return 'GIZ';
@@ -1282,6 +1309,7 @@
             { id: 'store', name: 'Store' },
             { id: 'school', name: 'School' },
             { id: 'bank', name: 'Bank' },
+            { id: 'hospital', name: 'Hospital' },
             { id: 'jail', name: 'Jail' },
             { id: 'dealership', name: 'Dealership' },
             { id: 'gadget', name: 'Gizmo & gadgets' },
@@ -1298,6 +1326,7 @@
             if (gpsId === 'admin') return t === 'admin_hall';
             if (gpsId === 'bank') return t === 'bank';
             if (gpsId === 'jail') return t === 'jail';
+            if (gpsId === 'hospital') return t === 'hospital';
             if (gpsId === 'dealership') return t === 'dealership';
             if (gpsId === 'gadget') return t === 'shop_g';
             if (gpsId === 'weapons') return t === 'shop_w';
@@ -1522,8 +1551,10 @@
         function otherPlayerInRadius(px, py, r, myIdx) {
             for (let j = 0; j < state.players.length; j++) {
                 if (j === myIdx || !state.players[j]) continue;
-                if (state.players[j].inVehicle) continue;
-                if (dist(px, py, state.players[j].x, state.players[j].y) < r) return { idx: j, p: state.players[j] };
+                const o = state.players[j];
+                if (o.dead || o.downed) continue;
+                if (o.inVehicle) continue;
+                if (dist(px, py, o.x, o.y) < r) return { idx: j, p: o };
             }
             for (const uid in state.remotePlayers) {
                 const rp = state.remotePlayers[uid];
@@ -1537,6 +1568,276 @@
             ensurePlayerLoadout(p);
             const t = state.frameCount + Math.ceil((ms / 1000) * JAIL_FRAMES_PER_SEC);
             p.loadout.stunUntil = Math.max(p.loadout.stunUntil || 0, t);
+        }
+        function ensurePlayerHealth(p) {
+            if (!p) return;
+            if (p.dead) return;
+            if (p.hp == null) p.hp = PLAYER_MAX_HP;
+        }
+        function isPlayerDead(p) { return !!(p && p.dead); }
+        function isPlayerDowned(p) { return p && p.downed; }
+        function isPlayerBleedingSolo(p) { return p && p.bleedFrames > 0 && p.hp <= 0 && !p.downed && !p.dead; }
+        function getAliveLocalCount() {
+            return state.players.filter(p => p && !p.dead).length;
+        }
+        function updateHealthBars() {
+            for (let i = 0; i < 2; i++) {
+                const p = state.players[i];
+                const bar = document.getElementById(`health-p${i}-bar`);
+                const label = document.getElementById(`health-p${i}-label`);
+                if (!bar) continue;
+                if (!p) { bar.style.width = '0%'; continue; }
+                ensurePlayerHealth(p);
+                const w = p.dead ? 0 : Math.max(0, Math.min(100, (p.hp / PLAYER_MAX_HP) * 100));
+                bar.style.width = `${w}%`;
+                bar.classList.remove('bg-emerald-500', 'bg-amber-500', 'bg-rose-600');
+                if (p.dead) bar.classList.add('bg-rose-600');
+                else if (p.downed || p.hp <= 0) bar.classList.add('bg-amber-500');
+                else bar.classList.add('bg-emerald-500');
+                if (label) {
+                    if (p.dead) label.textContent = i === 0 ? 'P1 (out)' : 'P2 (out)';
+                    else if (p.downed) label.textContent = i === 0 ? 'P1 ↓' : 'P2 ↓';
+                    else if (p.bleedFrames > 0 && p.hp <= 0) label.textContent = (i === 0 ? 'P1 ' : 'P2 ') + Math.max(0, Math.ceil(p.bleedFrames / 60)) + 's';
+                    else label.textContent = i === 0 ? 'P1' : 'P2';
+                }
+            }
+        }
+        function setPlayerFullHealth(p) {
+            if (!p) return;
+            p.hp = PLAYER_MAX_HP;
+            p.downed = false;
+            p.bleedFrames = 0;
+        }
+        function goSpectate(pIdx) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            p.dead = true;
+            p.downed = false;
+            p.bleedFrames = 0;
+            p.hp = 0;
+            p.corpseX = p.corpseX != null ? p.corpseX : p.x;
+            p.corpseY = p.corpseY != null ? p.corpseY : p.y;
+            p.x = p.corpseX;
+            p.y = p.corpseY;
+            p.carryingPlayerIdx = null;
+            if (p.carriedBy != null) {
+                const c = state.players[p.carriedBy];
+                if (c) c.draggingPlayerIdx = null;
+            }
+            p.carriedBy = null;
+            p.inVehicle = null;
+            p.draggingPlayerIdx = null;
+            showMessage('You are out — body remains on the ground');
+            if (pIdx === 0) state.soloHospModalShown = false;
+            if (pIdx === 0) {
+                const sh = document.getElementById('spectate-hint');
+                if (sh) {
+                    if (getAliveLocalCount() < 1) { sh.classList.add('hidden'); sh.textContent = 'Spectating'; }
+                    else {
+                        sh.classList.remove('hidden');
+                        sh.textContent = 'Spectating (watch teammate)';
+                    }
+                }
+            }
+            const other = 1 - pIdx;
+            if (state.players[other] && !state.players[other].dead) state.spectatePIdx = other;
+        }
+        function startDownOrBleed(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || p.dead) return;
+            ensurePlayerHealth(p);
+            p.hp = 0;
+            p.inVehicle = null;
+            p.loadout = p.loadout || defaultLoadout();
+            const isDuo = state.playerMode === 2 && state.playMode !== 'online';
+            if (isDuo) {
+                p.downed = true;
+                p.bleedFrames = 0;
+                p.corpseX = p.x;
+                p.corpseY = p.y;
+                showMessage('Down! Partner: E to revive, or hold near body to pick up to hospital');
+            } else {
+                p.downed = false;
+                p.bleedFrames = BLEED_OUT_FRAMES;
+                p.corpseX = p.x;
+                p.corpseY = p.y;
+                showMessage('Critical! 15s — reach the hospital (green HOSP) or you are out');
+            }
+            updateHealthBars();
+        }
+        function dealDamageToPlayer(pIdx, amount) {
+            const p = state.players[pIdx];
+            if (!p || p.dead || p.downed) return;
+            if (p.bleedFrames > 0 && p.hp <= 0) return;
+            const q = p;
+            ensurePlayerHealth(q);
+            q.hp = Math.max(0, (q.hp || 0) - amount);
+            if (q.hp <= 0) startDownOrBleed(pIdx);
+            updateHealthBars();
+        }
+        function hospitalBuildingNear(p, r) {
+            if (!p) return null;
+            return state.buildings.find(b => b.type === 'hospital' && b.type !== 'invisible' && dist(p.x, p.y, b.x + b.w / 2, b.y + b.h / 2) < r) || null;
+        }
+        function tryHealAtHospital(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || p.dead) return false;
+            if (p.bleedFrames > 0 && p.hp <= 0) return false;
+            if (!hospitalBuildingNear(p, 200)) return false;
+            if (p.downed) {
+                setPlayerFullHealth(p);
+                p.corpseX = null; p.corpseY = null;
+                showMessage('Brought in — you are up');
+                updateHealthBars();
+                return true;
+            }
+            if (p.hp < PLAYER_MAX_HP) {
+                p.hp = PLAYER_MAX_HP;
+                showMessage('Healed at the hospital');
+                updateHealthBars();
+                return true;
+            }
+            return false;
+        }
+        function openHospitalModal(line, action) {
+            const m = document.getElementById('hospital-modal');
+            const t = document.getElementById('hospital-modal-line');
+            const btn = document.getElementById('hospital-admit-btn');
+            if (t) t.textContent = line || '';
+            state.hospitalAction = action || null;
+            if (m) m.style.display = 'block';
+            if (btn) {
+                btn.textContent = `Admit — $${HOSPITAL_ADMIT_COST.toLocaleString()}`;
+                btn.classList.toggle('hidden', !action);
+            }
+        }
+        function processHospitalAdmit() {
+            const a = state.hospitalAction;
+            const m = document.getElementById('hospital-modal');
+            if (m) m.style.display = 'none';
+            state.hospitalAction = null;
+            if (!a) return;
+            if (state.money < HOSPITAL_ADMIT_COST) {
+                showMessage('Not enough for hospital admit');
+                return;
+            }
+            if (a.kind === 'admit_solo' && a.pIdx === 0) {
+                const p0 = state.players[0];
+                if (!p0 || p0.dead) return;
+                if (!hospitalBuildingNear(p0, 200)) { showMessage('Get inside the hospital zone'); return; }
+                if (!(p0.bleedFrames > 0 && p0.hp <= 0)) { showMessage('Not critical'); return; }
+                state.soloHospModalShown = false;
+                state.money = 0;
+                updateMoneyUI();
+                setPlayerFullHealth(p0);
+                p0.bleedFrames = 0;
+                const sh = document.getElementById('spectate-hint');
+                if (sh) { sh.classList.add('hidden'); sh.textContent = 'Spectating'; }
+                showMessage('Emergency care: wallet reset, you are stable');
+                updateHealthBars();
+                return;
+            }
+            if (a.kind === 'admit_corpse' && a.pIdx != null) {
+                const victim = state.players[a.pIdx];
+                if (!victim) return;
+                if (!hospitalBuildingNear(victim, 200)) { showMessage('Not at the hospital building.'); return; }
+                state.money = Math.max(0, state.money - HOSPITAL_ADMIT_COST);
+                setPlayerFullHealth(victim);
+                const cx = (victim.corpseX != null ? victim.corpseX : victim.x) + 20;
+                const cy = (victim.corpseY != null ? victim.corpseY : victim.y) + 10;
+                victim.x = Math.max(20, Math.min(3980, cx));
+                victim.y = Math.max(20, Math.min(3980, cy));
+                victim.corpseX = null; victim.corpseY = null;
+                victim.dead = false;
+                if (a.carrier != null) {
+                    const c = state.players[a.carrier];
+                    if (c) c.draggingPlayerIdx = null;
+                }
+                state.money = 0;
+                updateMoneyUI();
+                const sh = document.getElementById('spectate-hint');
+                if (sh) sh.classList.add('hidden');
+                state.spectatePIdx = 0;
+                showMessage('Admitted. Wallet cleared — player is up');
+                updateHealthBars();
+            }
+        }
+        function findHospitalBuilding() {
+            return state.buildings.find(b => b.type === 'hospital') || null;
+        }
+        function processBleedAndDowned() {
+            state.players.forEach((p, pIdx) => {
+                if (!p || p.dead) return;
+                if (p.bleedFrames > 0 && p.hp <= 0 && !p.downed) {
+                    const inHosp = hospitalBuildingNear(p, 200) && pIdx === 0;
+                    if (inHosp) {
+                        if (state.money < HOSPITAL_ADMIT_COST) {
+                            p.bleedFrames = Math.max(0, p.bleedFrames - 1);
+                            state.soloHospModalShown = false;
+                            if (p.bleedFrames <= 0) goSpectate(0);
+                        } else {
+                            if (!state.soloHospModalShown) {
+                                state.soloHospModalShown = true;
+                                openHospitalModal(
+                                    `Critical. Pay $${HOSPITAL_ADMIT_COST.toLocaleString()} to stabilize. Your shared wallet is cleared to $0 for treatment — timer pauses in the building.`,
+                                    { kind: 'admit_solo', pIdx: 0 }
+                                );
+                            }
+                        }
+                    } else {
+                        if (pIdx === 0) state.soloHospModalShown = false;
+                        p.bleedFrames = Math.max(0, p.bleedFrames - 1);
+                        if (p.bleedFrames <= 0) goSpectate(pIdx);
+                    }
+                }
+            });
+        }
+        function tryRevivePartner(helperIdx) {
+            const h = state.players[helperIdx];
+            const tIdx = 1 - helperIdx;
+            const t = state.players[tIdx];
+            if (!h || h.dead || t.dead) return;
+            if (!t || !t.downed) return;
+            if (h.draggingPlayerIdx != null) return;
+            if (idist(h, t) > REVIVE_RANGE) { showMessage('Get closer to revive'); return; }
+            setPlayerFullHealth(t);
+            t.corpseX = null; t.corpseY = null;
+            t.x = t.x; t.y = t.y;
+            h.draggingPlayerIdx = null;
+            showMessage('Revived');
+            updateHealthBars();
+        }
+        function processCarryDrag(helperIdx) {
+            if (state.playerMode !== 2) return;
+            const h = state.players[helperIdx];
+            if (!h || h.dead || h.downed || h.draggingPlayerIdx == null) return;
+            const drag = h.draggingPlayerIdx;
+            const t = state.players[drag];
+            if (!t || t.dead) { h.draggingPlayerIdx = null; return; }
+            t.corpseX = h.x - Math.cos(h.angle) * CARRY_OFFSET;
+            t.corpseY = h.y - Math.sin(h.angle) * CARRY_OFFSET;
+            t.x = t.corpseX;
+            t.y = t.corpseY;
+        }
+        function toggleBodyDrag(helperIdx) {
+            if (state.playerMode !== 2) return;
+            const h = state.players[helperIdx];
+            if (!h || h.dead || h.downed) return;
+            if (h.draggingPlayerIdx != null) {
+                h.draggingPlayerIdx = null;
+                showMessage('Dropped');
+                return;
+            }
+            const tIdx = 1 - helperIdx;
+            const t = state.players[tIdx];
+            if (t && t.downed && !t.dead) {
+                if (idist(h, t) < 110) {
+                    h.draggingPlayerIdx = tIdx;
+                    showMessage('Carrying body — HOSP, then E to admit ($)');
+                } else {
+                    showMessage('Get closer to grab');
+                }
+            }
         }
         function menuMaxForPlayer(p) {
             if (!p || !p.menuType) return 0;
@@ -1564,7 +1865,7 @@
         }
         function processTeleporterPads() {
             state.players.forEach((p, idx) => {
-                if (!p || p.inVehicle) return;
+                if (!p || p.dead || p.downed || p.inVehicle) return;
                 ensurePlayerLoadout(p);
                 if (p.loadout.stunUntil > state.frameCount) return;
                 const lo = p.loadout;
@@ -1608,13 +1909,18 @@
                 if (t.idx >= 0) {
                     state.money += PVP_NUKE_STEAL;
                     updateMoneyUI();
-                    stunLocalPlayer(t.idx, PVP_NUKE_STUN_SEC * 1000);
-                    showMessage(`Micro nuke! +$${PVP_NUKE_STEAL} — stun (run continues)`);
+                    const vic = state.players[t.idx];
+                    if (vic && !vic.dead && !vic.downed) {
+                        const nearHosp = !!hospitalBuildingNear(vic, 240);
+                        dealDamageToPlayer(t.idx, nearHosp ? Math.ceil(PLAYER_MAX_HP * 0.4) : PLAYER_MAX_HP + 50);
+                    }
+                    showMessage(`Micro nuke! +$${PVP_NUKE_STEAL.toLocaleString()}`);
                 } else {
                     showMessage('Micro nuke! (other player is far away in online mode)');
                 }
             } else {
                 if (t && t.idx >= 0) {
+                    dealDamageToPlayer(t.idx, def.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN);
                     stunLocalPlayer(t.idx, def.kind === 'rocket' ? 1200 : 650);
                     showMessage(`${def.name} connected!`);
                 } else {
@@ -2219,6 +2525,7 @@
                     else if (x === 0 && y === 3500) { type = 'admin_hall'; color = '#0e7490'; }
                     else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }
                     else if (x === 500 && y === 500) { type = 'jail'; color = '#475569'; }
+                    else if (x === 0 && y === 0) { type = 'hospital'; color = '#0f766e'; }
                     else if (x === 500 && y === 3500) { type = 'dealership'; color = '#3b82f6'; }
                     else if (rnd() > 0.85) { type = state.schoolGameMode ? 'school' : 'store'; color = state.schoolGameMode ? '#f59e0b' : '#10b981'; }
                     for (const s of GADGET_WEAPON_SHOP_SLOTS) {
@@ -2770,6 +3077,9 @@
         function isZombieSecretActive() {
             return state.activeSecrets.includes('ZOMBIE');
         }
+        function idist(a, b) {
+            return dist(a.x, a.y, b.x, b.y);
+        }
         function getRoadAt(x, y) { return (x % GRID_SIZE < 100 || x % GRID_SIZE > 400) || (y % GRID_SIZE < 100 || y % GRID_SIZE > 400); }
         function isIntersection(x, y) { return (x % GRID_SIZE < 80 || x % GRID_SIZE > 420) && (y % GRID_SIZE < 80 || y % GRID_SIZE > 420); }
         function updateMoneyUI() { if(moneyEl) moneyEl.innerText = `$${state.money.toLocaleString()}`; }
@@ -2963,8 +3273,15 @@
                 p.menuSelection = 0;
                 p.color = i === 0 ? skinR : '#4ade80';
                 p.loadout = defaultLoadout();
+                p.hp = PLAYER_MAX_HP; p.dead = false; p.downed = false; p.bleedFrames = 0;
+                p.corpseX = null; p.corpseY = null; p.draggingPlayerIdx = null; p.inVehicle = null;
                 window.closePlayerModal(i);
             });
+            state.spectatePIdx = 0;
+            state.soloHospModalShown = false;
+            const sh0 = document.getElementById('spectate-hint');
+            if (sh0) { sh0.classList.add('hidden'); sh0.textContent = 'Spectating'; }
+            updateHealthBars();
             
             // Re-roll the city map
             generateCity();
@@ -2973,6 +3290,8 @@
             document.getElementById('victory-overlay').style.display = 'none';
             document.getElementById('game-over-overlay').style.display = 'none';
             document.getElementById('jail-overlay').style.display = 'none';
+            const hm = document.getElementById('hospital-modal');
+            if (hm) hm.style.display = 'none';
             updateIngameSchoolGameBadge();
         };
 
@@ -3261,11 +3580,37 @@
         function handleInteraction(pIdx) {
             const p = state.players[pIdx];
             if (!p || p.isRobbing || state.isJailed) return;
+            if (p.dead) return;
             if (tryCollectOrb(pIdx)) return;
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
+            const duo = state.playerMode === 2 && state.playMode !== 'online';
+            if (duo) {
+                const tIdx = 1 - pIdx;
+                const mate = state.players[tIdx];
+                if (mate && mate.downed && !mate.dead && p.draggingPlayerIdx !== tIdx) {
+                    tryRevivePartner(pIdx);
+                    return;
+                }
+                if (hospitalBuildingNear(p, 200) && mate && p.draggingPlayerIdx === tIdx) {
+                    if (mate.downed || mate.dead) {
+                    if (state.money >= HOSPITAL_ADMIT_COST) {
+                        openHospitalModal(
+                            `Admit: pay $${HOSPITAL_ADMIT_COST.toLocaleString()}. Your shared money resets to $0, teammate is admitted.`,
+                            { kind: 'admit_corpse', pIdx: tIdx, carrier: pIdx }
+                        );
+                    } else {
+                        showMessage('Need cash for hospital admit');
+                    }
+                    return;
+                    }
+                }
+            }
             
             const bNear = state.buildings.find(b => b.type !== 'invisible' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
             if (bNear && bNear.type !== 'ruins') {
+                if (bNear.type === 'hospital') {
+                    if (tryHealAtHospital(pIdx)) return;
+                }
                 if (bNear.type === 'ben_hall' && !state.benHouseRobbed) {
                     showBenCodeModal();
                     return;
@@ -3436,7 +3781,7 @@
                     // Detect a "Tap"
                     if (!data.moved && Date.now() - data.time < 300) {
                         const p = state.players[data.pIdx];
-                        if (p && !p.isRobbing && !state.isJailed) {
+                        if (p && !p.dead && !p.isRobbing && !state.isJailed) {
                             if (p.activeJob) window.handleWork(data.pIdx);
                             else if (!p.menuType) handleInteraction(data.pIdx);
                         }
@@ -3470,7 +3815,12 @@
             state.nextPadId = 1;
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
-            state.players = [{ id: 0, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: skin0, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 }];
+            const baseP = (id, c) => ({ id, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: c, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0, hp: PLAYER_MAX_HP, dead: false, downed: false, bleedFrames: 0, draggingPlayerIdx: null, corpseX: null, corpseY: null });
+            state.players = [baseP(0, skin0)];
+            state.spectatePIdx = 0;
+            state.soloHospModalShown = false;
+            const sh = document.getElementById('spectate-hint');
+            if (sh) { sh.classList.add('hidden'); sh.textContent = 'Spectating'; }
             
             if (state.playMode === 'online') {
                 state.playerMode = 1;
@@ -3483,14 +3833,18 @@
                     badge.classList.remove('hidden');
                 }
             } else if (state.playerMode === 2) {
-                state.players.push({ id: 1, x: 2040, y: 2200, angle: 0, speed: 0, inVehicle: null, color: '#4ade80', loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0 });
+                state.players.push(baseP(1, '#4ade80'));
+                state.players[1].x = 2040;
                 document.getElementById('p1-modals').classList.remove('hidden');
             } else {
                 document.getElementById('p1-modals').classList.add('hidden');
             }
             const lw1 = document.getElementById('loadout-wrap-1');
             if (lw1) lw1.classList.toggle('hidden', state.playerMode !== 2);
+            const hw1 = document.getElementById('health-wrap-1');
+            if (hw1) hw1.classList.toggle('hidden', state.playerMode !== 2);
             updateLoadoutUI();
+            updateHealthBars();
             
             if (state.deviceMode === 'phone') {
                 document.querySelectorAll('.nav-hint').forEach(el => el.style.display = 'none');
@@ -3531,6 +3885,7 @@
                 // PLAYER 1
                 if (k === 'e') {
                     const p0 = state.players[0];
+                    if (p0 && p0.dead) return;
                     if (p0 && p0.activeJob) {
                         if (p0.schoolTask) window.submitSchoolWork(0);
                         else window.handleWork(0);
@@ -3556,6 +3911,7 @@
                 // PLAYER 2
                 if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) {
                     const p1 = state.players[1];
+                    if (p1.dead) return;
                     if (p1.activeJob) {
                         if (p1.schoolTask) window.submitSchoolWork(1);
                         else window.handleWork(1);
@@ -3592,11 +3948,12 @@
         }
 
         function update() {
-            if(state.isGameOver) return;
+            if (state.isGameOver) return;
             state.frameCount++;
             processPvpNukeVfx();
             processTeleporterPads();
             updateGpsArrival();
+            processBleedAndDowned();
             
             let customSpeed = 4;
             if (hasGodSettings()) {
@@ -3633,21 +3990,29 @@
                 }
                 if (state.civilians.length > targetCivs) state.civilians.length = targetCivs; // Trim excess
 
-                // Move & Kill Civilians
+                // Move, bite (zombie) or elim (chaos) civilians
                 for (let i = state.civilians.length - 1; i >= 0; i--) {
                     let c = state.civilians[i];
                     c.x += Math.cos(c.angle) * c.speed;
                     c.y += Math.sin(c.angle) * c.speed;
-                    
                     if (c.x < 10 || c.x > WORLD_SIZE-10 || c.y < 10 || c.y > WORLD_SIZE-10 || Math.random() < 0.02) {
                         c.angle = Math.random() * Math.PI * 2;
                     }
                     c.x = Math.max(10, Math.min(WORLD_SIZE-10, c.x));
                     c.y = Math.max(10, Math.min(WORLD_SIZE-10, c.y));
-
+                    if (isZombieSecretActive()) {
+                        for (let pi = 0; pi < state.players.length; pi++) {
+                            const pl = state.players[pi];
+                            if (!pl || pl.dead || pl.downed || pl.inVehicle) continue;
+                            if (idist(pl, c) < 24) {
+                                if (state.frameCount % 25 === 0) dealDamageToPlayer(pi, BITE_DMG);
+                                c.angle = Math.atan2(pl.y - c.y, pl.x - c.x);
+                            }
+                        }
+                    } else {
                     let killed = false;
                     state.players.forEach(p => {
-                        if (!killed && p && !p.inVehicle && dist(p.x, p.y, c.x, c.y) < 20) {
+                        if (!killed && p && !p.inVehicle && idist(p, c) < 20) {
                             state.civilians.splice(i, 1);
                             killed = true;
                             const bounty = Math.floor(Math.random() * 4000) + 1000;
@@ -3656,13 +4021,25 @@
                             showMessage(`ELIMINATED! +$${bounty}`);
                         }
                     });
+                    }
                 }
             } else if (targetCivs === 0) {
                 state.civilians = [];
             }
 
             state.players.forEach((p, idx) => {
-                if (!p || p.activeJob || p.menuType || p.isRobbing || state.isJailed) return;
+                if (!p) return;
+                if (p.dead) {
+                    p.x = p.corpseX != null ? p.corpseX : p.x;
+                    p.y = p.corpseY != null ? p.corpseY : p.y;
+                    return;
+                }
+                if (p.downed) {
+                    p.x = p.corpseX != null ? p.corpseX : p.x;
+                    p.y = p.corpseY != null ? p.corpseY : p.y;
+                    return;
+                }
+                if (p.activeJob || p.menuType || p.isRobbing || state.isJailed) return;
                 ensurePlayerLoadout(p);
                 const stunLock = p.loadout.stunUntil > state.frameCount;
                 const controls = idx === 0 ? { u:'w', d:'s', l:'a', r:'d' } : { u:'arrowup', d:'arrowdown', l:'arrowleft', r:'arrowright' };
@@ -3725,6 +4102,10 @@
                     }
                 }
             });
+            if (state.playerMode === 2) {
+                processCarryDrag(0);
+                processCarryDrag(1);
+            }
 
             // Handle Police Chases
             if (state.wantedLevel > 0 && !state.isPresident && !state.cityNuked) {
@@ -3735,7 +4116,10 @@
                         corners.forEach(c => state.police.push({ x: c.x, y: c.y, angle: 0, speed: 0, type: { topSpeed: 14 } }));
                     }
                     state.police.forEach(v => {
-                        const target = state.players[Math.floor(Math.random()*state.players.length)]; if (!target) return;
+                        const alive = state.players.filter(p => p && !p.dead);
+                        if (alive.length === 0) return;
+                        const target = alive[Math.floor(Math.random() * alive.length)];
+                        if (!target) return;
                         const angle = Math.atan2(target.y - v.y, target.x - v.x);
                         let diff = angle - v.angle; while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
                         v.angle += diff * 0.05; v.speed = v.type.topSpeed;
@@ -3790,26 +4174,30 @@
             const Z = CAMERA_ZOOM;
             const { bw, bh } = getViewBufferSize();
             if (state.playerMode === 1 && state.players[0]) {
-                const tx = state.players[0].x - (bw / Z) / 2;
-                const ty = state.players[0].y - (bh / Z) / 2;
-                state.camera.x += (tx - state.camera.x) * CAM_LERP;
-                state.camera.y += (ty - state.camera.y) * CAM_LERP;
-                state.camera.x = Math.round(state.camera.x);
-                state.camera.y = Math.round(state.camera.y);
+                const f = state.players[state.spectatePIdx] && !state.players[state.spectatePIdx].dead ? state.players[state.spectatePIdx] : state.players[0];
+                if (f) {
+                    const tx = f.x - (bw / Z) / 2;
+                    const ty = f.y - (bh / Z) / 2;
+                    state.camera.x += (tx - state.camera.x) * CAM_LERP;
+                    state.camera.y += (ty - state.camera.y) * CAM_LERP;
+                    state.camera.x = Math.round(state.camera.x);
+                    state.camera.y = Math.round(state.camera.y);
+                }
             } else if (state.players.length > 1) {
                 const half = Math.floor(bw / 2);
-                const tx0 = state.players[0].x - (half / Z) / 2;
-                const ty0 = state.players[0].y - (bh / Z) / 2;
-                state.cameras[0].x += (tx0 - state.cameras[0].x) * CAM_LERP;
-                state.cameras[0].y += (ty0 - state.cameras[0].y) * CAM_LERP;
-                state.cameras[0].x = Math.round(state.cameras[0].x);
-                state.cameras[0].y = Math.round(state.cameras[0].y);
-                const tx1 = state.players[1].x - (half / Z) / 2;
-                const ty1 = state.players[1].y - (bh / Z) / 2;
-                state.cameras[1].x += (tx1 - state.cameras[1].x) * CAM_LERP;
-                state.cameras[1].y += (ty1 - state.cameras[1].y) * CAM_LERP;
-                state.cameras[1].x = Math.round(state.cameras[1].x);
-                state.cameras[1].y = Math.round(state.cameras[1].y);
+                [0, 1].forEach(ci => {
+                    const pl = state.players[ci];
+                    if (!pl) return;
+                    const f = (pl.dead && state.spectatePIdx === 1 - ci) ? state.players[1 - ci] : pl;
+                    if (!f) return;
+                    const txv = f.x - (half / Z) / 2;
+                    const tyv = f.y - (bh / Z) / 2;
+                    const cam = state.cameras[ci];
+                    cam.x += (txv - cam.x) * CAM_LERP;
+                    cam.y += (tyv - cam.y) * CAM_LERP;
+                    cam.x = Math.round(cam.x);
+                    cam.y = Math.round(cam.y);
+                });
             }
 
             if (state.playMode === 'online' && supabaseRealtimeChannel && state.players[0]) {
@@ -3827,6 +4215,7 @@
             
             // Apply Reality Visual Filter
             canvas.style.filter = state.activeSecrets.includes('REALITY') ? 'grayscale(80%) contrast(0.8)' : 'none';
+            updateHealthBars();
         }
 
         /** N64-style: world drawn at low res then scaled up (chunky pixels) */
@@ -3879,16 +4268,16 @@
                 c.restore();
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
-                const short = b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type)));
+                const short = b.type === 'hospital' ? 'Hospital' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type)));
                 c.save();
-                c.font = (b.type === 'admin_hall' || b.type === 'ben_hall' || b.type === 'shop_g' || b.type === 'shop_w') ? 'bold 9px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
+                c.font = (b.type === 'hospital' || b.type === 'admin_hall' || b.type === 'ben_hall' || b.type === 'shop_g' || b.type === 'shop_w') ? 'bold 9px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
                 c.textAlign = 'center';
                 c.textBaseline = 'middle';
                 c.lineWidth = 3;
                 c.strokeStyle = 'rgba(0,0,0,0.85)';
-                c.fillStyle = b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'shop_w' ? '#fecdd3' : '#f8fafc'));
-                c.strokeText(short, cx, cy);
-                c.fillText(short, cx, cy);
+                c.fillStyle = b.type === 'hospital' ? '#5eead4' : b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'shop_w' ? '#fecdd3' : '#f8fafc'));
+                c.strokeText(b.type === 'hospital' ? 'HOSP' : short, cx, cy);
+                c.fillText(b.type === 'hospital' ? 'HOSP' : short, cx, cy);
                 c.restore();
             });
             state.teleporterPads.forEach(tpad => {
@@ -3966,8 +4355,38 @@
             state.vehicles.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = v.type.color; c.fillRect(-25, -15, 50, 30); c.restore(); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#fff'; c.fillRect(-25, -15, 50, 30); c.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; c.fillRect(0,-15,10,30); c.restore(); });
             const prR = 14;
-            state.players.forEach(p => { 
-                if (!p.inVehicle) {
+            state.players.forEach(p => {
+                if (!p) return;
+                if (p.dead) {
+                    const rx = p.corpseX != null ? p.corpseX : p.x, ry = p.corpseY != null ? p.corpseY : p.y;
+                    c.save(); c.translate(rx, ry);
+                    c.globalAlpha = 0.45;
+                    c.fillStyle = p.color || DEFAULT_PLAYER_COLOR;
+                    c.beginPath();
+                    c.arc(0, 0, 12, 0, Math.PI * 2);
+                    c.fill();
+                    c.globalAlpha = 0.9;
+                    c.fillStyle = '#f87171';
+                    c.font = 'bold 9px system-ui,sans-serif';
+                    c.textAlign = 'center';
+                    c.textBaseline = 'bottom';
+                    c.fillText('OUT', 0, -14);
+                    c.restore();
+                } else if (p.downed) {
+                    const dx = p.corpseX != null ? p.corpseX : p.x, dy = p.corpseY != null ? p.corpseY : p.y;
+                    c.save(); c.translate(dx, dy);
+                    c.globalAlpha = 0.7;
+                    c.fillStyle = '#f59e0b';
+                    c.beginPath();
+                    c.arc(0, 0, 10, 0, Math.PI * 2);
+                    c.fill();
+                    c.fillStyle = '#fff';
+                    c.font = 'bold 8px sans-serif';
+                    c.textAlign = 'center';
+                    c.textBaseline = 'bottom';
+                    c.fillText('DOWN', 0, -12);
+                    c.restore();
+                } else if (!p.inVehicle) {
                     c.save(); c.translate(p.x, p.y); c.rotate(p.angle);
                     if (state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
                     c.fillStyle = p.color || DEFAULT_PLAYER_COLOR;
@@ -4122,7 +4541,11 @@
             state.civilians.forEach(c => { ms.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR_MINI : '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
             state.players.forEach(p => { if (p) {
                 const rad = 4.5;
-                ms.beginPath(); ms.arc(p.x * s, p.y * s, rad, 0, Math.PI * 2);
+                const pxM = p.dead ? (p.corpseX != null ? p.corpseX : p.x) : (p.downed ? (p.corpseX != null ? p.corpseX : p.x) : p.x);
+                const pyM = p.dead ? (p.corpseY != null ? p.corpseY : p.y) : (p.downed ? (p.corpseY != null ? p.corpseY : p.y) : p.y);
+                ms.beginPath(); ms.arc(pxM * s, pyM * s, rad, 0, Math.PI * 2);
+                if (p.dead) { ms.fillStyle = '#7f1d1d'; ms.fill(); return; }
+                if (p.downed) { ms.fillStyle = '#b45309'; ms.fill(); return; }
                 ms.fillStyle = p.color || DEFAULT_PLAYER_COLOR; ms.fill();
                 ms.strokeStyle = 'rgba(15,23,42,0.95)'; ms.lineWidth = 1.5; ms.stroke();
             }});
@@ -5137,6 +5560,7 @@
             document.getElementById('jail-bail-math-ans')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkJailBailMathFromInput(); });
             
             initSmartphoneUI();
+            document.getElementById('hospital-admit-btn')?.addEventListener('click', processHospitalAdmit);
             const adminPick = document.getElementById('admin-skin-color-picker');
             if (adminPick) {
                 adminPick.addEventListener('input', (e) => {
