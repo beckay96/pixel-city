@@ -336,13 +336,14 @@
         <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create an account</p>
         <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">For online play, this site may need to be allowlisted on your school or office network. Choose <span class="text-white font-bold">MULTIPLAYER</span> after sign-in, or <span class="text-white font-bold">Play offline</span> for solo / two players on one screen.</p>
-        <p class="text-slate-500 text-[8px] text-center max-w-md mb-2 px-1 leading-snug">Gateway password: ask the person who set up this game (site operator). It is <span class="text-slate-300">not</span> the same as your account password.</p>
+        <p class="text-slate-500 text-[8px] text-center max-w-md mb-2 px-1 leading-snug">Gateway password: ask the person who set up this game. It is <span class="text-slate-300">not</span> your account password. Sign-in only works if that gateway matches the server and online play is set up for this site.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
-            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Online sign-in isn’t available on this copy of the game. <span class="text-white font-bold">Play offline</span> still works. If the problem continues, try again later or on another network.</p>
+            <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Online sign-in isn’t wired up for this build (missing server config). <span class="text-white font-bold">Play offline</span> still works. Ask whoever runs the game to deploy with the right keys, or try another network if you see a connection error.</p>
             <div>
                 <label for="auth-gateway-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Gateway Password</label>
-                <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="Enter gateway password" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+                <input type="password" id="auth-gateway-input" autocomplete="off" placeholder="From your game host / operator" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
             </div>
+            <p class="text-[8px] text-slate-500 -mt-1">Must match the server. Wrong gateway → “Invalid gateway” even with the right username.</p>
             <div>
                 <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username</label>
                 <input type="text" id="auth-username-input" autocomplete="username" placeholder="Your username" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
@@ -367,7 +368,7 @@
         <p id="lobby-wins-display" class="text-yellow-400 font-black mb-2 text-sm">🏆 Wins: 0</p>
         <div class="w-full max-w-sm mb-4 space-y-2">
             <button type="button" id="lobby-school-mode-btn" class="w-full bg-amber-700/90 hover:bg-amber-600 border-2 border-amber-500 text-amber-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">School mode: Off</button>
-            <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">Same world — School replaces the shop jobs; jail = lines + math. Tap again to turn off.</p>
+            <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">Same world — school jobs replace shops. If you get jailed, you type a line 10 times (the game shows the exact words), then a quick math problem. Tap again to turn off.</p>
         </div>
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
@@ -669,10 +670,14 @@
         </div>
         <div id="jail-school-block" class="jail-school-block hidden mt-4 p-3 rounded-xl border border-amber-600/50 bg-slate-900/95 text-left max-h-[60vh] overflow-y-auto">
             <p class="text-[10px] font-bold text-amber-300 uppercase mb-1">Classroom consequence</p>
-            <p class="text-xs text-amber-100/90 mb-2">Type this line exactly <span id="jail-line-count" class="font-mono text-white">0</span> / 10</p>
-            <p class="text-[9px] text-amber-200/80 font-mono bg-black/30 p-2 rounded mb-2" id="jail-line-sample">I will not rob anybody ever again</p>
-            <input type="text" id="jail-line-input" class="w-full bg-slate-800 border border-amber-500/50 rounded p-2 text-sm text-white mb-2" placeholder="Type the line" autocomplete="off" />
-            <button type="button" id="jail-line-submit" class="w-full bg-amber-600 text-white font-bold py-2 rounded text-sm mb-4">Submit line</button>
+            <p id="jail-line-heading" class="text-sm font-bold text-amber-50 mb-1 leading-snug">Type this whole sentence 10 times</p>
+            <p class="text-[10px] text-amber-200/90 mb-2">Each time, type it in the box and tap <span class="text-white font-bold">Submit line</span> — you need <span class="font-mono text-white">10</span> successful submits.</p>
+            <p id="jail-line-progress" class="text-sm font-mono text-teal-300 font-bold mb-2">0 / 10 lines done · 10 left</p>
+            <p class="text-[10px] text-slate-300 mb-1">Copy this exactly (punctuation and words):</p>
+            <p class="text-xs sm:text-sm text-white font-mono leading-relaxed bg-black/40 border border-amber-500/40 p-3 rounded-lg mb-2 break-words" id="jail-line-sample">I will not rob anybody ever again</p>
+            <input type="text" id="jail-line-input" class="w-full bg-slate-800 border border-amber-500/50 rounded p-2 text-sm text-white mb-2" placeholder="Type the same sentence here, then Submit" autocomplete="off" />
+            <button type="button" id="jail-line-submit" class="w-full bg-amber-600 text-white font-bold py-2 rounded text-sm mb-2">Submit line</button>
+            <p class="text-[9px] text-amber-200/70 mb-2">Tip: capital <span class="font-mono">I</span> at the start, period at the end. Extra spaces are OK.</p>
             <p class="text-[9px] text-amber-300 mb-1">Bail: solve first, then pay (if you have the cash)</p>
             <p class="text-sm text-white font-mono mb-1" id="jail-bail-math-q">?</p>
             <input type="text" id="jail-bail-math-ans" class="w-full bg-slate-800 border border-amber-500/50 rounded p-2 text-sm text-white mb-1" inputmode="numeric" placeholder="Answer" autocomplete="off" />
@@ -972,6 +977,14 @@
         /** < 1 = zoomed out (see more world). 0.8 ≈ 25% more visible area. */
         const CAMERA_ZOOM = 0.82;
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
+        const JAIL_LINE_TIMES = 10;
+
+        /** One space between words, trim, compare to canonical school jail line */
+        function normalizeJailLineInput(s) {
+            return String(s || '')
+                .trim()
+                .replace(/\s+/g, ' ');
+        }
         const SCHOOL_JOBS = [
             { id: 'math', name: 'Math class', kind: 'math' },
             { id: 'writing', name: 'Writing class', kind: 'writing' }
@@ -1176,14 +1189,14 @@
         }
 
         function canLeaveSchoolJail() {
-            return state.jailLineCount >= 10 && state.jailBailMathSolved;
+            return state.jailLineCount >= JAIL_LINE_TIMES && state.jailBailMathSolved;
         }
 
         function checkJailBailMathFromInput() {
             const m = document.getElementById('jail-school-msg');
             if (!state.schoolGameMode || !state.isJailed) return;
-            if (state.jailLineCount < 10) {
-                if (m) m.textContent = 'Finish 10 lines first.';
+            if (state.jailLineCount < JAIL_LINE_TIMES) {
+                if (m) m.textContent = `Type the sentence above ${JAIL_LINE_TIMES} times first (you are at ${state.jailLineCount} / ${JAIL_LINE_TIMES}).`;
                 return;
             }
             const inp = document.getElementById('jail-bail-math-ans');
@@ -1205,13 +1218,26 @@
             const m = document.getElementById('jail-school-msg');
             const li = document.getElementById('jail-line-input');
             if (!state.schoolGameMode || !state.isJailed) return;
-            const got = String(li && li.value ? li.value : '').trim();
-            if (got === JAIL_SENTENCE_TEXT) {
-                state.jailLineCount = Math.min(10, state.jailLineCount + 1);
+            const want = normalizeJailLineInput(JAIL_SENTENCE_TEXT);
+            const got = normalizeJailLineInput(li && li.value ? li.value : '');
+            if (state.jailLineCount >= JAIL_LINE_TIMES) {
+                if (m) m.textContent = 'You finished the lines. Solve the math below to pay bail or wait for the timer.';
+                return;
+            }
+            if (got === want) {
+                state.jailLineCount = Math.min(JAIL_LINE_TIMES, state.jailLineCount + 1);
                 updateJailSchoolLineUI();
-                if (m) m.textContent = `Line ${state.jailLineCount} of 10 — keep going!`;
+                if (m) {
+                    if (state.jailLineCount >= JAIL_LINE_TIMES) {
+                        m.textContent = 'All 10 lines done! Now solve the addition below (then you can pay bail or wait 15s).';
+                    } else {
+                        m.textContent = `Good! ${state.jailLineCount} of ${JAIL_LINE_TIMES} done — type the same sentence again.`;
+                    }
+                }
+            } else if (!got) {
+                if (m) m.textContent = 'Type the full sentence in the box (see the gray text above), then tap Submit line.';
             } else {
-                if (m) m.textContent = 'Type the line exactly (punctuation and spaces).';
+                if (m) m.textContent = 'Not a match. Use the same words, capital I, and a period at the end — see the line in the box above for reference.';
             }
         }
 
@@ -1796,8 +1822,11 @@
         }
 
         function updateJailSchoolLineUI() {
-            const c = document.getElementById('jail-line-count');
-            if (c) c.textContent = String(state.jailLineCount);
+            const prog = document.getElementById('jail-line-progress');
+            if (prog) {
+                const left = Math.max(0, JAIL_LINE_TIMES - state.jailLineCount);
+                prog.textContent = `${state.jailLineCount} / ${JAIL_LINE_TIMES} lines done · ${left} left`;
+            }
             const li = document.getElementById('jail-line-input');
             if (li) li.value = '';
         }
@@ -1848,12 +1877,16 @@
                 newBailMathProblem();
                 if (def) def.classList.add('hidden');
                 if (schoolB) schoolB.classList.remove('hidden');
-                if (jsub) jsub.textContent = 'School mode: 10 perfect lines, then math to leave or pay bail.';
-                if (jt) jt.textContent = 'Complete tasks';
+                if (jsub) {
+                    jsub.textContent = `School jail: type “${JAIL_SENTENCE_TEXT}” ${JAIL_LINE_TIMES} times (one submit each), then answer the math.`;
+                }
+                if (jt) jt.textContent = 'Lines + math';
                 const bailA = document.getElementById('jail-bail-math-ans');
                 if (bailA) bailA.value = '';
                 const jsm = document.getElementById('jail-school-msg');
-                if (jsm) jsm.textContent = '';
+                if (jsm) {
+                    jsm.textContent = `Type this ${JAIL_LINE_TIMES} times, then the math: “${JAIL_SENTENCE_TEXT}”`;
+                }
                 updateJailSchoolLineUI();
             } else {
                 if (def) def.classList.remove('hidden');
@@ -1865,7 +1898,12 @@
             const bailBtn = document.getElementById('pay-bail-btn');
             if (bailBtn) bailBtn.innerText = `Pay Bail ($${state.bailPrice})`;
             if (jo) jo.style.display = 'flex';
-            if (releaseMsg) showMessage(releaseMsg);
+            if (state.schoolGameMode) {
+                const base = releaseMsg || 'Busted';
+                showMessage(`${base} — type “${JAIL_SENTENCE_TEXT}” ${JAIL_LINE_TIMES} times (see jail window).`);
+            } else if (releaseMsg) {
+                showMessage(releaseMsg);
+            }
         }
 
         function subscribeToSessionChannel(code) {
