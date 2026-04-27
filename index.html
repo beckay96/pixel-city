@@ -688,11 +688,32 @@
         </div>
 
         <div id="admin-skin-modal" class="fixed inset-0 bg-slate-950/95 hidden flex-col items-center justify-center z-[410] interactive text-white p-4">
-            <div class="w-full max-w-sm bg-slate-900 border-2 border-cyan-500 rounded-2xl p-4 shadow-2xl">
+            <div class="w-full max-w-sm bg-slate-900 border-2 border-cyan-500 rounded-2xl p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <h2 class="text-xl font-black text-cyan-400 text-center mb-1 uppercase">Admin house</h2>
-                <p class="text-[10px] text-slate-400 text-center mb-3">Pick a character color (saved on this device).</p>
-                <div id="admin-skin-swatch-wrap" class="grid grid-cols-4 gap-2 mb-4"></div>
+                <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. The big swatch shows the active skin.</p>
+                <div id="admin-skin-active-preview" class="mx-auto w-20 h-20 rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3" style="background:#2563eb"></div>
+                <p id="admin-skin-active-label" class="text-center text-sm font-bold text-cyan-200 mb-2">Current: Blue</p>
+                <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Presets</p>
+                <div id="admin-skin-swatch-wrap" class="grid grid-cols-4 gap-2 mb-3"></div>
+                <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Create your own (hex)</p>
+                <div class="flex gap-2 items-stretch mb-1">
+                    <input type="color" id="admin-skin-color-picker" value="#2563eb" class="h-10 w-14 cursor-pointer interactive rounded border border-slate-600" title="Pick a color" />
+                    <input type="text" id="admin-skin-hex-input" class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 text-white text-sm font-mono interactive" placeholder="#RRGGBB" maxlength="9" autocomplete="off" />
+                </div>
+                <p id="admin-skin-hex-err" class="text-[10px] text-red-400 min-h-[1rem] text-center"></p>
+                <button type="button" id="admin-skin-apply-custom" class="w-full bg-cyan-700 hover:bg-cyan-600 py-2 rounded-lg font-bold text-sm mb-3">Use this custom color</button>
                 <button type="button" id="admin-skin-close" class="w-full bg-slate-700 py-2 rounded-lg font-bold text-sm">Done</button>
+            </div>
+        </div>
+
+        <div id="ben-code-modal" class="modal fixed inset-0 z-[420] items-center justify-center pointer-events-auto" style="display:none;">
+            <div class="w-full max-w-sm mx-4 bg-slate-900 border-2 border-violet-600 rounded-2xl p-5 shadow-2xl text-white text-center">
+                <h2 class="text-lg font-black text-violet-300 mb-1 uppercase">Ben&rsquo;s place</h2>
+                <p class="text-[10px] text-slate-400 mb-3">Entry code required. No hints.</p>
+                <input type="password" inputmode="numeric" pattern="[0-9]*" id="ben-code-input" class="w-full bg-slate-800 border border-violet-500/50 rounded-lg px-3 py-2 text-center text-2xl font-mono tracking-[0.4em] text-white mb-2 interactive" placeholder="&bull;&bull;&bull;&bull;" maxlength="4" autocomplete="off" />
+                <p id="ben-code-err" class="text-xs text-red-400 min-h-[1.25rem] mb-2"></p>
+                <button type="button" id="ben-code-submit" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-2 rounded-lg mb-2">Enter</button>
+                <button type="button" id="ben-code-cancel" class="w-full bg-slate-700 text-slate-200 font-bold py-2 rounded-lg">Back</button>
             </div>
         </div>
 
@@ -1053,11 +1074,14 @@
         const PVP_NUKE_STUN_SEC = 1.2;
         const GADGET_ITEMS = [
             { id: 'ion_link', name: 'Ion link pad kit', price: 18000, blurb: '2 pads · Q to place · walk in = warp' },
+            { id: 'cam_ipad', name: 'Camera iPad', price: 14000, blurb: 'Pro tablet with camera — flex in selfies' },
+            { id: 'cam_pocket', name: 'Pocket camera', price: 9500, blurb: 'Point-and-shoot, fits in a pocket' },
             { id: 'dash_cell', name: 'Dash cell pack', price: 22000, blurb: 'Sprint +10% 30s (flavor, see message)' },
             { id: 'glimmer', name: 'Glimmer cloak', price: 16000, blurb: 'Faint highlight on map' },
             { id: 'mag_boots', name: 'Mag-lock boots', price: 12000, blurb: 'Grip the grid' },
             { id: 'quantum_toy', name: 'Quantum puzzle box', price: 9000, blurb: 'Makes a neat beep' }
         ];
+        const BEN_HOUSE_ENTRY_CODE = '4789';
         const WEAPON_ITEMS = [
             { id: 'stunner', name: 'Tactical stunner', price: 12000, kind: 'stun' },
             { id: 'zapper', name: 'Zapper coil', price: 15000, kind: 'zap' },
@@ -1142,6 +1166,8 @@
             orbCollected: false,
             orb: null,
             benHouseRobbed: false,
+            /** This run only: entered correct code in Ben&rsquo;s house modal (not shown in UI). */
+            benCodeOkThisRun: false,
             teleporterPads: [],
             nextTeleGroupId: 1,
             nextPadId: 1,
@@ -1397,7 +1423,8 @@
                 pendingFirstPadId: null,
                 lastTelePadId: -1,
                 teleReenter: 0,
-                gadgetDashUntil: 0
+                gadgetDashUntil: 0,
+                cameraGadget: null
             };
         }
         function ensurePlayerLoadout(p) {
@@ -1426,7 +1453,11 @@
                     if (p.loadout.telePadsToPlace > 0) {
                         tEl.textContent = `Pads: place ${p.loadout.telePadsToPlace} (Q) — set ${p.loadout.telePlaced}/2`;
                     } else {
-                        tEl.textContent = p.loadout.telePlaced >= 2 ? 'Link pads active' : '—';
+                        const parts = [];
+                        if (p.loadout.telePlaced >= 2) parts.push('Link pads on');
+                        if (p.loadout.cameraGadget === 'cam_ipad') parts.push('iPad cam');
+                        else if (p.loadout.cameraGadget === 'cam_pocket') parts.push('Pocket cam');
+                        tEl.textContent = parts.length ? parts.join(' · ') : '—';
                     }
                 }
             }
@@ -1594,33 +1625,6 @@
             state.players.forEach(p => { if (p) p.color = c; });
         }
 
-        function openAdminSkinModal() {
-            const m = document.getElementById('admin-skin-modal');
-            if (!m) return;
-            const w = document.getElementById('admin-skin-swatch-wrap');
-            if (w && w.childElementCount === 0) {
-                SKIN_PRESETS.forEach(p => {
-                    const b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'interactive aspect-square rounded-lg border-2 border-slate-500 hover:border-cyan-400';
-                    b.style.background = p.color;
-                    b.title = p.label;
-                    b.setAttribute('aria-label', p.label);
-                    b.onclick = () => {
-                        try { localStorage.setItem(LS_PLAYER_SKIN, p.color); } catch (_) { /* */ }
-                        if (state.players[0]) state.players[0].color = p.color;
-                        if (state.players[1]) state.players[1].color = p.color;
-                        m.classList.add('hidden');
-                        m.classList.remove('flex');
-                        showMessage(`Skin: ${p.label}`);
-                    };
-                    w.appendChild(b);
-                });
-            }
-            m.classList.remove('hidden');
-            m.classList.add('flex');
-        }
-
         function syncWorkModalLayout(pIdx) {
             [0, 1].forEach((i) => {
                 const p = state.players[i];
@@ -1767,9 +1771,125 @@
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
         }
 
-        /** Rob Ben’s only after lobby Admin PIN 4789 or Secret Modes code 4789 */
-        function canRobBen() {
-            return state.isAdmin || state.lobbyAdminUnlocked || state.activeSecrets.includes('4789');
+        function updateAdminSkinPreview() {
+            const c = getSavedPlayerSkin();
+            const prev = document.getElementById('admin-skin-active-preview');
+            const lab = document.getElementById('admin-skin-active-label');
+            const pick = document.getElementById('admin-skin-color-picker');
+            const hexIn = document.getElementById('admin-skin-hex-input');
+            if (prev) prev.style.background = c;
+            if (pick) pick.value = c.length === 7 && c.startsWith('#') ? c : '#2563eb';
+            if (hexIn && document.activeElement !== hexIn) hexIn.value = c;
+            if (lab) {
+                const preset = SKIN_PRESETS.find(s => s.color.toLowerCase() === c.toLowerCase());
+                lab.textContent = preset ? `Current: ${preset.label}` : `Current: custom (${c})`;
+            }
+        }
+
+        function applyAdminHouseSkin(hex, fromPreset, opts) {
+            const o = opts || {};
+            const silent = !!o.silent;
+            const t = String(hex || '').trim();
+            if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(t)) {
+                if (!fromPreset && !silent) {
+                    const err = document.getElementById('admin-skin-hex-err');
+                    if (err) err.textContent = 'Use a hex like #aabbcc or #abc';
+                }
+                return false;
+            }
+            const norm = t.length === 4
+                ? '#' + t[1] + t[1] + t[2] + t[2] + t[3] + t[3]
+                : t;
+            try { localStorage.setItem(LS_PLAYER_SKIN, norm); } catch (_) { /* */ }
+            if (state.players[0]) state.players[0].color = norm;
+            if (state.players[1]) state.players[1].color = norm;
+            const err = document.getElementById('admin-skin-hex-err');
+            if (err) err.textContent = '';
+            if (!silent) {
+                if (fromPreset) {
+                    const p = SKIN_PRESETS.find(s => s.color.toLowerCase() === norm.toLowerCase());
+                    showMessage(p ? `Skin: ${p.label}` : `Skin: ${norm}`);
+                } else {
+                    showMessage(`Custom skin: ${norm}`);
+                }
+            }
+            updateAdminSkinPreview();
+            return true;
+        }
+
+        function buildAdminSkinSwatches() {
+            const w = document.getElementById('admin-skin-swatch-wrap');
+            if (!w || w.dataset.built === '1') return;
+            w.dataset.built = '1';
+            w.innerHTML = '';
+            SKIN_PRESETS.forEach(p => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'interactive aspect-square rounded-lg border-2 border-slate-500 hover:border-cyan-400 ring-offset-2 focus:ring-2 focus:ring-cyan-400';
+                b.style.background = p.color;
+                b.title = p.label;
+                b.setAttribute('aria-label', p.label);
+                b.onclick = () => { applyAdminHouseSkin(p.color, true, {}); };
+                w.appendChild(b);
+            });
+        }
+
+        function openAdminSkinModal() {
+            const m = document.getElementById('admin-skin-modal');
+            if (!m) return;
+            buildAdminSkinSwatches();
+            updateAdminSkinPreview();
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        function showBenCodeModal() {
+            const modal = document.getElementById('ben-code-modal');
+            const inp = document.getElementById('ben-code-input');
+            const err = document.getElementById('ben-code-err');
+            if (err) err.textContent = '';
+            if (inp) inp.value = '';
+            if (modal) {
+                modal.style.display = 'flex';
+                modal.classList.add('items-center', 'justify-center', 'bg-black/80', 'p-4');
+            }
+            setTimeout(() => inp && inp.focus(), 50);
+        }
+
+        function hideBenCodeModal() {
+            const modal = document.getElementById('ben-code-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function tryBenCodeFromInput() {
+            const inp = document.getElementById('ben-code-input');
+            const err = document.getElementById('ben-code-err');
+            const v = String(inp && inp.value ? inp.value : '').replace(/\D/g, '');
+            if (v.length !== 4) {
+                if (err) err.textContent = 'Enter four digits.';
+                return;
+            }
+            if (v === BEN_HOUSE_ENTRY_CODE) {
+                state.benCodeOkThisRun = true;
+                hideBenCodeModal();
+                showMessage("Access granted.");
+                doBenRobbery();
+            } else {
+                if (err) err.textContent = "That didn't work.";
+            }
+        }
+
+        function doBenRobbery() {
+            if (state.benHouseRobbed || !state.benCodeOkThisRun) return;
+            state.benHouseRobbed = true;
+            state.money += BEN_HOUSE_CASH;
+            updateMoneyUI();
+            const stars = document.getElementById('wanted-stars');
+            if (stars) stars.classList.add('hidden');
+            showMessage(`Ben’s place — you grabbed $${BEN_HOUSE_CASH.toLocaleString()}. (No cops — that was the one time.)`);
+            const hb = state.buildings.find(b => b.type === 'ben_hall');
+            if (hb) { hb.type = 'house'; hb.color = COLORS[Math.floor(Math.random() * COLORS.length)]; }
+            placeBenHouseAndEdgeWalkway();
         }
 
         function showLobbyFromSignIn() {
@@ -2254,6 +2374,8 @@
         function applyExplodeDestroyWorld(opts) {
             const fromNet = opts && opts.fromNetwork;
             state.benHouseRobbed = true;
+            state.benCodeOkThisRun = false;
+            hideBenCodeModal();
             clearGpsRoute();
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
@@ -2722,6 +2844,8 @@
 
         window.dropNuke = () => {
             clearGpsRoute();
+            state.benCodeOkThisRun = false;
+            hideBenCodeModal();
             document.getElementById('victory-overlay').style.display = 'none';
             const flash = document.getElementById('nuke-flash');
             flash.style.display = 'block';
@@ -2773,6 +2897,7 @@
         window.restartGame = () => {
             clearGpsRoute();
             state.benHouseRobbed = false;
+            state.benCodeOkThisRun = false;
             state.nextTeleGroupId = 1;
             state.nextPadId = 1;
             state.teleporterPads = [];
@@ -3052,6 +3177,10 @@
                 } else if (g.id === 'dash_cell') {
                     p.loadout.gadgetDashUntil = state.frameCount + 30 * JAIL_FRAMES_PER_SEC;
                     showMessage('Dash pack online — a bit snappier for a while');
+                } else if (g.id === 'cam_ipad' || g.id === 'cam_pocket') {
+                    p.loadout.cameraGadget = g.id;
+                    const tag = g.id === 'cam_ipad' ? 'iPad' : 'pocket cam';
+                    showMessage(`Equipped ${tag} — you’re ready to “snap” pics!`);
                 } else {
                     showMessage(`Gadget acquired: ${g.name}`);
                 }
@@ -3129,19 +3258,7 @@
             const bNear = state.buildings.find(b => b.type !== 'invisible' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
             if (bNear && bNear.type !== 'ruins') {
                 if (bNear.type === 'ben_hall' && !state.benHouseRobbed) {
-                    if (!canRobBen()) {
-                        showMessage("Ben’s house is locked. Enter 4789 in Secret Modes or Admin Login (lobby) first.");
-                        return;
-                    }
-                    state.benHouseRobbed = true;
-                    state.money += BEN_HOUSE_CASH;
-                    updateMoneyUI();
-                    const stars = document.getElementById('wanted-stars');
-                    if (stars) stars.classList.add('hidden');
-                    showMessage(`Ben’s place — you grabbed $${BEN_HOUSE_CASH.toLocaleString()}. (No cops — that was the one time.)`);
-                    const hb = state.buildings.find(b => b.type === 'ben_hall');
-                    if (hb) { hb.type = 'house'; hb.color = COLORS[Math.floor(Math.random() * COLORS.length)]; }
-                    placeBenHouseAndEdgeWalkway();
+                    showBenCodeModal();
                     return;
                 }
                 if (bNear.type === 'admin_hall') {
@@ -3389,6 +3506,8 @@
 
         function initGameLoop() {
             generateCity();
+            state.benCodeOkThisRun = false;
+            hideBenCodeModal();
             updateMoneyUI();
 
             window.onkeydown = e => {
@@ -3584,7 +3703,7 @@
                         if (subEl) {
                             if (bNear) {
                                 if (bNear.type === 'admin_hall') subEl.innerText = 'admin house (skins)';
-                                else if (bNear.type === 'ben_hall' && !state.benHouseRobbed) subEl.innerText = canRobBen() ? "ben’s — E to rob (4789) $75k once" : "ben’s (need code 4789)";
+                                else if (bNear.type === 'ben_hall' && !state.benHouseRobbed) subEl.innerText = "ben’s — E — entry code (no hints) $75k once";
                                 else if (bNear.type === 'ben_hall') subEl.innerText = "empty lot";
                                 else if (bNear.type === 'school' || (bNear.type === 'store' && state.schoolGameMode)) subEl.innerText = 'school';
                                 else if (bNear.type === 'shop_g') subEl.innerText = 'gadget row';
@@ -4921,7 +5040,7 @@
             document.getElementById('secret-toggle-btn').onclick = () => { document.getElementById('secret-input-area').classList.toggle('hidden'); };
             document.getElementById('secret-apply-btn').onclick = () => {
                 const code = document.getElementById('secret-code-input').value.trim().toUpperCase();
-                if (code === '4789') { if (!state.activeSecrets.includes('4789')) state.activeSecrets.push('4789'); showSecretMsg('CODE 4789 — Ben’s house unlocked'); recomputeIsAdmin(); }
+                if (code === '4789') { if (!state.activeSecrets.includes('4789')) state.activeSecrets.push('4789'); showSecretMsg('Code accepted — check your cheats.'); recomputeIsAdmin(); }
                 else if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
                 else if (code === 'RICH') { if(!state.activeSecrets.includes('RICH')) state.activeSecrets.push('RICH'); showSecretMsg('RICH ACTIVATED'); }
                 else if (code === 'GHOST') { if(!state.activeSecrets.includes('GHOST')) state.activeSecrets.push('GHOST'); showSecretMsg('GHOST ACTIVATED'); }
@@ -4995,6 +5114,28 @@
             document.getElementById('jail-bail-math-ans')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkJailBailMathFromInput(); });
             
             initSmartphoneUI();
+            const adminPick = document.getElementById('admin-skin-color-picker');
+            if (adminPick) {
+                adminPick.addEventListener('input', (e) => {
+                    const v = e.target && e.target.value;
+                    if (v) { applyAdminHouseSkin(v, false, { silent: true }); }
+                });
+            }
+            document.getElementById('admin-skin-apply-custom')?.addEventListener('click', () => {
+                const el = document.getElementById('admin-skin-hex-input');
+                if (el) applyAdminHouseSkin(el.value, false, {});
+            });
+            document.getElementById('admin-skin-hex-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('admin-skin-apply-custom')?.click();
+                }
+            });
+            document.getElementById('ben-code-submit')?.addEventListener('click', tryBenCodeFromInput);
+            document.getElementById('ben-code-cancel')?.addEventListener('click', () => { hideBenCodeModal(); });
+            document.getElementById('ben-code-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); tryBenCodeFromInput(); }
+            });
             document.getElementById('admin-skin-close')?.addEventListener('click', () => {
                 const m = document.getElementById('admin-skin-modal');
                 if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
