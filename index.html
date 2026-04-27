@@ -470,6 +470,7 @@
                     <li><span class="text-yellow-400 font-bold">REALITY</span> = Hard mode</li>
                     <li><span class="text-yellow-400 font-bold">RARITY DROP</span> = 99% $100k</li>
                     <li><span class="text-yellow-400 font-bold">GODLY</span> = God Settings</li>
+                    <li><span class="text-yellow-400 font-bold">ZOMBIE</span> = No minimap · green zombies</li>
                 </ul>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">Enter these in the "Secret Modes" box.</p>
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
@@ -932,6 +933,7 @@
             <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">RICH</span> = Start with $50k</p>
             <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">GHOST</span> = Walk thru buildings</p>
             <p class="text-white text-xs font-mono mb-1"><span class="text-yellow-400 font-bold">REALITY</span> = Hard mode + Grayscale</p>
+            <p class="text-white text-xs font-mono mb-1"><span class="text-lime-400 font-bold">ZOMBIE</span> = No minimap · green zombies in the world</p>
             <div id="murder-code-reveal" class="hidden mt-3 pt-3 border-t border-red-500/50">
                 <p class="text-red-400 text-xs font-mono font-black animate-pulse">⭐ ULTIMATE: MURDER ⭐</p>
                 <p class="text-slate-300 text-[10px]">Speed, Ghost, Rich + Assassinations!</p>
@@ -1067,6 +1069,10 @@
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
         const JAIL_LINE_TIMES = 5;
         const BEN_HOUSE_CASH = 75000;
+        /** World “zombie” mode (civilians): Secret code ZOMBIE */
+        const ZOMBIE_CIV_COUNT = 18;
+        const ZOMBIE_CIV_COLOR = '#22c55e';
+        const ZOMBIE_CIV_COLOR_MINI = '#4ade80';
         const TELEPORT_PAD_R = 38;
         const TELEPORT_REENTER_FRAMES = 8;
         const PVP_NUKE_RADIUS = 400;
@@ -2761,6 +2767,9 @@
 
         // CORE HELPERS
         function dist(x1, y1, x2, y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+        function isZombieSecretActive() {
+            return state.activeSecrets.includes('ZOMBIE');
+        }
         function getRoadAt(x, y) { return (x % GRID_SIZE < 100 || x % GRID_SIZE > 400) || (y % GRID_SIZE < 100 || y % GRID_SIZE > 400); }
         function isIntersection(x, y) { return (x % GRID_SIZE < 80 || x % GRID_SIZE > 420) && (y % GRID_SIZE < 80 || y % GRID_SIZE > 420); }
         function updateMoneyUI() { if(moneyEl) moneyEl.innerText = `$${state.money.toLocaleString()}`; }
@@ -3605,9 +3614,10 @@
             let targetCivs = 0;
             if (hasGodSettings()) targetCivs = parseInt(document.getElementById('god-civs').value) || 0;
             else if (state.activeSecrets.includes('MURDER')) targetCivs = 20;
+            else if (isZombieSecretActive()) targetCivs = ZOMBIE_CIV_COUNT;
 
             if (targetCivs > 0 && !state.isJailed) {
-                if (state.activeSecrets.includes('MURDER')) {
+                if (state.activeSecrets.includes('MURDER') || isZombieSecretActive()) {
                     state.wantedLevel = 1;
                     state.policeDelay = 0;
                 }
@@ -3944,7 +3954,13 @@
             }
             
             state.civilians.forEach(cv => {
-                c.save(); c.translate(cv.x, cv.y); c.fillStyle = '#f97316'; c.beginPath(); c.arc(0,0,8,0,Math.PI*2); c.fill(); c.restore();
+                c.save();
+                c.translate(cv.x, cv.y);
+                c.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR : '#f97316';
+                c.beginPath();
+                c.arc(0, 0, 8, 0, Math.PI * 2);
+                c.fill();
+                c.restore();
             });
 
             state.vehicles.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = v.type.color; c.fillRect(-25, -15, 50, 30); c.restore(); });
@@ -4047,6 +4063,11 @@
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
             ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
+            const mmCont = document.getElementById('minimap-container');
+            if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
+            if (isZombieSecretActive()) {
+                if (ctxM) ctxM.clearRect(0, 0, MINIMAP_PX, MINIMAP_PX);
+            } else {
             const ms = ctxM;
             const s = MINIMAP_PX / 4000;
             const mmBg = 'rgba(8, 15, 20, 0.92)';
@@ -4098,7 +4119,7 @@
                 ms.arc(state.orb.x * s, state.orb.y * s, 4, 0, Math.PI * 2);
                 ms.fill();
             }
-            state.civilians.forEach(c => { ms.fillStyle = '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
+            state.civilians.forEach(c => { ms.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR_MINI : '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
             state.players.forEach(p => { if (p) {
                 const rad = 4.5;
                 ms.beginPath(); ms.arc(p.x * s, p.y * s, rad, 0, Math.PI * 2);
@@ -4119,6 +4140,7 @@
             }
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
                 state.police.forEach(v => { const flash = Math.floor(state.frameCount / 5) % 2 === 0; ms.fillStyle = flash ? '#ff0000' : '#0000ff'; ms.beginPath(); ms.arc(v.x * s, v.y * s, 3, 0, Math.PI * 2); ms.fill(); });
+            }
             }
         }
 
@@ -5048,6 +5070,7 @@
                 else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
                 else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
                 else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame()) gpb.classList.remove('hidden'); }
+                else if (code === 'ZOMBIE') { if(!state.activeSecrets.includes('ZOMBIE')) state.activeSecrets.push('ZOMBIE'); showSecretMsg('ZOMBIE MODE — map blind · they’re green'); }
                 else { showSecretMsg('INVALID CODE'); }
                 document.getElementById('secret-code-input').value = '';
             };
