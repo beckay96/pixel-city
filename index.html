@@ -1610,6 +1610,11 @@
             return state.activeSecrets.includes('GODLY') || state.isAdmin;
         }
 
+        /** Rob Ben’s only after lobby Admin PIN 4789 or Secret Modes code 4789 */
+        function canRobBen() {
+            return state.isAdmin || state.lobbyAdminUnlocked || state.activeSecrets.includes('4789');
+        }
+
         function showLobbyFromSignIn() {
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
@@ -1906,32 +1911,20 @@
             return mulberry32(hi);
         }
 
-        /** Edge walkway (no draw / no collision) + Ben’s House near bank; one-time cash, no wanted level */
+        /** Invisible top-edge path near bank; Ben’s is a normal house lot in generateCity() */
         function placeBenHouseAndEdgeWalkway() {
-            state.buildings = state.buildings.filter(b => b.type !== 'ben_hall' && b.type !== 'invisible');
+            state.buildings = state.buildings.filter(b => b.type !== 'invisible');
             if (state.benHouseRobbed) return;
-            /* Invisible strip along top edge: walk through the map border near the bank quadrant */
             state.buildings.push({ x: 3200, y: 0, w: 500, h: 32, type: 'invisible', color: '#000000' });
-            /* Just south-east of the bank — path from top edge to here is open along the road */
-            state.buildings.push({ x: 3920, y: 3580, w: 240, h: 240, type: 'ben_hall', color: '#6d28d9' });
         }
 
-        /** Five small shop cells along the edge near the bank (grid 3000,3000) */
-        function placeSpecialShops() {
-            state.buildings = state.buildings.filter(b => b.type !== 'shop_g' && b.type !== 'shop_w');
-            const bankX = 3600;
-            const bankY = 3600;
-            const gap = 8;
-            const w = 88;
-            const h = 88;
-            const y0 = bankY - 120;
-            for (let i = 0; i < 5; i++) {
-                const x = bankX - 280 + i * (w + gap);
-                const type = i % 2 === 0 ? 'shop_g' : 'shop_w';
-                const color = type === 'shop_g' ? '#7c3aed' : '#be123c';
-                state.buildings.push({ x, y: y0, w, h, type, color, shopIndex: i });
-            }
-        }
+        const GADGET_WEAPON_SHOP_SLOTS = [
+            { x: 2500, y: 3000, t: 'shop_g', c: '#7c3aed' },
+            { x: 3000, y: 2500, t: 'shop_w', c: '#be123c' },
+            { x: 3500, y: 3000, t: 'shop_g', c: '#7c3aed' },
+            { x: 3000, y: 2000, t: 'shop_w', c: '#be123c' },
+            { x: 2000, y: 3000, t: 'shop_g', c: '#7c3aed' }
+        ];
 
         function generateCity() {
             const rnd = rngForWorld();
@@ -1945,11 +1938,17 @@
                     else if (x === 500 && y === 500) { type = 'jail'; color = '#475569'; }
                     else if (x === 500 && y === 3500) { type = 'dealership'; color = '#3b82f6'; }
                     else if (rnd() > 0.85) { type = state.schoolGameMode ? 'school' : 'store'; color = state.schoolGameMode ? '#f59e0b' : '#10b981'; }
+                    for (const s of GADGET_WEAPON_SHOP_SLOTS) {
+                        if (x === s.x && y === s.y) { type = s.t; color = s.c; break; }
+                    }
+                    if (x === 3000 && y === 3000 && !state.benHouseRobbed) {
+                        type = 'ben_hall';
+                        color = '#6d28d9';
+                    }
                     state.buildings.push({ x: x + 100, y: y + 100, w: 300, h: 300, type, color });
                 }
             }
             placeBenHouseAndEdgeWalkway();
-            placeSpecialShops();
         }
 
         async function fetchCloudFriendnames() {
@@ -2970,12 +2969,18 @@
             const bNear = state.buildings.find(b => b.type !== 'invisible' && dist(p.x, p.y, b.x + b.w/2, b.y + b.h/2) < 200);
             if (bNear && bNear.type !== 'ruins') {
                 if (bNear.type === 'ben_hall' && !state.benHouseRobbed) {
+                    if (!canRobBen()) {
+                        showMessage("Ben’s house is locked. Enter 4789 in Secret Modes or Admin Login (lobby) first.");
+                        return;
+                    }
                     state.benHouseRobbed = true;
                     state.money += BEN_HOUSE_CASH;
                     updateMoneyUI();
                     const stars = document.getElementById('wanted-stars');
                     if (stars) stars.classList.add('hidden');
-                    showMessage(`Ben's place — you grabbed $${BEN_HOUSE_CASH.toLocaleString()}. (No cops — that was the one time.)`);
+                    showMessage(`Ben’s place — you grabbed $${BEN_HOUSE_CASH.toLocaleString()}. (No cops — that was the one time.)`);
+                    const hb = state.buildings.find(b => b.type === 'ben_hall');
+                    if (hb) { hb.type = 'house'; hb.color = COLORS[Math.floor(Math.random() * COLORS.length)]; }
                     placeBenHouseAndEdgeWalkway();
                     return;
                 }
@@ -3418,8 +3423,8 @@
                         if (subEl) {
                             if (bNear) {
                                 if (bNear.type === 'admin_hall') subEl.innerText = 'admin house (skins)';
-                                else if (bNear.type === 'ben_hall' && !state.benHouseRobbed) subEl.innerText = "ben's — press E ($75k, once)";
-                                else if (bNear.type === 'ben_hall') subEl.innerText = "ben's (empty)";
+                                else if (bNear.type === 'ben_hall' && !state.benHouseRobbed) subEl.innerText = canRobBen() ? "ben’s — E to rob (4789) $75k once" : "ben’s (need code 4789)";
+                                else if (bNear.type === 'ben_hall') subEl.innerText = "empty lot";
                                 else if (bNear.type === 'school' || (bNear.type === 'store' && state.schoolGameMode)) subEl.innerText = 'school';
                                 else if (bNear.type === 'shop_g') subEl.innerText = 'gadget row';
                                 else if (bNear.type === 'shop_w') subEl.innerText = 'weapon row';
@@ -4712,7 +4717,8 @@
             document.getElementById('secret-toggle-btn').onclick = () => { document.getElementById('secret-input-area').classList.toggle('hidden'); };
             document.getElementById('secret-apply-btn').onclick = () => {
                 const code = document.getElementById('secret-code-input').value.trim().toUpperCase();
-                if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
+                if (code === '4789') { if (!state.activeSecrets.includes('4789')) state.activeSecrets.push('4789'); showSecretMsg('CODE 4789 — Ben’s house unlocked'); recomputeIsAdmin(); }
+                else if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
                 else if (code === 'RICH') { if(!state.activeSecrets.includes('RICH')) state.activeSecrets.push('RICH'); showSecretMsg('RICH ACTIVATED'); }
                 else if (code === 'GHOST') { if(!state.activeSecrets.includes('GHOST')) state.activeSecrets.push('GHOST'); showSecretMsg('GHOST ACTIVATED'); }
                 else if (code === 'MURDER' || code === 'CHAOS') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
