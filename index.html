@@ -1095,10 +1095,13 @@
         const ZOMBIE_SPAWN_BANK = 4;
         const ZOMBIE_WEP_RANGE = 200;
         const ZOMBIE_ROCKET_RANGE = 280;
-        /** Zombies take multiple shots; chase nearest player on foot */
+        /** Zombies take multiple shots; chase only inside aggro radius, slightly faster than your walk speed */
         const ZOMBIE_MAX_HP = 72;
-        const ZOMBIE_CHASE_SPEED_MIN = 6.8;
-        const ZOMBIE_CHASE_SPEED_MAX = 9.4;
+        const ZOMBIE_AGGRO_RADIUS = 380;
+        /** Chase speed = current walk speed + this (default walk 4 → zombie 5) */
+        const ZOMBIE_SPEED_OVER_PLAYER = 1;
+        const ZOMBIE_WANDER_SPEED_MIN = 2.2;
+        const ZOMBIE_WANDER_SPEED_MAX = 3.8;
         const PLAYER_MAX_HP = 100;
         const HOSPITAL_ADMIT_COST = 8000;
         const BLEED_OUT_FRAMES = 15 * 60;
@@ -2594,13 +2597,21 @@
         }
 
         function spawnZombieEntity(x, y) {
+            const ws = ZOMBIE_WANDER_SPEED_MIN + Math.random() * (ZOMBIE_WANDER_SPEED_MAX - ZOMBIE_WANDER_SPEED_MIN);
             return {
                 x, y,
                 angle: Math.random() * Math.PI * 2,
-                speed: ZOMBIE_CHASE_SPEED_MIN + Math.random() * (ZOMBIE_CHASE_SPEED_MAX - ZOMBIE_CHASE_SPEED_MIN),
+                speed: ws,
+                wanderSpeed: ws,
                 hp: ZOMBIE_MAX_HP,
                 maxHp: ZOMBIE_MAX_HP
             };
+        }
+
+        function applyZombieStartingWeapon(p) {
+            if (!p || !isZombieSecretActive()) return;
+            ensurePlayerLoadout(p);
+            p.loadout.weapon = 'pea';
         }
 
         function spawnZombieBurst(n) {
@@ -3436,6 +3447,7 @@
                 p.menuSelection = 0;
                 p.color = i === 0 ? skinR : '#4ade80';
                 p.loadout = defaultLoadout();
+                applyZombieStartingWeapon(p);
                 p.hp = PLAYER_MAX_HP; p.dead = false; p.downed = false; p.bleedFrames = 0;
                 p.corpseX = null; p.corpseY = null; p.draggingPlayerIdx = null; p.inVehicle = null;
                 window.closePlayerModal(i);
@@ -4070,6 +4082,8 @@
                 state.money = 0;
                 updateMoneyUI();
             }
+            state.players.forEach(p => applyZombieStartingWeapon(p));
+            updateLoadoutUI();
 
             initGameLoop();
         }
@@ -4209,12 +4223,17 @@
                 for (let i = state.civilians.length - 1; i >= 0; i--) {
                     let c = state.civilians[i];
                     let preyForZ = null;
+                    let chaseZ = false;
                     if (isZombieSecretActive()) {
                         if (c.hp == null) { c.hp = ZOMBIE_MAX_HP; c.maxHp = ZOMBIE_MAX_HP; }
+                        if (c.wanderSpeed == null) c.wanderSpeed = ZOMBIE_WANDER_SPEED_MIN + Math.random() * (ZOMBIE_WANDER_SPEED_MAX - ZOMBIE_WANDER_SPEED_MIN);
                         preyForZ = nearestAliveFootPlayerForZombie(c);
-                        if (preyForZ) {
+                        chaseZ = !!(preyForZ && idist(preyForZ, c) <= ZOMBIE_AGGRO_RADIUS);
+                        if (chaseZ) {
                             c.angle = Math.atan2(preyForZ.y - c.y, preyForZ.x - c.x);
-                            c.speed = Math.min(ZOMBIE_CHASE_SPEED_MAX, Math.max(ZOMBIE_CHASE_SPEED_MIN, (c.speed || ZOMBIE_CHASE_SPEED_MIN) + 0.015));
+                            c.speed = pedSpeed + ZOMBIE_SPEED_OVER_PLAYER;
+                        } else {
+                            c.speed = c.wanderSpeed;
                         }
                     }
                     c.x += Math.cos(c.angle) * c.speed;
@@ -4223,7 +4242,7 @@
                         if (c.x < 10 || c.x > WORLD_SIZE - 10 || c.y < 10 || c.y > WORLD_SIZE - 10 || Math.random() < 0.02) {
                             c.angle = Math.random() * Math.PI * 2;
                         }
-                    } else if (!preyForZ && (c.x < 10 || c.x > WORLD_SIZE - 10 || c.y < 10 || c.y > WORLD_SIZE - 10 || Math.random() < 0.015)) {
+                    } else if ((!chaseZ) && (c.x < 10 || c.x > WORLD_SIZE - 10 || c.y < 10 || c.y > WORLD_SIZE - 10 || Math.random() < 0.015)) {
                         c.angle = Math.random() * Math.PI * 2;
                     }
                     c.x = Math.max(10, Math.min(WORLD_SIZE-10, c.x));
@@ -5743,7 +5762,16 @@
                 else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
                 else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
                 else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame() && canUseGodPanelInGame()) gpb.classList.remove('hidden'); }
-                else if (code === 'ZOMBIE') { if(!state.activeSecrets.includes('ZOMBIE')) state.activeSecrets.push('ZOMBIE'); showSecretMsg('ZOMBIE: no map · ruins · loot E · shoot zombies (F)'); if (isInGame()) { const gpb2 = document.getElementById('god-panel-btn'); if (gpb2) gpb2.classList.add('hidden'); } }
+                else if (code === 'ZOMBIE') {
+                    if (!state.activeSecrets.includes('ZOMBIE')) state.activeSecrets.push('ZOMBIE');
+                    showSecretMsg('ZOMBIE: aggro ~380px · pea gun · F to shoot');
+                    if (isInGame()) {
+                        const gpb2 = document.getElementById('god-panel-btn');
+                        if (gpb2) gpb2.classList.add('hidden');
+                        state.players.forEach(p => applyZombieStartingWeapon(p));
+                        updateLoadoutUI();
+                    }
+                }
                 else { showSecretMsg('INVALID CODE'); }
                 document.getElementById('secret-code-input').value = '';
             };
