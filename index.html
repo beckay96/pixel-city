@@ -1110,13 +1110,13 @@
         /** Zombies take multiple shots; chase only inside aggro radius, slightly faster than your walk speed */
         const ZOMBIE_MAX_HP = 72;
         const ZOMBIE_AGGRO_RADIUS = 380;
-        /** Chase speed = current walk speed + this (default walk 4 → zombie 5) */
-        const ZOMBIE_SPEED_OVER_PLAYER = 1;
+        /** Chase speed multiplier vs your walk speed (< 1 = slower than you) */
+        const ZOMBIE_CHASE_SPEED_FACTOR = 0.88;
         const ZOMBIE_WANDER_SPEED_MIN = 2.2;
         const ZOMBIE_WANDER_SPEED_MAX = 3.8;
         const PLAYER_MAX_HP = 100;
         const HOSPITAL_ADMIT_COST = 8000;
-        const BLEED_OUT_FRAMES = 15 * 60;
+        const BLEED_OUT_FRAMES = 30 * 60;
         const REVIVE_RANGE = 90;
         const CARRY_OFFSET = 38;
         const BITE_DMG = 12;
@@ -1702,7 +1702,7 @@
                 p.bleedFrames = BLEED_OUT_FRAMES;
                 p.corpseX = p.x;
                 p.corpseY = p.y;
-                showMessage('Critical! 15s — reach the hospital (green HOSP) or you are out');
+                showMessage('Critical! 30s — reach the hospital (green HOSP) or you are out');
             }
             updateHealthBars();
         }
@@ -2685,9 +2685,10 @@
         }
 
         function zombieWeaponChipDamage(def) {
-            if (!def) return WEP_DMG_STUN;
-            if (def.kind === 'rocket') return Math.ceil(WEP_DMG_NUKE * 0.55);
-            return WEP_DMG_STUN;
+            const mul = 0.42;
+            if (!def) return Math.max(1, Math.ceil(WEP_DMG_STUN * mul));
+            if (def.kind === 'rocket') return Math.max(1, Math.ceil(WEP_DMG_NUKE * 0.55 * mul));
+            return Math.max(1, Math.ceil(WEP_DMG_STUN * mul));
         }
 
         /** Damage nearest zombie in cone of fire; multi-hit until dead (guns), instakill for micro-nuke blast. */
@@ -4302,7 +4303,7 @@
                         chaseZ = !!(preyForZ && idist(preyForZ, c) <= ZOMBIE_AGGRO_RADIUS);
                         if (chaseZ) {
                             c.angle = Math.atan2(preyForZ.y - c.y, preyForZ.x - c.x);
-                            c.speed = pedSpeed + ZOMBIE_SPEED_OVER_PLAYER;
+                            c.speed = Math.max(1.5, pedSpeed * ZOMBIE_CHASE_SPEED_FACTOR);
                         } else {
                             c.speed = c.wanderSpeed;
                         }
