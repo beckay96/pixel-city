@@ -525,13 +525,13 @@
                 <div class="text-xl font-black text-green-400" id="money-display">$0</div>
                 <div class="text-[8px] text-slate-400 uppercase font-bold text-center">Wallet</div>
             </div>
-            <div class="px-4 text-center min-w-[5.5rem]">
-                <div class="text-[9px] text-rose-400/90 font-bold uppercase tracking-tighter" id="health-p0-label">P1</div>
-                <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-0.5" title="Health"><div id="health-p0-bar" class="h-full bg-emerald-500 rounded-full transition-all" style="width:100%"></div></div>
+            <div class="px-4 text-center min-w-[8rem]">
+                <div class="text-[10px] text-rose-100 font-black uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" id="health-p0-label">P1</div>
+                <div class="h-3 w-full min-w-[7rem] bg-slate-950 rounded-md overflow-hidden mt-1 ring-2 ring-white/25 shadow-inner" title="Health"><div id="health-p0-bar" class="h-full bg-emerald-400 rounded-sm transition-all duration-150" style="width:100%"></div></div>
             </div>
-            <div id="health-wrap-1" class="hidden px-4 text-center min-w-[5.5rem]">
-                <div class="text-[9px] text-emerald-300/90 font-bold uppercase tracking-tighter" id="health-p1-label">P2</div>
-                <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-0.5" title="Health"><div id="health-p1-bar" class="h-full bg-emerald-500 rounded-full transition-all" style="width:100%"></div></div>
+            <div id="health-wrap-1" class="hidden px-4 text-center min-w-[8rem]">
+                <div class="text-[10px] text-emerald-100 font-black uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" id="health-p1-label">P2</div>
+                <div class="h-3 w-full min-w-[7rem] bg-slate-950 rounded-md overflow-hidden mt-1 ring-2 ring-white/25 shadow-inner" title="Health"><div id="health-p1-bar" class="h-full bg-emerald-400 rounded-sm transition-all duration-150" style="width:100%"></div></div>
             </div>
             <div class="px-4 text-center">
                 <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-tighter">Goal: $100k</div>
@@ -1095,6 +1095,10 @@
         const ZOMBIE_SPAWN_BANK = 4;
         const ZOMBIE_WEP_RANGE = 200;
         const ZOMBIE_ROCKET_RANGE = 280;
+        /** Zombies take multiple shots; chase nearest player on foot */
+        const ZOMBIE_MAX_HP = 72;
+        const ZOMBIE_CHASE_SPEED_MIN = 6.8;
+        const ZOMBIE_CHASE_SPEED_MAX = 9.4;
         const PLAYER_MAX_HP = 100;
         const HOSPITAL_ADMIT_COST = 8000;
         const BLEED_OUT_FRAMES = 15 * 60;
@@ -1222,7 +1226,8 @@
             hospitalAction: null,
             soloHospModalShown: false,
             /** ZOMBIE mode: bank vault is one run only; houses use per-building zombieLooted */
-            zombieBankRobbed: false
+            zombieBankRobbed: false,
+            lastZombieChipMsgFrame: 0
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1607,15 +1612,16 @@
                 ensurePlayerHealth(p);
                 const w = p.dead ? 0 : Math.max(0, Math.min(100, (p.hp / PLAYER_MAX_HP) * 100));
                 bar.style.width = `${w}%`;
-                bar.classList.remove('bg-emerald-500', 'bg-amber-500', 'bg-rose-600');
-                if (p.dead) bar.classList.add('bg-rose-600');
-                else if (p.downed || p.hp <= 0) bar.classList.add('bg-amber-500');
-                else bar.classList.add('bg-emerald-500');
+                bar.classList.remove('bg-emerald-400', 'bg-amber-400', 'bg-rose-500');
+                if (p.dead) bar.classList.add('bg-rose-500');
+                else if (p.downed || p.hp <= 0) bar.classList.add('bg-amber-400');
+                else bar.classList.add('bg-emerald-400');
                 if (label) {
-                    if (p.dead) label.textContent = i === 0 ? 'P1 (out)' : 'P2 (out)';
-                    else if (p.downed) label.textContent = i === 0 ? 'P1 ↓' : 'P2 ↓';
-                    else if (p.bleedFrames > 0 && p.hp <= 0) label.textContent = (i === 0 ? 'P1 ' : 'P2 ') + Math.max(0, Math.ceil(p.bleedFrames / 60)) + 's';
-                    else label.textContent = i === 0 ? 'P1' : 'P2';
+                    const hpTxt = p.dead ? '0' : String(Math.max(0, Math.ceil(p.hp)));
+                    if (p.dead) label.textContent = `${i === 0 ? 'P1' : 'P2'} · ${hpTxt} HP (out)`;
+                    else if (p.downed) label.textContent = `${i === 0 ? 'P1' : 'P2'} · ${hpTxt} HP ↓`;
+                    else if (p.bleedFrames > 0 && p.hp <= 0) label.textContent = `${i === 0 ? 'P1' : 'P2'} · bleed ${Math.max(0, Math.ceil(p.bleedFrames / 60))}s`;
+                    else label.textContent = `${i === 0 ? 'P1' : 'P2'} · ${hpTxt} / ${PLAYER_MAX_HP} HP`;
                 }
             }
         }
@@ -1922,10 +1928,10 @@
             const t = otherPlayerInRadius(p.x, p.y, 260, pIdx);
             if (def.kind === 'nuke') {
                 if (isZombieSecretActive() && !t) {
-                    const z = tryHitZombieInRange(pIdx, { kind: 'rocket' }, 340);
+                    const z = tryHitZombieInRange(pIdx, { kind: 'rocket' }, 340, ZOMBIE_MAX_HP + 99);
                     if (z.hit) {
                         state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
-                        showMessage(`Zombie nuke! +$${z.add.toLocaleString()}`);
+                        if (z.killed) showMessage(`Zombie nuke! +$${z.add.toLocaleString()}`);
                         if (state.playMode === 'online' && supabaseRealtimeChannel) {
                             supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y } });
                         }
@@ -1949,7 +1955,7 @@
             } else {
                 if (isZombieSecretActive() && (!t || t.idx < 0)) {
                     const z = tryHitZombieInRange(pIdx, def);
-                    if (z.hit) {
+                    if (z.hit && z.killed) {
                         if (def.kind === 'rocket') {
                             state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: 120, until: 12, hit: true });
                         }
@@ -2587,9 +2593,19 @@
             }
         }
 
+        function spawnZombieEntity(x, y) {
+            return {
+                x, y,
+                angle: Math.random() * Math.PI * 2,
+                speed: ZOMBIE_CHASE_SPEED_MIN + Math.random() * (ZOMBIE_CHASE_SPEED_MAX - ZOMBIE_CHASE_SPEED_MIN),
+                hp: ZOMBIE_MAX_HP,
+                maxHp: ZOMBIE_MAX_HP
+            };
+        }
+
         function spawnZombieBurst(n) {
             for (let i = 0; i < n; i++) {
-                state.civilians.push({ x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE, angle: Math.random() * Math.PI * 2, speed: 3 + Math.random() * 4 });
+                state.civilians.push(spawnZombieEntity(Math.random() * WORLD_SIZE, Math.random() * WORLD_SIZE));
             }
         }
 
@@ -2601,10 +2617,16 @@
             return add;
         }
 
-        /** In zombie mode, stun/rocket can hit a civilian for cash (micro nuke can also clear a horde in range). */
-        function tryHitZombieInRange(pIdx, def, maxR) {
+        function zombieWeaponChipDamage(def) {
+            if (!def) return WEP_DMG_STUN;
+            if (def.kind === 'rocket') return Math.ceil(WEP_DMG_NUKE * 0.55);
+            return WEP_DMG_STUN;
+        }
+
+        /** Damage nearest zombie in cone of fire; multi-hit until dead (guns), instakill for micro-nuke blast. */
+        function tryHitZombieInRange(pIdx, def, maxR, damageOverride) {
             const p = state.players[pIdx];
-            if (!p) return { hit: false };
+            if (!p) return { hit: false, killed: false, add: 0 };
             const isRocket = def && def.kind === 'rocket';
             const r = maxR != null ? maxR : (isRocket ? ZOMBIE_ROCKET_RANGE : ZOMBIE_WEP_RANGE);
             let bestI = -1, bestD = r + 1;
@@ -2613,10 +2635,21 @@
                 const d = dist(p.x, p.y, c.x, c.y);
                 if (d < bestD) { bestD = d; bestI = i; }
             }
-            if (bestI < 0 || bestD > r) return { hit: false };
-            state.civilians.splice(bestI, 1);
-            const add = grantZombieKillPayout();
-            return { hit: true, add };
+            if (bestI < 0 || bestD > r) return { hit: false, killed: false, add: 0 };
+            const c = state.civilians[bestI];
+            if (c.hp == null) { c.hp = ZOMBIE_MAX_HP; c.maxHp = ZOMBIE_MAX_HP; }
+            const dmg = damageOverride != null ? damageOverride : zombieWeaponChipDamage(def);
+            c.hp -= dmg;
+            if (c.hp <= 0) {
+                state.civilians.splice(bestI, 1);
+                const add = grantZombieKillPayout();
+                return { hit: true, killed: true, add };
+            }
+            if (state.frameCount - (state.lastZombieChipMsgFrame || 0) > 28) {
+                state.lastZombieChipMsgFrame = state.frameCount;
+                showMessage(`Zombie hit (${Math.max(0, Math.ceil(c.hp))}/${c.maxHp || ZOMBIE_MAX_HP} HP)`);
+            }
+            return { hit: true, killed: false, add: 0 };
         }
 
         const GADGET_WEAPON_SHOP_SLOTS = [
@@ -3197,6 +3230,16 @@
         function idist(a, b) {
             return dist(a.x, a.y, b.x, b.y);
         }
+
+        function nearestAliveFootPlayerForZombie(from) {
+            let best = null, bd = Infinity;
+            state.players.forEach(pl => {
+                if (!pl || pl.dead || pl.downed || pl.inVehicle) return;
+                const d = idist(pl, from);
+                if (d < bd) { bd = d; best = pl; }
+            });
+            return best;
+        }
         function getRoadAt(x, y) { return (x % GRID_SIZE < 100 || x % GRID_SIZE > 400) || (y % GRID_SIZE < 100 || y % GRID_SIZE > 400); }
         function isIntersection(x, y) { return (x % GRID_SIZE < 80 || x % GRID_SIZE > 420) && (y % GRID_SIZE < 80 || y % GRID_SIZE > 420); }
         function updateMoneyUI() { if(moneyEl) moneyEl.innerText = `$${state.money.toLocaleString()}`; }
@@ -3400,6 +3443,7 @@
             state.spectatePIdx = 0;
             state.soloHospModalShown = false;
             state.zombieBankRobbed = false;
+            state.lastZombieChipMsgFrame = 0;
             const sh0 = document.getElementById('spectate-hint');
             if (sh0) { sh0.classList.add('hidden'); sh0.textContent = 'Spectating'; }
             updateHealthBars();
@@ -4150,21 +4194,36 @@
                 
                 // Spawn Civilians
                 while (state.civilians.length < targetCivs) {
-                    state.civilians.push({
-                        x: Math.random() * WORLD_SIZE,
-                        y: Math.random() * WORLD_SIZE,
-                        angle: Math.random() * Math.PI * 2,
-                        speed: 3 + Math.random() * 4
-                    });
+                    state.civilians.push(isZombieSecretActive()
+                        ? spawnZombieEntity(Math.random() * WORLD_SIZE, Math.random() * WORLD_SIZE)
+                        : {
+                            x: Math.random() * WORLD_SIZE,
+                            y: Math.random() * WORLD_SIZE,
+                            angle: Math.random() * Math.PI * 2,
+                            speed: 3 + Math.random() * 4
+                        });
                 }
                 if (!isZombieSecretActive() && state.civilians.length > targetCivs) state.civilians.length = targetCivs; // Trim excess (zombie spawns from houses add over cap)
 
                 // Move, bite (zombie) or elim (chaos) civilians
                 for (let i = state.civilians.length - 1; i >= 0; i--) {
                     let c = state.civilians[i];
+                    let preyForZ = null;
+                    if (isZombieSecretActive()) {
+                        if (c.hp == null) { c.hp = ZOMBIE_MAX_HP; c.maxHp = ZOMBIE_MAX_HP; }
+                        preyForZ = nearestAliveFootPlayerForZombie(c);
+                        if (preyForZ) {
+                            c.angle = Math.atan2(preyForZ.y - c.y, preyForZ.x - c.x);
+                            c.speed = Math.min(ZOMBIE_CHASE_SPEED_MAX, Math.max(ZOMBIE_CHASE_SPEED_MIN, (c.speed || ZOMBIE_CHASE_SPEED_MIN) + 0.015));
+                        }
+                    }
                     c.x += Math.cos(c.angle) * c.speed;
                     c.y += Math.sin(c.angle) * c.speed;
-                    if (c.x < 10 || c.x > WORLD_SIZE-10 || c.y < 10 || c.y > WORLD_SIZE-10 || Math.random() < 0.02) {
+                    if (!isZombieSecretActive()) {
+                        if (c.x < 10 || c.x > WORLD_SIZE - 10 || c.y < 10 || c.y > WORLD_SIZE - 10 || Math.random() < 0.02) {
+                            c.angle = Math.random() * Math.PI * 2;
+                        }
+                    } else if (!preyForZ && (c.x < 10 || c.x > WORLD_SIZE - 10 || c.y < 10 || c.y > WORLD_SIZE - 10 || Math.random() < 0.015)) {
                         c.angle = Math.random() * Math.PI * 2;
                     }
                     c.x = Math.max(10, Math.min(WORLD_SIZE-10, c.x));
@@ -4521,9 +4580,25 @@
                 c.save();
                 c.translate(cv.x, cv.y);
                 c.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR : '#f97316';
+                const zr = isZombieSecretActive() ? 10 : 8;
                 c.beginPath();
-                c.arc(0, 0, 8, 0, Math.PI * 2);
+                c.arc(0, 0, zr, 0, Math.PI * 2);
                 c.fill();
+                if (isZombieSecretActive()) {
+                    const mh = cv.maxHp || ZOMBIE_MAX_HP;
+                    const hp = Math.max(0, cv.hp != null ? cv.hp : mh);
+                    const frac = mh > 0 ? hp / mh : 0;
+                    const bw = 30;
+                    const bh = 6;
+                    const by = -zr - 10;
+                    c.fillStyle = 'rgba(15,23,42,0.92)';
+                    c.fillRect(-bw / 2 - 1, by - 1, bw + 2, bh + 2);
+                    c.fillStyle = frac > 0.35 ? '#4ade80' : '#f87171';
+                    c.fillRect(-bw / 2, by, bw * frac, bh);
+                    c.strokeStyle = 'rgba(255,255,255,0.85)';
+                    c.lineWidth = 1;
+                    c.strokeRect(-bw / 2, by, bw, bh);
+                }
                 c.restore();
             });
 
