@@ -133,7 +133,7 @@
             overflow-y: auto;
         }
 
-        #jail-overlay, #game-over-overlay, #victory-overlay, #nuke-flash, #jackpot-flash {
+        #jail-overlay, #game-over-overlay, #victory-overlay, #wasted-overlay, #nuke-flash, #jackpot-flash {
             position: fixed;
             inset: 0;
             display: none;
@@ -142,6 +142,10 @@
             justify-content: center;
             z-index: 200;
             pointer-events: auto;
+        }
+        #wasted-overlay {
+            z-index: 2500;
+            background: radial-gradient(ellipse at center, #1a0505 0%, #000 70%);
         }
         #nuke-flash { background: white; z-index: 1000; pointer-events: none; }
         #jackpot-flash { background: rgba(250, 204, 21, 0.4); z-index: 1000; pointer-events: none; }
@@ -505,6 +509,7 @@
     </div>
 
     <div id="ui-layer">
+        <button type="button" id="exit-to-lobby-btn" style="display:none" class="fixed top-4 right-28 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg shadow-lg interactive max-[520px]:right-4 max-[520px]:top-14" title="Leave the run and return to menu">Exit to menu</button>
         <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto">
             <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer</div>
             <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
@@ -780,6 +785,13 @@
     <div id="game-over-overlay">
         <h1 class="text-7xl font-black text-red-600 mb-4 text-center uppercase">Lost</h1>
         <button onclick="window.restartGame()" class="btn bg-blue-500 text-white px-12 py-4 rounded-lg text-xl interactive mx-auto block">RESTART</button>
+    </div>
+
+    <div id="wasted-overlay" class="px-4">
+        <p class="text-sm font-bold text-red-400/90 uppercase tracking-[0.4em] mb-2 text-center">You are out</p>
+        <h1 class="text-6xl sm:text-8xl font-black text-red-500 mb-2 text-center uppercase" style="text-shadow: 0 0 40px rgba(239,68,68,0.6), 4px 4px 0 #450a0a;">Wasted</h1>
+        <p class="text-slate-400 text-sm text-center max-w-xs mb-8">No one left to carry on — accept your fate to return to the menu.</p>
+        <button type="button" id="wasted-fate-btn" class="bg-red-600 hover:bg-red-500 text-white font-black px-10 py-4 rounded-xl text-lg uppercase tracking-widest interactive shadow-[0_0_24px_rgba(220,38,38,0.5)] border-2 border-red-400/80">Accept your fate</button>
     </div>
 
     <div id="smartphone-overlay" class="interactive">
@@ -1230,7 +1242,9 @@
             soloHospModalShown: false,
             /** ZOMBIE mode: bank vault is one run only; houses use per-building zombieLooted */
             zombieBankRobbed: false,
-            lastZombieChipMsgFrame: 0
+            lastZombieChipMsgFrame: 0,
+            /** Pauses update loop (WASTED overlay, etc.) */
+            gamePaused: false
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1667,6 +1681,7 @@
             }
             const other = 1 - pIdx;
             if (state.players[other] && !state.players[other].dead) state.spectatePIdx = other;
+            if (shouldShowSoloWastedAfterDeath()) showWastedOverlay();
         }
         function startDownOrBleed(pIdx) {
             const p = state.players[pIdx];
@@ -2275,6 +2290,8 @@
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
             setInGamePhoneVisible(false);
+            const xb = document.getElementById('exit-to-lobby-btn');
+            if (xb) xb.style.display = 'none';
             updateIngameSchoolGameBadge();
             updateOwnerDashboardFabVisibility();
             updateLobbyStatsFabVisibility();
@@ -2292,6 +2309,45 @@
 
         function isInGame() {
             return !isSignInScreenVisible() && !isLobbyScreenVisible();
+        }
+
+        function shouldShowSoloWastedAfterDeath() {
+            if (state.playMode === 'online') return false;
+            return getAliveLocalCount() === 0;
+        }
+
+        function showWastedOverlay() {
+            state.gamePaused = true;
+            const wo = document.getElementById('wasted-overlay');
+            if (wo) wo.style.display = 'flex';
+        }
+
+        function hideWastedOverlay() {
+            state.gamePaused = false;
+            const wo = document.getElementById('wasted-overlay');
+            if (wo) wo.style.display = 'none';
+        }
+
+        function exitToLobby() {
+            hideWastedOverlay();
+            state.isGameOver = true;
+            clearGpsRoute();
+            const sb = document.getElementById('smartphone-overlay');
+            if (sb) sb.classList.remove('open');
+            document.getElementById('game-over-overlay').style.display = 'none';
+            document.getElementById('jail-overlay').style.display = 'none';
+            const hm = document.getElementById('hospital-modal');
+            if (hm) hm.style.display = 'none';
+            state.hospitalAction = null;
+            state.soloHospModalShown = false;
+            if (state.playMode === 'online') teardownOnlineRealtime();
+            state.players = [];
+            document.getElementById('lobby-screen').style.display = 'flex';
+            const xbOut = document.getElementById('exit-to-lobby-btn');
+            if (xbOut) xbOut.style.display = 'none';
+            setInGamePhoneVisible(false);
+            updateOwnerDashboardFabVisibility();
+            updateLobbyHints();
         }
 
         function getSupabaseConfig() {
@@ -3466,6 +3522,7 @@
             
             document.getElementById('victory-overlay').style.display = 'none';
             document.getElementById('game-over-overlay').style.display = 'none';
+            hideWastedOverlay();
             document.getElementById('jail-overlay').style.display = 'none';
             const hm = document.getElementById('hospital-modal');
             if (hm) hm.style.display = 'none';
@@ -3942,6 +3999,7 @@
         function setupFullTouch() {
             window.addEventListener('touchstart', (e) => {
                 if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
+                if (state.gamePaused) return;
                 if (e.target.closest('.interactive')) return; 
 
                 for (let i = 0; i < e.changedTouches.length; i++) {
@@ -3960,6 +4018,7 @@
 
             window.addEventListener('touchmove', (e) => {
                 if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
+                if (state.gamePaused) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -3981,6 +4040,7 @@
 
             window.addEventListener('touchend', (e) => {
                 if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
+                if (state.gamePaused) return;
                 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -4019,6 +4079,11 @@
             closeLobbyStatsOverlay();
 
             document.getElementById('lobby-screen').style.display = 'none';
+            state.isGameOver = false;
+            state.gamePaused = false;
+            hideWastedOverlay();
+            const xb = document.getElementById('exit-to-lobby-btn');
+            if (xb) xb.style.display = 'block';
             setInGamePhoneVisible(true);
             updateIngameSchoolGameBadge();
             updateOwnerDashboardFabVisibility();
@@ -4098,6 +4163,12 @@
                 if (e.repeat) return;
                 const t = e.target;
                 if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+                if (e.code === 'Escape' && isInGame()) {
+                    e.preventDefault();
+                    exitToLobby();
+                    return;
+                }
+                if (state.gamePaused) return;
                 if (state.isJailed) return;
                 const k = e.key.toLowerCase();
                 const code = e.code;
@@ -4169,7 +4240,7 @@
         }
 
         function update() {
-            if (state.isGameOver) return;
+            if (state.gamePaused || state.isGameOver) return;
             state.frameCount++;
             processPvpNukeVfx();
             processTeleporterPads();
@@ -4836,7 +4907,11 @@
             }
         }
 
-        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+        function gameLoop() {
+            if (!state.gamePaused) update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
 
         function applyModeButtonStyles() {
             const solo = document.getElementById('mode-solo');
@@ -5809,6 +5884,13 @@
             if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
 
             document.getElementById('join-btn').onclick = () => { void joinRoom(); };
+            document.getElementById('exit-to-lobby-btn')?.addEventListener('click', () => {
+                if (!isInGame()) return;
+                exitToLobby();
+            });
+            document.getElementById('wasted-fate-btn')?.addEventListener('click', () => {
+                exitToLobby();
+            });
             const orbDismiss = document.getElementById('orb-hunt-dismiss');
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
             document.getElementById('pay-bail-btn').onclick = () => {
