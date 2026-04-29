@@ -2391,7 +2391,9 @@
         }
 
         function recomputeIsAdmin() {
-            state.isAdmin = isOwnerDashboardUser() || state.lobbyAdminUnlocked;
+            // isAdmin gates god-mode/cheats (PIN 4789 or admin panel unlock).
+            // isOwnerDashboardUser() (thomas) only gates the dashboard — not auto-god-mode.
+            state.isAdmin = state.lobbyAdminUnlocked;
         }
 
         function setLobbyAdminUnlocked(v) {
@@ -3068,6 +3070,7 @@
             const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
             ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
                 if (!payload || payload.uid === state.supabaseUserId) return;
+                const isNew = !state.remotePlayers[payload.uid];
                 state.remotePlayers[payload.uid] = {
                     x: payload.x, y: payload.y, angle: payload.angle || 0,
                     inVehicle: !!payload.inVehicle,
@@ -3078,6 +3081,12 @@
                     downed: !!payload.downed,
                     lastSeen: performance.now()
                 };
+                // When a new peer appears, host re-sends active secrets so they join in the same mode
+                if (isNew && state.isOnlineHost && state.activeSecrets.length > 0 && supabaseRealtimeChannel) {
+                    try {
+                        supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload: { kind: 'secrets_sync', secrets: state.activeSecrets } });
+                    } catch (_) { /* best-effort */ }
+                }
             });
             ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
                 if (payload && payload.uid) delete state.remotePlayers[payload.uid];
@@ -3120,6 +3129,24 @@
                 }
                 if (payload.kind === 'world_obliterate') {
                     applyExplodeDestroyWorld({ fromNetwork: true });
+                }
+                if (payload.kind === 'secrets_sync' && Array.isArray(payload.secrets)) {
+                    const allowed = ['SONIC','RICH','GHOST','MURDER','REALITY','RARITY DROP','GODLY','ZOMBIE','4789'];
+                    const incoming = payload.secrets.filter(s => allowed.includes(s));
+                    if (incoming.length > 0) {
+                        state.activeSecrets = [...new Set([...state.activeSecrets, ...incoming])];
+                        if (isInGame()) {
+                            if (isZombieSecretActive()) {
+                                state.players.forEach(p => applyZombieStartingWeapon(p));
+                                updateLoadoutUI();
+                            }
+                            if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER') || state.activeSecrets.includes('4789')) {
+                                const newMoney = state.activeSecrets.includes('4789') ? 10000000 : 50000;
+                                if (state.money < newMoney) { state.money = newMoney; updateMoneyUI(); }
+                            }
+                        }
+                        showMessage(`Host shared modes: ${incoming.join(', ')}`);
+                    }
                 }
             });
             supabaseRealtimeChannel = ch;
@@ -3590,8 +3617,8 @@
             const orbWin = document.getElementById('orb-win-overlay');
             if (orbWin) orbWin.style.display = 'none';
             
-            // Reapply starting funds if admin/rich
-            if (state.isAdmin || state.activeSecrets.includes('4789')) {
+            // Reapply starting funds based on active secrets
+            if (state.activeSecrets.includes('4789')) {
                 state.money = 10000000;
             } else if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
                 state.money = 50000;
@@ -4265,7 +4292,7 @@
                 const gpb = document.getElementById('god-panel-btn');
                 if (gpb) gpb.classList.add('hidden');
             }
-            if (state.isAdmin || state.activeSecrets.includes('4789')) {
+            if (state.activeSecrets.includes('4789')) {
                 state.money = 10000000;
                 updateMoneyUI();
             }
@@ -4275,6 +4302,13 @@
             }
             state.players.forEach(p => applyZombieStartingWeapon(p));
             updateLoadoutUI();
+
+            // Broadcast active secret modes to all peers so everyone plays the same game
+            if (state.playMode === 'online' && state.isOnlineHost && onlineRealtimeReady && supabaseRealtimeChannel && state.activeSecrets.length > 0) {
+                try {
+                    supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload: { kind: 'secrets_sync', secrets: state.activeSecrets } });
+                } catch (_) { /* best-effort */ }
+            }
 
             initGameLoop();
         }
