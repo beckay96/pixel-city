@@ -510,8 +510,8 @@
 
     <div id="ui-layer">
         <button type="button" id="exit-to-lobby-btn" style="display:none" class="fixed top-4 right-28 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg shadow-lg interactive max-[520px]:right-4 max-[520px]:top-14" title="Leave the run and return to menu">Exit to menu</button>
-        <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto">
-            <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer</div>
+        <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto cursor-pointer" title="Click to copy invite link">
+            <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer · tap to copy</div>
             <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
             <div id="session-player-count" class="text-[9px] text-cyan-300 font-bold"></div>
         </div>
@@ -2877,11 +2877,16 @@
             updateFriendsListUIAsync();
         }
 
-        function teardownOnlineRealtime() {
+        function teardownOnlineRealtime(opts) {
+            const o = opts || {};
             if (onlineRealtimeReady && supabaseRealtimeChannel && state.supabaseUserId) {
                 try {
                     supabaseRealtimeChannel.send({ type: 'broadcast', event: 'leave', payload: { uid: state.supabaseUserId } });
                 } catch (_) { /* channel may be closing */ }
+            }
+            if (state.isOnlineHost && state.onlineSessionCode && supabase && !o.skipDelete) {
+                const code = state.onlineSessionCode;
+                try { supabase.from('game_sessions').delete().eq('code', code).then(() => {}); } catch (_) { /* best-effort */ }
             }
             onlineRealtimeReady = false;
             state.onlineRealtimeSubscribedCode = null;
@@ -3069,6 +3074,10 @@
                     x: payload.x, y: payload.y, angle: payload.angle || 0,
                     inVehicle: !!payload.inVehicle,
                     username: payload.u || 'Friend',
+                    color: payload.c || null,
+                    hp: payload.hp != null ? payload.hp : PLAYER_MAX_HP,
+                    dead: !!payload.dead,
+                    downed: !!payload.downed,
                     lastSeen: performance.now()
                 };
             });
@@ -3134,16 +3143,22 @@
                     }
                     resolve({ ok, reason });
                 };
+                let wasEverSubscribed = false;
                 const t = setTimeout(() => finish(false, 'timeout'), ONLINE_REALTIME_SUB_TIMEOUT_MS);
                 ch.subscribe((status, err) => {
                     if (status === 'SUBSCRIBED') {
                         clearTimeout(t);
+                        wasEverSubscribed = true;
                         finish(true);
                         return;
                     }
                     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
                         clearTimeout(t);
                         finish(false, err ? String(err) : status);
+                        if (wasEverSubscribed && supabaseRealtimeChannel === ch) {
+                            onlineRealtimeReady = false;
+                            showMessage('Connection lost — use /connect in PixelPhone to reconnect.');
+                        }
                     }
                 });
             });
@@ -3222,7 +3237,11 @@
                     uid: state.supabaseUserId,
                     u: state.profileUsername || state.playerName || 'player',
                     x: p.x, y: p.y, angle: p.angle,
-                    inVehicle: !!p.inVehicle
+                    inVehicle: !!p.inVehicle,
+                    c: p.color || DEFAULT_PLAYER_COLOR,
+                    hp: p.hp != null ? Math.max(0, Math.ceil(p.hp)) : PLAYER_MAX_HP,
+                    dead: !!p.dead,
+                    downed: !!p.downed
                 }
             });
         }
@@ -3232,6 +3251,10 @@
             if (!supabase || !state.supabaseUserId) {
                 if (el) el.textContent = 'Sign in to host an online game.';
                 return;
+            }
+            if (el) el.textContent = 'Creating session…';
+            if (state.isOnlineHost && state.onlineSessionCode) {
+                teardownOnlineRealtime();
             }
             const seed = Math.floor(Math.random() * 9007199254740990);
             let code = '';
@@ -3252,7 +3275,7 @@
             const sub = await subscribeToSessionChannelAsync(code);
             if (!sub.ok) {
                 await supabase.from('game_sessions').delete().eq('code', code);
-                teardownOnlineRealtime();
+                teardownOnlineRealtime({ skipDelete: true });
                 if (el) {
                     el.textContent = sub.reason === 'timeout'
                         ? 'Could not connect live sync (timed out). Check network / Realtime, then try Host again.'
@@ -3279,7 +3302,7 @@
                 if (el) el.textContent = 'Sign in first, then join a friend’s code.';
                 return;
             }
-            const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id').eq('code', code).maybeSingle();
+            const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at').eq('code', code).maybeSingle();
             if (error) {
                 if (el) el.textContent = formatSupabaseNetworkError(error);
                 return;
@@ -3287,6 +3310,13 @@
             if (!data || data.host_id == null) {
                 if (el) el.textContent = 'Invalid or expired code.';
                 return;
+            }
+            if (data.updated_at) {
+                const ageMs = Date.now() - new Date(data.updated_at).getTime();
+                if (ageMs > 20 * 60 * 1000) {
+                    if (el) el.textContent = 'That session has expired. Ask your friend to host a new one.';
+                    return;
+                }
             }
             state.onlineSessionCode = code;
             state.isOnlineHost = data.host_id === state.supabaseUserId;
@@ -4019,6 +4049,11 @@
                 await upsertMyPresence();
                 await refreshFriendPresence();
                 updateFriendsListUIAsync();
+                if (state.isOnlineHost && state.onlineSessionCode && supabase) {
+                    try {
+                        supabase.from('game_sessions').update({ updated_at: new Date().toISOString() }).eq('code', state.onlineSessionCode).then(() => {});
+                    } catch (_) { /* best-effort */ }
+                }
             }, 25000);
             upsertMyPresence();
             refreshFriendPresence();
@@ -4818,26 +4853,41 @@
                 }
             });
             if (state.playMode === 'online') {
-                const REMOTE_COLORS = ['#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444'];
-                let ci = 0;
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
+                    const rpColor = rp.color || DEFAULT_PLAYER_COLOR;
                     c.save();
                     c.translate(rp.x, rp.y);
                     c.rotate(rp.angle || 0);
-                    c.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
+                    if (rp.dead) {
+                        c.fillStyle = '#7f1d1d';
+                    } else if (rp.downed) {
+                        c.fillStyle = '#b45309';
+                    } else {
+                        c.fillStyle = rpColor;
+                    }
                     c.strokeStyle = '#fff';
                     c.lineWidth = 2;
                     c.beginPath();
                     c.arc(0, 0, 10, 0, Math.PI * 2);
                     c.fill();
                     c.stroke();
+                    c.restore();
+                    c.save();
+                    c.translate(rp.x, rp.y);
                     c.fillStyle = '#fff';
                     c.font = 'bold 11px sans-serif';
                     c.textAlign = 'center';
                     c.fillText(rp.username || 'Friend', 0, -16);
+                    if (!rp.dead && rp.hp != null && rp.hp < PLAYER_MAX_HP) {
+                        const hpFrac = Math.max(0, rp.hp / PLAYER_MAX_HP);
+                        const barW = 24;
+                        c.fillStyle = 'rgba(0,0,0,0.5)';
+                        c.fillRect(-barW / 2, 14, barW, 4);
+                        c.fillStyle = hpFrac > 0.5 ? '#4ade80' : hpFrac > 0.25 ? '#fbbf24' : '#ef4444';
+                        c.fillRect(-barW / 2, 14, barW * hpFrac, 4);
+                    }
                     c.restore();
-                    ci++;
                 }
             }
             const phoneOpen = document.getElementById('smartphone-overlay')?.classList.contains('open');
@@ -4963,15 +5013,12 @@
                 ms.strokeStyle = 'rgba(15,23,42,0.95)'; ms.lineWidth = 1.5; ms.stroke();
             }});
             if (state.playMode === 'online') {
-                const REMOTE_COLORS = ['#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444'];
-                let ci = 0;
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
-                    ms.fillStyle = REMOTE_COLORS[ci % REMOTE_COLORS.length];
+                    ms.fillStyle = rp.dead ? '#7f1d1d' : (rp.downed ? '#b45309' : (rp.color || DEFAULT_PLAYER_COLOR));
                     ms.beginPath();
                     ms.arc(rp.x * s, rp.y * s, 3, 0, Math.PI * 2);
                     ms.fill();
-                    ci++;
                 }
             }
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
@@ -5283,8 +5330,10 @@
             input.value = '';
 
             if (text.startsWith('/')) {
-                if (!canUsePhoneSlashCommands()) {
-                    phoneAppendSystemLine('Slash commands are admin-only. Use Admin Login in the lobby first.');
+                const lowerCmd = text.trim().toLowerCase();
+                const isUtilityCmd = lowerCmd === '/connect' || lowerCmd === '/server' || lowerCmd === '/help' || lowerCmd === '/codes' || lowerCmd === '/admin' || lowerCmd === '/spawn';
+                if (!isUtilityCmd && !canUsePhoneSlashCommands()) {
+                    phoneAppendSystemLine('That command is admin-only. Use Admin Login in the lobby first. Try /connect to reconnect or /server for status.');
                     return;
                 }
                 const r = await runPhoneSlashCommand(text);
@@ -5735,6 +5784,8 @@
                 recomputeIsAdmin();
                 startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
+                const netMsg0 = document.getElementById('friends-network-msg');
+                if (netMsg0) netMsg0.classList.add('hidden');
                 showLobbyFromSignIn();
                 await tryApplyPendingJoinFromUrl();
                 void loadMyProfile();
@@ -5768,6 +5819,8 @@
                 recomputeIsAdmin();
                 startPresenceLoop();
                 if (signInMsg) signInMsg.textContent = '';
+                const netMsg1 = document.getElementById('friends-network-msg');
+                if (netMsg1) netMsg1.classList.add('hidden');
                 showLobbyFromSignIn();
                 await tryApplyPendingJoinFromUrl();
                 void loadMyProfile();
@@ -5848,6 +5901,24 @@
                     showMessage('Invite link copied!');
                 } catch {
                     showMessage('Copy failed — tap the link to share');
+                }
+            });
+
+            document.getElementById('session-code-badge')?.addEventListener('click', async () => {
+                const code = state.onlineSessionCode;
+                if (!code) return;
+                const text = buildJoinInviteUrl(code);
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showMessage('Invite link copied!');
+                } catch {
+                    showMessage(`Code: ${code} — share with friends`);
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                if (state.isOnlineHost && state.onlineSessionCode && supabase) {
+                    try { supabase.from('game_sessions').delete().eq('code', state.onlineSessionCode).then(() => {}); } catch (_) { /* best-effort */ }
                 }
             });
 
