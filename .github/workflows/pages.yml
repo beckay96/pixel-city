@@ -37,6 +37,24 @@ jobs:
           cp index.html _site/
           cp -r assets vendor _site/
           cp config.js supabase-config.js _site/
+          # GitHub Pages SPA fallback: short invite links like /AB3D7K are 404s.
+          # 404.html detects a join-code path segment and redirects to /?join=CODE,
+          # which consumeJoinFromUrl handles (legacy ?join= fallback still works).
+          cat > _site/404.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8">
+          <script>
+            var seg = location.pathname.split('/').filter(Boolean).pop() || '';
+            var base = location.href.slice(0, location.href.indexOf(location.pathname)) + '/';
+            if (/^[A-Z0-9]{4,8}$/i.test(seg)) {
+              location.replace(base + '?join=' + encodeURIComponent(seg.toUpperCase()));
+            } else {
+              location.replace(base);
+            }
+          </script>
+          </head><body></body></html>
+          EOF
       - name: Check Supabase secrets (Codespaces secrets do NOT apply — use Repository or Environment)
         env:
           VU: ${{ secrets.VITE_SUPABASE_URL }}

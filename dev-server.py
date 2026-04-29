@@ -10,9 +10,12 @@ Also: SUPABASE_PROJECT_URL, SUPABASE_PUBLISHABLE_KEY, legacy SUPABASE_ANON_KEY.
 import http.server
 import json
 import os
+import re
 import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+# A join code is 4-8 uppercase alphanumeric chars with no file extension
+JOIN_CODE_RE = re.compile(r'^/([A-Z0-9]{4,8})$', re.IGNORECASE)
 SUPABASE_URL = (
     os.environ.get("VITE_SUPABASE_URL")
     or os.environ.get("SUPABASE_PROJECT_URL")
@@ -45,6 +48,16 @@ class DevHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/javascript; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        # Serve index.html for short join-code paths like /AB3D7K
+        if JOIN_CODE_RE.match(path):
+            with open(os.path.join(os.path.dirname(__file__), "index.html"), "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
             return

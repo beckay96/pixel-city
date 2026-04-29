@@ -3167,10 +3167,17 @@
         function buildJoinInviteUrl(code) {
             try {
                 const u = new URL(window.location.href);
-                u.searchParams.set('join', code);
+                u.search = '';
+                u.hash = '';
+                // Strip index.html and any existing join-code segment, then append code
+                let base = u.pathname.replace(/\/index\.html$/i, '').replace(/\/$/, '') || '';
+                // Remove a trailing segment that already looks like a code
+                const lastSeg = base.split('/').pop() || '';
+                if (/^[A-Z0-9]{4,8}$/i.test(lastSeg)) base = base.slice(0, base.lastIndexOf('/' + lastSeg)) || '';
+                u.pathname = base + '/' + encodeURIComponent(code);
                 return u.toString();
             } catch {
-                return `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(code)}`;
+                return `${window.location.origin}/${encodeURIComponent(code)}`;
             }
         }
 
@@ -3190,14 +3197,27 @@
 
         function consumeJoinFromUrl() {
             try {
-                const p = new URLSearchParams(window.location.search);
-                const raw = (p.get('join') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-                if (raw.length >= 4) pendingJoinCodeFromUrl = raw;
-                if (p.has('join')) {
-                    p.delete('join');
-                    const q = p.toString();
-                    history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash);
+                let raw = '';
+                // Primary: path-based invite  e.g. /index.html/AB3D7K or /AB3D7K
+                const pathSeg = window.location.pathname.split('/').filter(Boolean).pop() || '';
+                const pathCode = pathSeg.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                if (pathCode.length >= 4 && !/\.\w{2,5}$/.test(pathSeg)) {
+                    raw = pathCode;
+                    const cleanPath = window.location.pathname.slice(0, window.location.pathname.lastIndexOf('/' + pathSeg)) || '/';
+                    history.replaceState({}, '', cleanPath);
                 }
+                // Fallback: legacy ?join=CODE query param
+                if (!raw) {
+                    const p = new URLSearchParams(window.location.search);
+                    const qraw = (p.get('join') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                    if (qraw.length >= 4) {
+                        raw = qraw;
+                        p.delete('join');
+                        const q = p.toString();
+                        history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash);
+                    }
+                }
+                if (raw.length >= 4) pendingJoinCodeFromUrl = raw;
             } catch (_) { /* ignore */ }
         }
 
