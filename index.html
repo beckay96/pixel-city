@@ -1069,6 +1069,7 @@
         const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
         const LS_LOBBY_STATS_UNLOCKED = 'pixelCityLobbyStatsUnlocked';
         const ONLINE_BROADCAST_MS = 120;
+        const ONLINE_REALTIME_SUB_TIMEOUT_MS = 15000;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
         const JAIL_FRAMES_PER_SEC = 60;
@@ -1215,6 +1216,8 @@
             worldSeed: null,
             onlineSessionCode: null,
             isOnlineHost: false,
+            /** Last Realtime session channel we successfully subscribed to (for skip-resubscribe). */
+            onlineRealtimeSubscribedCode: null,
             remotePlayers: {},
             cityNuked: false,
             orbHuntActive: false,
@@ -2875,7 +2878,13 @@
         }
 
         function teardownOnlineRealtime() {
+            if (onlineRealtimeReady && supabaseRealtimeChannel && state.supabaseUserId) {
+                try {
+                    supabaseRealtimeChannel.send({ type: 'broadcast', event: 'leave', payload: { uid: state.supabaseUserId } });
+                } catch (_) { /* channel may be closing */ }
+            }
             onlineRealtimeReady = false;
+            state.onlineRealtimeSubscribedCode = null;
             if (supabaseRealtimeChannel && supabase) {
                 supabase.removeChannel(supabaseRealtimeChannel);
                 supabaseRealtimeChannel = null;
@@ -2891,6 +2900,7 @@
 
         function disconnectRealtimeOnly() {
             onlineRealtimeReady = false;
+            state.onlineRealtimeSubscribedCode = null;
             if (supabaseRealtimeChannel && supabase) {
                 supabase.removeChannel(supabaseRealtimeChannel);
                 supabaseRealtimeChannel = null;
@@ -3043,8 +3053,13 @@
             return subscribeToSessionChannelAsync(code);
         }
 
-        function subscribeToSessionChannelAsync(code) {
-            if (!supabase || !code) return Promise.resolve();
+        function subscribeToSessionChannelAsync(code, opts) {
+            const o = opts || {};
+            const skipIfSame = !!o.skipIfSame;
+            if (!supabase || !code) return Promise.resolve({ ok: false, reason: 'no_client' });
+            if (skipIfSame && state.onlineRealtimeSubscribedCode === code && supabaseRealtimeChannel && onlineRealtimeReady) {
+                return Promise.resolve({ ok: true, skipped: true });
+            }
             disconnectRealtimeOnly();
             const topic = `pixel-city-${code}`;
             const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
@@ -3102,12 +3117,34 @@
             });
             supabaseRealtimeChannel = ch;
             return new Promise((resolve) => {
-                ch.subscribe((status) => {
-                    if (status === 'SUBSCRIBED') {
+                let settled = false;
+                const finish = (ok, reason) => {
+                    if (settled) return;
+                    settled = true;
+                    if (ok) {
                         onlineRealtimeReady = true;
-                        resolve();
+                        state.onlineRealtimeSubscribedCode = code;
+                    } else {
+                        onlineRealtimeReady = false;
+                        state.onlineRealtimeSubscribedCode = null;
+                        if (supabaseRealtimeChannel === ch && supabase) {
+                            supabase.removeChannel(ch);
+                            supabaseRealtimeChannel = null;
+                        }
                     }
-                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') resolve();
+                    resolve({ ok, reason });
+                };
+                const t = setTimeout(() => finish(false, 'timeout'), ONLINE_REALTIME_SUB_TIMEOUT_MS);
+                ch.subscribe((status, err) => {
+                    if (status === 'SUBSCRIBED') {
+                        clearTimeout(t);
+                        finish(true);
+                        return;
+                    }
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        clearTimeout(t);
+                        finish(false, err ? String(err) : status);
+                    }
                 });
             });
         }
@@ -3212,7 +3249,17 @@
             state.onlineSessionCode = code;
             state.isOnlineHost = true;
             state.worldSeed = seed;
-            await subscribeToSessionChannelAsync(code);
+            const sub = await subscribeToSessionChannelAsync(code);
+            if (!sub.ok) {
+                await supabase.from('game_sessions').delete().eq('code', code);
+                teardownOnlineRealtime();
+                if (el) {
+                    el.textContent = sub.reason === 'timeout'
+                        ? 'Could not connect live sync (timed out). Check network / Realtime, then try Host again.'
+                        : `Could not connect live sync${sub.reason ? `: ${sub.reason}` : ''}. Try again.`;
+                }
+                return;
+            }
             if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
             updateOnlineInviteUI(code);
         }
@@ -3228,15 +3275,32 @@
                 if (el) el.textContent = 'Online session isn’t available. Use Play offline, or try again when online play works.';
                 return;
             }
+            if (!state.supabaseUserId) {
+                if (el) el.textContent = 'Sign in first, then join a friend’s code.';
+                return;
+            }
             const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id').eq('code', code).maybeSingle();
-            if (error || !data) {
+            if (error) {
+                if (el) el.textContent = formatSupabaseNetworkError(error);
+                return;
+            }
+            if (!data || data.host_id == null) {
                 if (el) el.textContent = 'Invalid or expired code.';
                 return;
             }
             state.onlineSessionCode = code;
             state.isOnlineHost = data.host_id === state.supabaseUserId;
             state.worldSeed = data.world_seed;
-            await subscribeToSessionChannelAsync(code);
+            const sub = await subscribeToSessionChannelAsync(code);
+            if (!sub.ok) {
+                teardownOnlineRealtime();
+                if (el) {
+                    el.textContent = sub.reason === 'timeout'
+                        ? 'Joined room lookup OK, but live sync timed out. Check network / Realtime and try the code again.'
+                        : `Could not connect live sync${sub.reason ? `: ${sub.reason}` : ''}. Try again.`;
+                }
+                return;
+            }
             if (el) el.textContent = `Joined ${code} — same map as host. Press Start game.`;
             if (!state.isOnlineHost) {
                 const block = document.getElementById('online-invite-block');
@@ -3473,7 +3537,7 @@
             state.orb = null;
             state.remotePlayers = {};
             if (state.playMode !== 'online') teardownOnlineRealtime();
-            else if (state.onlineSessionCode) void subscribeToSessionChannelAsync(state.onlineSessionCode);
+            else if (state.onlineSessionCode) void subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
             hideOrbHuntIntro();
             const orbWin = document.getElementById('orb-win-overlay');
             if (orbWin) orbWin.style.display = 'none';
@@ -4074,6 +4138,15 @@
                     showMessage('Host or join with a code first.');
                     return;
                 }
+                const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
+                if (!sub.ok) {
+                    showMessage(sub.reason === 'timeout' ? 'Live sync failed (timeout). Check network, then try Host/Join again.' : 'Live sync failed. Try /connect in PixelPhone or re-join the code.');
+                    document.getElementById('lobby-screen').style.display = 'flex';
+                    setInGamePhoneVisible(false);
+                    const xb2 = document.getElementById('exit-to-lobby-btn');
+                    if (xb2) xb2.style.display = 'none';
+                    return;
+                }
             } else {
                 state.worldSeed = null;
             }
@@ -4103,7 +4176,6 @@
             if (state.playMode === 'online') {
                 state.playerMode = 1;
                 document.getElementById('p1-modals').classList.add('hidden');
-                await subscribeToSessionChannelAsync(state.onlineSessionCode);
                 const badge = document.getElementById('session-code-badge');
                 const codeEl = document.getElementById('session-code-display');
                 if (badge && codeEl && state.onlineSessionCode) {
@@ -5088,7 +5160,7 @@
             }
             if (lower === '/connect') {
                 if (state.playMode === 'online' && state.onlineSessionCode && supabase) {
-                    void subscribeToSessionChannelAsync(state.onlineSessionCode);
+                    void subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: false });
                     return { ok: true, lines: ['Refreshing session channel…'] };
                 }
                 return { ok: true, lines: ['Use MULTIPLAYER + join/host first.'] };
