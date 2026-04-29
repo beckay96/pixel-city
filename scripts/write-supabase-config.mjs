@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * Writes supabase-config.js (plain JS) so the browser sets window.__SUPABASE_* before the game module runs.
- * Prefers VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY (Vite/GitHub naming), then legacy names.
+ * Writes supabase-config.js for the _site/ deploy folder.
+ * Priority: env vars → baked-in supabase-config.js → empty.
+ * This means GitHub Actions secrets override the baked-in keys when present,
+ * but the site still works if secrets are missing or stale.
  */
 import fs from 'fs';
+import path from 'path';
 
 const outPath = process.argv[2] || 'supabase-config.js';
 
@@ -22,16 +25,19 @@ const key = (
     ''
 ).trim();
 
-const body = `/* Auto-generated — do not commit real keys to a public repo. */
-window.__SUPABASE_URL__ = ${JSON.stringify(url)};
-window.__SUPABASE_PUBLISHABLE_KEY__ = ${JSON.stringify(key)};
-window.__SUPABASE_ANON_KEY__ = ${JSON.stringify(key)};
-`;
-
-fs.writeFileSync(outPath, body, 'utf8');
-
-if (url && key) {
-    console.log('write-supabase-config:', outPath, 'ok (url + key set)');
+// If env vars are empty, copy the baked-in supabase-config.js (which has the live project keys)
+if (!url || !key) {
+    const srcConfig = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'supabase-config.js');
+    if (fs.existsSync(srcConfig)) {
+        fs.copyFileSync(srcConfig, outPath);
+        console.log('write-supabase-config:', outPath, 'copied from baked-in supabase-config.js (no env override)');
+    } else {
+        const body = `/* Auto-generated — no keys configured. */\nwindow.__SUPABASE_URL__ = "";\nwindow.__SUPABASE_PUBLISHABLE_KEY__ = "";\nwindow.__SUPABASE_ANON_KEY__ = "";\n`;
+        fs.writeFileSync(outPath, body, 'utf8');
+        console.log('write-supabase-config:', outPath, 'written empty (no env and no baked-in config found)');
+    }
 } else {
-    console.log('write-supabase-config:', outPath, 'written with empty url/key (add env or GitHub secrets)');
+    const body = `/* Auto-generated — do not commit real keys to a public repo. */\nwindow.__SUPABASE_URL__ = ${JSON.stringify(url)};\nwindow.__SUPABASE_PUBLISHABLE_KEY__ = ${JSON.stringify(key)};\nwindow.__SUPABASE_ANON_KEY__ = ${JSON.stringify(key)};\n`;
+    fs.writeFileSync(outPath, body, 'utf8');
+    console.log('write-supabase-config:', outPath, 'ok (url + key from env)');
 }

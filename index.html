@@ -3256,15 +3256,22 @@
             }
             const seed = Math.floor(Math.random() * 9007199254740990);
             let code = '';
-            for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
-            const { error } = await supabase.from('game_sessions').upsert({
-                code,
-                host_id: state.supabaseUserId,
-                world_seed: seed,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'code' });
-            if (error) {
-                if (el) el.textContent = error.message;
+            let insertError = null;
+            for (let attempt = 0; attempt < 5; attempt++) {
+                code = '';
+                for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+                const res = await supabase.from('game_sessions').insert({
+                    code,
+                    host_id: state.supabaseUserId,
+                    world_seed: seed,
+                    updated_at: new Date().toISOString()
+                });
+                insertError = res.error;
+                if (!insertError) break;
+                if (insertError.code !== '23505') break; // only retry on unique-key conflict
+            }
+            if (insertError) {
+                if (el) el.textContent = insertError.message;
                 return;
             }
             state.onlineSessionCode = code;
