@@ -1,5 +1,4 @@
-/* Default: empty. GitHub Actions overwrites this file in the deploy folder only.
-   For local testing: run  npm run inject:supabase  (uses env vars) or paste keys below. */
-window.__SUPABASE_URL__ = '';
-window.__SUPABASE_PUBLISHABLE_KEY__ = '';
-window.__SUPABASE_ANON_KEY__ = '';
+/* Auto-generated — do not commit real keys to a public repo. */
+window.__SUPABASE_URL__ = "https://nswxprmypvhyudazenyy.supabase.co";
+window.__SUPABASE_PUBLISHABLE_KEY__ = "sb_publishable_tAQV5FqN4zfUqSzLOj7FtQ_uHW6WsgQ";
+window.__SUPABASE_ANON_KEY__ = "sb_publishable_tAQV5FqN4zfUqSzLOj7FtQ_uHW6WsgQ";

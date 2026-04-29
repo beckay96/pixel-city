@@ -20,24 +20,26 @@ Without env vars, use **Play offline**. Ensure `npm run build:css` has been run 
 
 ### Supabase project
 
-- **Project ref:** `kmzyxujxdhxblvwbxfvq`
+- **Project ref:** `nswxprmypvhyudazenyy`
 - **Region:** `ap-northeast-1`
-- **MCP config:** `.cursor/mcp.json` (project-scoped)
-- **Migration:** `supabase/migrations/001_pixel_city.sql` — already applied. Creates `profiles`, `friends`, `game_sessions` tables, RLS policies, triggers, and the `add_friend_by_username` function.
-- **Auth:** Email provider enabled, `mailer_autoconfirm` is off (signups require email confirmation unless changed in dashboard)
-- **DB connection (direct):** `postgresql://postgres.kmzyxujxdhxblvwbxfvq:[PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres` — note `aws-1` not `aws-0`
-- **DB connection (pooled):** same host, port `6543`, append `?pgbouncer=true`
+- **MCP config:** `.cursor/mcp.json` (project-scoped) — update to new ref if needed
+- **Migrations applied:** `001_pixel_city` through `004_public_server_stats` (custom auth: `users`, `friends`, `game_sessions`, all RPCs including `user_signup`, `user_signin`, `add_friend_by_username`, `remove_friend`, `user_heartbeat`, `admin_dashboard_snapshot`, `public_server_stats`)
+- **Auth:** Custom auth via `user_signup`/`user_signin` RPCs — gateway password `feluga`, no Supabase Auth email flow
+- **Owner account:** `thomas` / `francis` (created in migration 004)
+- **Keys baked into `supabase-config.js`** in source — safe to commit (publishable key only)
 
 ### Required secrets
 
 | Secret name | Purpose |
 |---|---|
-| `VITE_SUPABASE_URL` | **Preferred** in CI — same as project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | **Preferred** in CI — publishable key |
+| `VITE_SUPABASE_URL` | **Preferred** in CI — `https://nswxprmypvhyudazenyy.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | **Preferred** in CI — `sb_publishable_tAQV5FqN4zfUqSzLOj7FtQ_uHW6WsgQ` |
 | `SUPABASE_PROJECT_URL` | Fallback URL for deploy scripts |
 | `SUPABASE_PUBLISHABLE_KEY` | Fallback publishable key |
 | `SUPABASE_ANON_KEY` | Legacy JWT anon key (optional) |
 | `PIXELCITY_SUPABASE_DB_PASSWORD` | Database password for psql access |
+
+**Note:** The keys are also baked directly into `supabase-config.js` in the repo so the game works immediately on GitHub Pages without secrets. The GitHub Actions secrets override this during deploy — update them to the new project values above.
 
 ### Linting / Tests / Build
 
