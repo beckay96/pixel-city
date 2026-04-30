@@ -2533,6 +2533,7 @@
             updateOwnerDashboardFabVisibility();
             updateLobbyStatsFabVisibility();
             updateSignedInUI();
+            updateSavedWorldButton();
         }
 
         function isSignInScreenVisible() {
@@ -2586,6 +2587,7 @@
             setInGamePhoneVisible(false);
             updateOwnerDashboardFabVisibility();
             updateLobbyHints();
+            updateSavedWorldButton();
         }
 
         function getSupabaseConfig() {
@@ -4538,6 +4540,9 @@
             if (save.cityNuked) state.cityNuked = true;
             if (save.benHouseRobbed) state.benHouseRobbed = true;
             if (save.isPresident) state.isPresident = true;
+            if (typeof save.skin === 'string' && save.skin) {
+                try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
+            }
         }
 
         function updateSavedWorldButton() {
@@ -4761,7 +4766,7 @@
             window.addEventListener('touchend', onEnd);
         }
 
-        async function joinRoom() {
+        async function joinRoom({ autosave, savedSeed } = {}) {
             if (state.playMode === 'online') {
                 // MULTIPLAYER mode: must have already joined a code
                 if (!supabase || !state.supabaseUserId) {
@@ -4786,7 +4791,7 @@
                 // 1 PLAYER mode: auto-host silently if signed in (generate fresh code)
                 if (supabase && state.supabaseUserId && state.playerMode === 1) {
                     const runCode = refreshRunCode();
-                    const seed = Math.floor(Math.random() * 9007199254740990);
+                    const seed = savedSeed != null ? savedSeed : Math.floor(Math.random() * 9007199254740990);
                     try {
                         const res = await supabase.from('game_sessions').insert({
                             code: runCode, host_id: state.supabaseUserId,
@@ -4885,6 +4890,14 @@
             }
             state.players.forEach(p => applyZombieStartingWeapon(p));
             updateLoadoutUI();
+
+            // If loading a saved world, restore money and world state from autosave
+            if (autosave) {
+                applyAutosaveToState(autosave);
+                updateMoneyUI();
+                state.players.forEach(p => applyZombieStartingWeapon(p));
+                updateLoadoutUI();
+            }
 
             // Broadcast active secret modes to all peers so everyone plays the same game
             if (state.playMode === 'online' && state.isOnlineHost && onlineRealtimeReady && supabaseRealtimeChannel && state.activeSecrets.length > 0) {
@@ -6852,6 +6865,11 @@
             if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
 
             document.getElementById('join-btn').onclick = () => { void joinRoom(); };
+            document.getElementById('load-world-btn')?.addEventListener('click', () => {
+                const save = loadAutosave();
+                if (!save) { void joinRoom(); return; }
+                void joinRoom({ autosave: save, savedSeed: save.worldSeed ?? null });
+            });
             document.getElementById('exit-to-lobby-btn')?.addEventListener('click', () => {
                 if (!isInGame()) return;
                 exitToLobby();
