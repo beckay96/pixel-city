@@ -2978,7 +2978,11 @@
             const local = loadLocalFriends();
             if (!supabase || !state.supabaseUserId) return local;
             const cloud = await fetchCloudFriendnames();
-            return [...new Set([...cloud, ...local])];
+            // Normalize to lowercase before deduplicating so 'TestUser' and 'testuser' don't both appear
+            const cloudLower = new Set(cloud.map(n => n.toLowerCase()));
+            // Drop any local entries that exist in the cloud list (case-insensitive)
+            const localOnly = local.filter(n => !cloudLower.has(n.toLowerCase()));
+            return [...cloud, ...localOnly];
         }
 
         const friendSessionCache = {}; // username -> { code, checkedAt }
@@ -3067,7 +3071,7 @@
                 rm.textContent = '✕';
                 rm.title = 'Remove friend';
                 rm.onclick = async () => {
-                    saveLocalFriends(loadLocalFriends().filter(f => f !== name));
+                    saveLocalFriends(loadLocalFriends().filter(f => f.toLowerCase() !== name.toLowerCase()));
                     if (supabase && state.supabaseUserId) {
                         await supabase.rpc('remove_friend', { p_user_id: state.supabaseUserId, p_friend_username: name });
                     }
@@ -3135,6 +3139,8 @@
                     return;
                 }
                 if (msg) msg.textContent = `✅ ${un} added! You'll see a 🎮 Join button when they're in a game.`;
+                // Remove from local list to prevent duplicates (cloud is authoritative)
+                saveLocalFriends(loadLocalFriends().filter(n => n.toLowerCase() !== un.toLowerCase()));
             } else {
                 const list = loadLocalFriends();
                 if (!list.includes(un)) list.push(un);
