@@ -1919,7 +1919,7 @@
             t.y = t.corpseY;
         }
         function toggleBodyDrag(helperIdx) {
-            if (state.playerMode !== 2) return;
+            if (state.players.length < 2) { showMessage('G — grab only works with 2 local players (2 LOCAL mode)'); return; }
             const h = state.players[helperIdx];
             if (!h || h.dead || h.downed) return;
             if (h.draggingPlayerIdx != null) {
@@ -2017,6 +2017,7 @@
                 if (!t) { showMessage('No player in range for micro nuke'); return; }
                 state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
                 if (t.idx >= 0) {
+                    // Local target (2-player local)
                     state.money += PVP_NUKE_STEAL;
                     updateMoneyUI();
                     const vic = state.players[t.idx];
@@ -2024,9 +2025,17 @@
                         const nearHosp = !!hospitalBuildingNear(vic, 240);
                         dealDamageToPlayer(t.idx, nearHosp ? Math.ceil(PLAYER_MAX_HP * 0.4) : PLAYER_MAX_HP + 50);
                     }
-                    showMessage(`Micro nuke! +$${PVP_NUKE_STEAL.toLocaleString()}`);
-                } else {
-                    showMessage('Micro nuke! (other player is far away in online mode)');
+                    showMessage(`💥 Micro nuke! +$${PVP_NUKE_STEAL.toLocaleString()}`);
+                } else if (t.uid) {
+                    // Remote player — send nuke_hit so their client applies damage
+                    state.money += PVP_NUKE_STEAL;
+                    updateMoneyUI();
+                    showMessage(`💥 Micro nuke! +$${PVP_NUKE_STEAL.toLocaleString()}`);
+                    if (supabaseRealtimeChannel) {
+                        try {
+                            supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'nuke_hit', targetUid: t.uid, x: p.x, y: p.y } });
+                        } catch (_) {}
+                    }
                 }
             } else {
                 if (isZombieSecretActive() && (!t || t.idx < 0)) {
@@ -2047,12 +2056,16 @@
                     dealDamageToPlayer(t.idx, def.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN);
                     stunLocalPlayer(t.idx, def.kind === 'rocket' ? 1200 : 650);
                     showMessage(`${def.name} connected!`);
+                } else if (t && t.uid) {
+                    // Remote player hit — their client will apply damage on receiving pvp_fx targetUid
+                    showMessage(`💥 ${def.name} hit ${t.remote.username || 'player'}!`);
                 } else {
                     showMessage('No player in range');
                 }
             }
             if (state.playMode === 'online' && supabaseRealtimeChannel) {
-                supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y } });
+                const targetUid = t && t.uid ? t.uid : null;
+                supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y, targetUid } });
             }
         }
 
@@ -3159,6 +3172,26 @@
                 }
                 if (payload.k === 'shot' && payload.kind === 'nuke') {
                     state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 25, hit: true });
+                }
+                if (payload.k === 'nuke_hit' && payload.targetUid === state.supabaseUserId) {
+                    // We were nuked — apply damage to our local player
+                    state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 25, hit: true });
+                    const myP = state.players[0];
+                    if (myP && !myP.dead && !myP.downed && isInGame()) {
+                        const nearHosp = !!hospitalBuildingNear(myP, 240);
+                        dealDamageToPlayer(0, nearHosp ? Math.ceil(PLAYER_MAX_HP * 0.4) : PLAYER_MAX_HP + 50);
+                        showMessage('💥 You were nuked!');
+                    }
+                }
+                if (payload.k === 'shot' && payload.kind !== 'nuke' && payload.targetUid === state.supabaseUserId) {
+                    // Non-nuke weapon hit from a remote player — apply damage/stun locally
+                    const myP = state.players[0];
+                    if (myP && !myP.dead && !myP.downed && isInGame()) {
+                        const dmg = payload.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN;
+                        dealDamageToPlayer(0, dmg);
+                        stunLocalPlayer(0, payload.kind === 'rocket' ? 1200 : 650);
+                        showMessage('💥 You were hit!');
+                    }
                 }
             });
             ch.on('broadcast', { event: 'admin_cmd' }, ({ payload }) => {
@@ -4500,6 +4533,7 @@
                     }
                 }
                 if (k === 'f' && state.players[0] && !state.players[0].menuType) { e.preventDefault(); fireWeapon(0); }
+                if (k === 'g' && state.players[0] && !state.players[0].menuType) { e.preventDefault(); toggleBodyDrag(0); }
 
                 // PLAYER 2
                 if ((code === 'ShiftRight' || code === 'ShiftLeft') && state.players[1]) {
@@ -4523,6 +4557,7 @@
                     }
                 }
                 if (k === 'f' && state.players[1] && !state.players[1].menuType) { e.preventDefault(); fireWeapon(1); }
+                if (k === 'g' && state.players[1] && !state.players[1].menuType) { e.preventDefault(); toggleBodyDrag(1); }
             };
             window.onkeyup = e => state.keys[e.key.toLowerCase()] = false;
             requestAnimationFrame(gameLoop);
