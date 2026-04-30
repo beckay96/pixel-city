@@ -419,22 +419,26 @@
                     <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
                     <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
                 </div>
-                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Enter a friend's code to join their game 🎮</p>
-                <!-- 1 PLAYER info: auto-hosts silently, shows code to share -->
-                <div id="solo-share-block" class="hidden mt-2 bg-slate-900/60 border border-slate-600/40 rounded-xl p-3 space-y-1 text-left">
-                    <p class="text-[9px] text-slate-300 leading-snug">Your game will auto-host! Friends can join by going to <span class="text-cyan-300 font-bold">MULTIPLAYER</span> and typing your code:</p>
-                    <p id="solo-share-code" class="text-xl font-black text-white tracking-[0.3em] text-center py-1"></p>
-                    <button type="button" id="solo-copy-code-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy join code</button>
-                </div>
-                <!-- MULTIPLAYER: just paste a code -->
-                <div id="online-lobby-panel" class="hidden mt-3 text-left">
-                    <p class="text-[9px] text-slate-400 mb-2 leading-snug">🔗 Type the code from your friend to join their game:</p>
-                    <div class="flex gap-2">
-                        <input type="text" id="online-join-code-input" placeholder="Friend's code" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
-                        <button type="button" id="online-join-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0">✅ Join</button>
+                <!-- MULTIPLAYER panel: share your code + join a friend's code -->
+                <div id="online-lobby-panel" class="hidden mt-3 text-left space-y-3">
+                    <!-- Your code to share -->
+                    <div id="solo-share-block" class="bg-slate-900/60 border border-slate-600/40 rounded-xl p-3 space-y-1">
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">📤 Your code</p>
+                        <p class="text-[9px] text-slate-400 leading-snug">Share this with friends so they can join your game.</p>
+                        <p id="solo-share-code" class="text-2xl font-black text-white tracking-[0.3em] text-center py-1">—</p>
+                        <button type="button" id="solo-copy-code-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy code</button>
                     </div>
-                    <p id="online-session-msg" class="text-[11px] font-bold min-h-[1.25rem] text-center px-1 mt-2 leading-snug"></p>
-                    <!-- Hidden elements kept for JS compat -->
+                    <!-- Join a friend's code -->
+                    <div class="bg-slate-900/60 border border-slate-600/40 rounded-xl p-3">
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">🔗 Join a friend</p>
+                        <p class="text-[9px] text-slate-400 mb-2 leading-snug">Type your friend's code to join their game:</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="online-join-code-input" placeholder="Friend's code" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
+                            <button type="button" id="online-join-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0">✅ Join</button>
+                        </div>
+                    </div>
+                    <p id="online-session-msg" class="text-[11px] font-bold min-h-[1.25rem] text-center px-1 leading-snug"></p>
+                    <!-- Hidden elements for JS compat -->
                     <div id="online-invite-block" class="hidden"></div>
                     <a id="online-invite-link" href="#" class="hidden"></a>
                     <button type="button" id="online-copy-invite-btn" class="hidden"></button>
@@ -442,6 +446,7 @@
                     <button type="button" id="lobby-start-server-btn" class="hidden"></button>
                     <button type="button" id="lobby-copy-server-btn" class="hidden"></button>
                     <p id="lobby-server-link-display" class="hidden"></p>
+                    <p id="online-mode-hint" class="hidden"></p>
                 </div>
             </div>
 
@@ -457,7 +462,11 @@
                 <ul id="friends-list-ul" class="max-h-48 overflow-y-auto space-y-1.5 text-xs"></ul>
             </div>
 
-            <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-xl font-bold interactive uppercase tracking-widest mt-2 ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">Start game</button>
+            <div class="flex gap-2 mt-2">
+                <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">🆕 New game</button>
+                <button id="load-world-btn" class="bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-200 flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider hidden">🌍 Saved world</button>
+            </div>
+            <p id="autosave-hint" class="text-[8px] text-slate-600 text-center mt-1 hidden">Auto-saved world found — press Saved world to continue</p>
             
             <div class="pt-2 border-t border-slate-700">
                 <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300">Secret Modes</button>
@@ -582,8 +591,10 @@
     </div>
 
     <div id="ui-layer">
-        <button type="button" id="exit-to-lobby-btn" style="display:none;right:3rem" class="fixed top-4 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg shadow-lg interactive" title="Leave the run and return to menu">Exit to menu</button>
-        <button type="button" id="ingame-menu-btn" style="display:none" class="fixed top-4 right-4 z-[340] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-lg leading-none w-9 h-9 rounded-lg shadow-lg interactive flex items-center justify-center" title="Menu">⚙️</button>
+        <!-- Single menu/world button replaces old exit + gear buttons -->
+        <button type="button" id="ingame-menu-btn" style="display:none" class="fixed top-4 right-4 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xl leading-none w-11 h-11 rounded-xl shadow-lg interactive flex items-center justify-center" title="Menu / Leave">🌍</button>
+        <!-- Keep exit btn in DOM for JS compat but hidden always -->
+        <button type="button" id="exit-to-lobby-btn" style="display:none" class="hidden"></button>
         <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto cursor-pointer" title="Click to copy invite link">
             <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer · tap to copy</div>
             <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
@@ -1140,6 +1151,8 @@
         const LS_SESSION = 'pixelCitySession';
         const LS_SERVER_CODE = 'pixelCityServerCode';
         const LS_SAVED_PROGRESS = 'pixelCitySavedProgress';
+        const LS_AUTOSAVE = 'pixelCityAutosave';
+        const AUTOSAVE_INTERVAL_FRAMES = 60 * 60; // every 60 seconds
         /** Dev-only: optional URL/key override (see README; not shown in the public UI). */
         const LS_SUPABASE_URL_OVERRIDE = 'pixelCitySupabaseUrl';
         const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
@@ -3653,6 +3666,13 @@
             });
         }
 
+        function setSessionMsg(text, isOk) {
+            const el = document.getElementById('online-session-msg');
+            if (!el) return;
+            el.textContent = text;
+            el.style.color = isOk === true ? '#4ade80' : isOk === false ? '#fbbf24' : '#67e8f9';
+        }
+
         async function hostServerSession() {
             const code = getOrCreateServerCode();
             await hostOnlineSession(code);
@@ -4473,6 +4493,69 @@
 
         function deleteSavedProgress() {
             try { localStorage.removeItem(LS_SAVED_PROGRESS); } catch (_) {}
+        }
+
+        // ---------- World Autosave ----------
+        function autosaveWorld() {
+            if (!isInGame() || state.gamePaused || state.isGameOver) return;
+            const data = {
+                money: state.money,
+                winCount: state.winCount,
+                worldSeed: state.worldSeed,
+                activeSecrets: state.activeSecrets.slice(),
+                schoolGameMode: state.schoolGameMode,
+                skin: getSavedPlayerSkin(),
+                cityNuked: state.cityNuked,
+                benHouseRobbed: state.benHouseRobbed,
+                isPresident: state.isPresident,
+                savedAt: Date.now()
+            };
+            try { localStorage.setItem(LS_AUTOSAVE, JSON.stringify(data)); } catch (_) {}
+        }
+
+        function loadAutosave() {
+            try {
+                const raw = localStorage.getItem(LS_AUTOSAVE);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function deleteAutosave() {
+            try { localStorage.removeItem(LS_AUTOSAVE); } catch (_) {}
+        }
+
+        function applyAutosaveToState(save) {
+            if (!save) return;
+            if (typeof save.money === 'number') state.money = save.money;
+            if (typeof save.winCount === 'number') {
+                state.winCount = save.winCount;
+                localStorage.setItem('pixelCityWins', state.winCount);
+                if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+            }
+            if (save.worldSeed != null) state.worldSeed = save.worldSeed;
+            if (Array.isArray(save.activeSecrets)) state.activeSecrets = save.activeSecrets;
+            if (save.schoolGameMode != null) setSchoolGameMode(!!save.schoolGameMode);
+            if (save.cityNuked) state.cityNuked = true;
+            if (save.benHouseRobbed) state.benHouseRobbed = true;
+            if (save.isPresident) state.isPresident = true;
+        }
+
+        function updateSavedWorldButton() {
+            const save = loadAutosave();
+            const btn = document.getElementById('load-world-btn');
+            const hint = document.getElementById('autosave-hint');
+            if (save && save.savedAt) {
+                if (btn) btn.classList.remove('hidden');
+                if (hint) {
+                    const mins = Math.round((Date.now() - save.savedAt) / 60000);
+                    const timeStr = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
+                    hint.textContent = `Auto-saved ${timeStr} — press Saved world to continue`;
+                    hint.classList.remove('hidden');
+                }
+            } else {
+                if (btn) btn.classList.add('hidden');
+                if (hint) hint.classList.add('hidden');
+            }
         }
 
         function applySavedProgress() {
@@ -5635,26 +5718,16 @@
 
         function updateLobbyHints() {
             if (!hintContainer) return;
-            const onlineHint = document.getElementById('online-mode-hint');
             const panel = document.getElementById('online-lobby-panel');
-            const soloBlock = document.getElementById('solo-share-block');
             const isOnline = state.playMode === 'online';
-            const isSolo = state.playMode !== 'online' && state.playerMode === 1;
-            if (onlineHint) onlineHint.classList.toggle('hidden', !isOnline);
             if (panel) panel.classList.toggle('hidden', !isOnline);
-            // Show solo share code block when 1 PLAYER + signed in
-            if (soloBlock) {
-                const showSolo = isSolo && supabase && state.supabaseUserId;
-                soloBlock.classList.toggle('hidden', !showSolo);
-                if (showSolo) {
-                    const code = getOrRefreshRunCode();
-                    const codeEl = document.getElementById('solo-share-code');
-                    if (codeEl) codeEl.textContent = code;
-                }
-            }
+            // Update the shareable code inside the MULTIPLAYER panel
             if (isOnline) {
-                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>Paste friend's code, press Join, then Start game</p>";
-                else hintContainer.innerHTML = "<p class='text-white'>Paste code, Join, Start game</p>";
+                const code = getOrRefreshRunCode();
+                const codeEl = document.getElementById('solo-share-code');
+                if (codeEl) codeEl.textContent = supabase && state.supabaseUserId ? code : '— sign in —';
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Share code · Join friend · Start game</p>";
             } else if (state.playerMode === 2) {
                 if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
