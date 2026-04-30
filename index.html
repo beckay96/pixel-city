@@ -385,7 +385,11 @@
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-blue-300 mb-2 text-[10px] md:text-xs font-bold text-center italic px-2">you didn't think Thomas could make this did ya</p>
         <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
-        <p id="lobby-wins-display" class="text-yellow-400 font-black mb-2 text-sm">🏆 Wins: 0</p>
+        <div class="flex items-center gap-3 mb-2">
+            <p id="lobby-wins-display" class="text-yellow-400 font-black text-sm">🏆 Wins: 0</p>
+            <p id="lobby-signed-in-as" class="text-slate-500 text-[9px] hidden"></p>
+            <button type="button" id="lobby-signout-btn" class="hidden text-[9px] text-slate-500 hover:text-red-400 font-bold interactive border border-slate-700 hover:border-red-500/50 px-2 py-0.5 rounded transition-colors">Sign out</button>
+        </div>
         <!-- Saved progress banner -->
         <div id="lobby-saved-progress-banner" class="hidden w-full max-w-sm mb-2 bg-emerald-950/70 border border-emerald-600/60 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
             <p class="text-[10px] text-emerald-300 font-bold">💾 Saved progress found!</p>
@@ -2354,7 +2358,7 @@
         const ORB_VISUAL_RADIUS = 22;
 
         function hasGodSettings() {
-            return state.activeSecrets.includes('GODLY') || state.isAdmin;
+            return state.activeSecrets.includes('GODLY');
         }
 
         function findInteractableBuilding(p) {
@@ -2494,6 +2498,18 @@
             placeBenHouseAndEdgeWalkway();
         }
 
+        function updateSignedInUI() {
+            const label = document.getElementById('lobby-signed-in-as');
+            const btn = document.getElementById('lobby-signout-btn');
+            if (state.supabaseUserId && state.profileUsername) {
+                if (label) { label.textContent = `Signed in as ${state.profileUsername}`; label.classList.remove('hidden'); }
+                if (btn) btn.classList.remove('hidden');
+            } else {
+                if (label) label.classList.add('hidden');
+                if (btn) btn.classList.add('hidden');
+            }
+        }
+
         function showLobbyFromSignIn() {
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
@@ -2503,6 +2519,7 @@
             updateIngameSchoolGameBadge();
             updateOwnerDashboardFabVisibility();
             updateLobbyStatsFabVisibility();
+            updateSignedInUI();
         }
 
         function isSignInScreenVisible() {
@@ -3957,12 +3974,14 @@
             const orbWin = document.getElementById('orb-win-overlay');
             if (orbWin) orbWin.style.display = 'none';
             
-            // Reapply starting funds based on active secrets
-            if (state.activeSecrets.includes('4789')) {
+            // Reapply starting funds — GODLY=0, ZOMBIE=0, 4789=$10M, RICH/MURDER=$50k, default=$250
+            if (canUseGodPanelInGame()) {
+                state.money = 0;
+            } else if (state.activeSecrets.includes('4789')) {
                 state.money = 10000000;
             } else if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
                 state.money = 50000;
-            } else if (!isZombieSecretActive()) {
+            } else {
                 state.money = 250;
             }
             if (isZombieSecretActive()) {
@@ -4761,22 +4780,22 @@
                 setupFullTouch();
             }
 
-            // Starting money: $250 base
-            state.money = 250;
-            // Apply Regular Secrets (Not Admin)
-            if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
-                state.money = 50000;
-            }
+            // Starting money — priority: GODLY=0, ZOMBIE=0, 4789=$10M, RICH/MURDER=$50k, default=$250
             if (canUseGodPanelInGame()) {
+                state.money = 0; // GODLY: god panel but start broke
                 document.getElementById('god-panel-btn').classList.remove('hidden');
             } else {
                 const gpb = document.getElementById('god-panel-btn');
                 if (gpb) gpb.classList.add('hidden');
+                state.money = 250;
+                if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
+                    state.money = 50000;
+                }
+                if (state.activeSecrets.includes('4789')) {
+                    state.money = 10000000;
+                }
             }
-            if (state.activeSecrets.includes('4789')) {
-                state.money = 10000000;
-                updateMoneyUI();
-            }
+            updateMoneyUI();
             if (isZombieSecretActive()) {
                 state.money = 0;
                 updateMoneyUI();
@@ -6405,6 +6424,19 @@
                 updateOwnerDashboardFabVisibility();
             };
 
+            document.getElementById('lobby-signout-btn')?.addEventListener('click', () => {
+                teardownOnlineRealtime();
+                clearSession();
+                state.supabaseUserId = null;
+                state.profileUsername = '';
+                state.playerName = '';
+                updateSignedInUI();
+                updateLobbyHints();
+                // Go back to sign-in screen
+                document.getElementById('lobby-screen').style.display = 'none';
+                document.getElementById('sign-in-screen').style.display = 'flex';
+            });
+
             document.getElementById('lobby-stats-fab')?.addEventListener('click', () => {
                 const o = document.getElementById('lobby-stats-overlay');
                 if (!o || !state.lobbyStatsUnlocked) return;
@@ -6697,10 +6729,10 @@
                 else if (code === 'SONIC') { if(!state.activeSecrets.includes('SONIC')) state.activeSecrets.push('SONIC'); showSecretMsg('SONIC ACTIVATED'); }
                 else if (code === 'RICH') { if(!state.activeSecrets.includes('RICH')) state.activeSecrets.push('RICH'); showSecretMsg('RICH ACTIVATED'); }
                 else if (code === 'GHOST') { if(!state.activeSecrets.includes('GHOST')) state.activeSecrets.push('GHOST'); showSecretMsg('GHOST ACTIVATED'); }
-                else if (code === 'MURDER' || code === 'CHAOS') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH', 'GHOST'); showSecretMsg('MURDER ACTIVATED'); }
+                else if (code === 'MURDER' || code === 'CHAOS') { if(!state.activeSecrets.includes('MURDER')) state.activeSecrets.push('MURDER', 'SONIC', 'RICH'); showSecretMsg('MURDER ACTIVATED'); }
                 else if (code === 'REALITY') { state.activeSecrets = ['REALITY']; state.money = 0; updateMoneyUI(); showSecretMsg('WELCOME TO REALITY'); }
                 else if (code === 'RARITY DROP' || code === 'RARITYDROP') { if(!state.activeSecrets.includes('RARITY DROP')) state.activeSecrets.push('RARITY DROP'); showSecretMsg('RARITY DROP ACTIVATED'); }
-                else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY', 'GHOST'); showSecretMsg('GOD MODE ACTIVATED'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame() && canUseGodPanelInGame()) gpb.classList.remove('hidden'); }
+                else if (code === 'GODLY') { if(!state.activeSecrets.includes('GODLY')) state.activeSecrets.push('GODLY'); showSecretMsg('GOD MODE ACTIVATED — starts with $0'); const gpb = document.getElementById('god-panel-btn'); if (gpb && isInGame() && canUseGodPanelInGame()) gpb.classList.remove('hidden'); if (isInGame()) { state.money = 0; updateMoneyUI(); } }
                 else if (code === 'ZOMBIE') {
                     if (!state.activeSecrets.includes('ZOMBIE')) state.activeSecrets.push('ZOMBIE');
                     showSecretMsg('ZOMBIE: aggro ~380px · pea gun · F to shoot');
@@ -6725,8 +6757,7 @@
                     document.getElementById('admin-msg').classList.replace('text-red-500', 'text-green-500');
                     document.getElementById('admin-codes-list-display').classList.remove('hidden');
                     document.getElementById('admin-input-area').classList.add('hidden');
-                    const gpb = document.getElementById('god-panel-btn');
-                    if (gpb && isInGame() && canUseGodPanelInGame()) gpb.classList.remove('hidden');
+                    // Admin PIN unlocks dashboard/stats only — god panel requires GODLY secret code
                     updateLobbyStatsFabVisibility();
                 } else {
                     document.getElementById('admin-msg').innerText = 'DENIED';
@@ -6817,6 +6848,7 @@
                 updateFriendsListUIAsync();
             }
             updateLobbyStatsFabVisibility();
+            updateSignedInUI();
         }
         startApp();
     </script>
