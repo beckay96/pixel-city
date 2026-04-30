@@ -2837,7 +2837,15 @@
         }
 
         function saveLocalFriends(list) {
-            localStorage.setItem(LS_FRIENDS, JSON.stringify([...new Set(list)]));
+            // Deduplicate case-insensitively (keep first occurrence of each username)
+            const seen = new Set();
+            const deduped = list.filter(n => {
+                const key = n.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            localStorage.setItem(LS_FRIENDS, JSON.stringify(deduped));
         }
 
         function escapeHtml(s) {
@@ -3019,11 +3027,21 @@
         async function getMergedFriendnames() {
             const local = loadLocalFriends();
             if (!supabase || !state.supabaseUserId) return local;
-            const cloud = await fetchCloudFriendnames();
-            // Normalize to lowercase before deduplicating so 'TestUser' and 'testuser' don't both appear
-            const cloudLower = new Set(cloud.map(n => n.toLowerCase()));
+            const cloudRaw = await fetchCloudFriendnames();
+            // Deduplicate the cloud list itself case-insensitively (prefer first occurrence)
+            const seenCloud = new Set();
+            const cloud = cloudRaw.filter(n => {
+                const key = n.toLowerCase();
+                if (seenCloud.has(key)) return false;
+                seenCloud.add(key);
+                return true;
+            });
             // Drop any local entries that exist in the cloud list (case-insensitive)
-            const localOnly = local.filter(n => !cloudLower.has(n.toLowerCase()));
+            const localOnly = local.filter(n => !seenCloud.has(n.toLowerCase()));
+            // Purge cloud-overlapping entries from localStorage so they don't re-appear on next load
+            if (localOnly.length < local.length) {
+                saveLocalFriends(localOnly);
+            }
             return [...cloud, ...localOnly];
         }
 
@@ -3185,7 +3203,7 @@
                 saveLocalFriends(loadLocalFriends().filter(n => n.toLowerCase() !== un.toLowerCase()));
             } else {
                 const list = loadLocalFriends();
-                if (!list.includes(un)) list.push(un);
+                if (!list.some(n => n.toLowerCase() === un.toLowerCase())) list.push(un);
                 saveLocalFriends(list);
                 if (msg) msg.textContent = `✅ Saved! Sign in to see when ${un} is online.`;
             }
