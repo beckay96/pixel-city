@@ -1310,6 +1310,9 @@
             worldSeed: null,
             onlineSessionCode: null,
             isOnlineHost: false,
+            /** True when the user selected 1 PLAYER and we auto-hosted for realtime in the background.
+             *  Realtime runs, but all multiplayer HUD/lobby UI is hidden (user sees solo UX). */
+            isSoloAutoHost: false,
             /** Last Realtime session channel we successfully subscribed to (for skip-resubscribe). */
             onlineRealtimeSubscribedCode: null,
             remotePlayers: {},
@@ -3203,6 +3206,7 @@
             state.remotePlayers = {};
             state.onlineSessionCode = null;
             state.isOnlineHost = false;
+            state.isSoloAutoHost = false;
             const badge = document.getElementById('session-code-badge');
             if (badge) badge.classList.add('hidden');
             const invite = document.getElementById('online-invite-block');
@@ -4768,7 +4772,8 @@
 
         async function joinRoom({ autosave, savedSeed } = {}) {
             if (state.playMode === 'online') {
-                // MULTIPLAYER mode: must have already joined a code
+                // MULTIPLAYER mode: user explicitly chose to play with others
+                state.isSoloAutoHost = false;
                 if (!supabase || !state.supabaseUserId) {
                     showMessage('Sign in first to join multiplayer.');
                     return;
@@ -4788,6 +4793,7 @@
                 }
             } else {
                 state.worldSeed = null;
+                state.isSoloAutoHost = false;
                 // 1 PLAYER mode: auto-host silently if signed in (generate fresh code)
                 if (supabase && state.supabaseUserId && state.playerMode === 1) {
                     const runCode = refreshRunCode();
@@ -4802,16 +4808,18 @@
                             state.isOnlineHost = true;
                             state.worldSeed = seed;
                             state.playMode = 'online'; // treat as online so realtime works
+                            state.isSoloAutoHost = true; // user sees solo UX; realtime runs silently
                             const sub = await subscribeToSessionChannelAsync(runCode);
                             if (!sub.ok) {
-                                // Realtime failed — play offline but keep code display
+                                // Realtime failed — stay purely offline
                                 state.playMode = 'solo';
                                 state.onlineSessionCode = null;
                                 state.isOnlineHost = false;
+                                state.isSoloAutoHost = false;
                             }
                         }
                     } catch (_) { /* play offline if DB unavailable */ }
-                    // Update the share code display
+                    // Update the share code display (inside MULTIPLAYER panel only, already hidden for solo)
                     const codeEl = document.getElementById('solo-share-code');
                     if (codeEl) codeEl.textContent = runCode;
                 }
@@ -4844,9 +4852,12 @@
                 document.getElementById('p1-modals').classList.add('hidden');
                 const badge = document.getElementById('session-code-badge');
                 const codeEl = document.getElementById('session-code-display');
-                if (badge && codeEl && state.onlineSessionCode) {
+                // Only show the session badge for real multiplayer sessions, not solo auto-hosts
+                if (!state.isSoloAutoHost && badge && codeEl && state.onlineSessionCode) {
                     codeEl.textContent = state.onlineSessionCode;
                     badge.classList.remove('hidden');
+                } else if (badge) {
+                    badge.classList.add('hidden');
                 }
             } else if (state.playerMode === 2) {
                 state.players.push(baseP(1, '#4ade80'));
@@ -5696,7 +5707,8 @@
             const inactiveBlue = 'border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
             const inactiveCyan = 'border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
             const activeCyan = 'bg-cyan-600 border-2 border-cyan-400 text-white flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive';
-            if (state.playMode === 'online') {
+            // isSoloAutoHost: internally online for realtime, but user selected 1 PLAYER — show solo styling
+            if (state.playMode === 'online' && !state.isSoloAutoHost) {
                 solo.className = inactiveBlue;
                 duo.className = inactiveBlue;
                 onl.className = activeCyan;
@@ -5732,7 +5744,8 @@
         function updateLobbyHints() {
             if (!hintContainer) return;
             const panel = document.getElementById('online-lobby-panel');
-            const isOnline = state.playMode === 'online';
+            // Show the MULTIPLAYER panel only when the user explicitly chose MULTIPLAYER mode
+            const isOnline = state.playMode === 'online' && !state.isSoloAutoHost;
             if (panel) panel.classList.toggle('hidden', !isOnline);
             // Update the shareable code inside the MULTIPLAYER panel
             if (isOnline) {
