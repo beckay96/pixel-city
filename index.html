@@ -6523,7 +6523,7 @@
             document.getElementById('auth-signin-btn').onclick = async () => {
                 const username = normalizeUsername(userInput && userInput.value);
                 const password = passInput ? passInput.value : '';
-                if (!username || username.length < 2) { if (signInMsg) signInMsg.textContent = 'Pick a username (2+ chars).'; return; }
+                if (!username || username.length < 3) { if (signInMsg) signInMsg.textContent = 'Username must be at least 3 characters.'; return; }
                 if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be at least 6 characters.'; return; }
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
                 const btn = document.getElementById('auth-signin-btn');
