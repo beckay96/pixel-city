@@ -6492,6 +6492,10 @@
 
             if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
 
+            const clearSignInMsg = () => { if (signInMsg) signInMsg.textContent = ''; };
+            if (userInput) userInput.addEventListener('input', clearSignInMsg);
+            if (passInput) passInput.addEventListener('input', clearSignInMsg);
+
             const passToggleBtn = document.getElementById('auth-password-toggle');
             if (passToggleBtn && passInput) {
                 passToggleBtn.addEventListener('click', () => {
