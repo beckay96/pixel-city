@@ -1129,7 +1129,7 @@
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
         const JAIL_FRAMES_PER_SEC = 60;
-        const jailFramesPolice = () => (35 + Math.floor(Math.random() * 26)) * JAIL_FRAMES_PER_SEC;
+        const jailFramesPolice = () => (15 + Math.floor(Math.random() * 6)) * JAIL_FRAMES_PER_SEC; // 15-20s
         const JAIL_FRAMES_SLASH_CMD = 30 * JAIL_FRAMES_PER_SEC;
         /** Persisted when toggled via ?schoolSafe= / ?school= or build flag; read on load. */
         const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
@@ -1184,6 +1184,8 @@
         const PVP_NUKE_RADIUS = 400;
         const PVP_NUKE_STEAL = 500;
         const PVP_NUKE_STUN_SEC = 1.2;
+        const PVP_NUKE_DMG_FRAC = 0.75; // 75% of max HP
+        const PVP_NUKE_COOLDOWN_FRAMES = 5 * 60 * 60; // 5 minutes at 60fps
         const GADGET_ITEMS = [
             { id: 'ion_link', name: 'Ion link pad kit', price: 18000, blurb: '2 pads · Q to place · walk in = warp' },
             { id: 'cam_ipad', name: 'Camera iPad', price: 14000, blurb: 'Pro tablet with camera — flex in selfies' },
@@ -1749,19 +1751,27 @@
             p.hp = 0;
             p.inVehicle = null;
             p.loadout = p.loadout || defaultLoadout();
-            const isDuo = state.playerMode === 2 && state.playMode !== 'online';
-            if (isDuo) {
+            const canBeRevived = (state.playerMode === 2 && state.playMode !== 'online') || state.playMode === 'online';
+            if (canBeRevived) {
                 p.downed = true;
-                p.bleedFrames = 0;
+                p.bleedFrames = BLEED_OUT_FRAMES; // timer still ticks; if no revive → spectate
                 p.corpseX = p.x;
                 p.corpseY = p.y;
-                showMessage('Down! Partner: E to revive, or hold near body to pick up to hospital');
+                if (state.playMode === 'online') {
+                    showMessage('💀 Down! A friend can run up and press E to revive you!');
+                    // Broadcast downed state so friends see it and can choose to revive
+                    if (supabaseRealtimeChannel) {
+                        try { supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'player_downed', uid: state.supabaseUserId, x: p.x, y: p.y } }); } catch (_) {}
+                    }
+                } else {
+                    showMessage('Down! Partner: E to revive, or hold near body to pick up to hospital');
+                }
             } else {
                 p.downed = false;
                 p.bleedFrames = BLEED_OUT_FRAMES;
                 p.corpseX = p.x;
                 p.corpseY = p.y;
-                showMessage('Critical! 30s — reach the hospital (green HOSP) or you are out');
+                showMessage('Critical! Get to the hospital (green HOSP) before the timer runs out!');
             }
             updateHealthBars();
         }
@@ -1868,6 +1878,12 @@
         function processBleedAndDowned() {
             state.players.forEach((p, pIdx) => {
                 if (!p || p.dead) return;
+                // Tick bleed timer for downed players (online revive window)
+                if (p.downed && p.bleedFrames > 0) {
+                    p.bleedFrames = Math.max(0, p.bleedFrames - 1);
+                    if (p.bleedFrames <= 0) goSpectate(pIdx);
+                    return;
+                }
                 if (p.bleedFrames > 0 && p.hp <= 0 && !p.downed) {
                     const inHosp = hospitalBuildingNear(p, 200) && pIdx === 0;
                     if (inHosp) {
@@ -2001,12 +2017,25 @@
             if (!def) return;
             const now = state.frameCount;
             if (now - (p.loadout.lastWeaponFired || 0) < 35) return;
-            p.loadout.lastWeaponFired = now;
-            const t = otherPlayerInRadius(p.x, p.y, 260, pIdx);
+
             if (def.kind === 'nuke') {
-                if (isZombieSecretActive() && !t) {
+                // 5-minute cooldown
+                const lastNuke = p.loadout.lastNukeFired || 0;
+                const nukeCooldownLeft = PVP_NUKE_COOLDOWN_FRAMES - (now - lastNuke);
+                if (nukeCooldownLeft > 0) {
+                    showMessage(`💣 Nuke cooling down — ${Math.ceil(nukeCooldownLeft / JAIL_FRAMES_PER_SEC)}s left`);
+                    return;
+                }
+            }
+
+            p.loadout.lastWeaponFired = now;
+
+            if (def.kind === 'nuke') {
+                // Collect all targets in range
+                if (isZombieSecretActive()) {
                     const z = tryHitZombieInRange(pIdx, { kind: 'rocket' }, 340, ZOMBIE_MAX_HP + 99);
                     if (z.hit) {
+                        p.loadout.lastNukeFired = now;
                         state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
                         if (z.killed) showMessage(`Zombie nuke! +$${z.add.toLocaleString()}`);
                         if (state.playMode === 'online' && supabaseRealtimeChannel) {
@@ -2015,30 +2044,51 @@
                         return;
                     }
                 }
-                if (!t) { showMessage('No player in range for micro nuke'); return; }
-                state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
-                if (t.idx >= 0) {
-                    // Local target (2-player local)
-                    state.money += PVP_NUKE_STEAL;
-                    updateMoneyUI();
-                    const vic = state.players[t.idx];
-                    if (vic && !vic.dead && !vic.downed) {
-                        const nearHosp = !!hospitalBuildingNear(vic, 240);
-                        dealDamageToPlayer(t.idx, nearHosp ? Math.ceil(PLAYER_MAX_HP * 0.4) : PLAYER_MAX_HP + 50);
-                    }
-                    showMessage(`💥 Micro nuke! +$${PVP_NUKE_STEAL.toLocaleString()}`);
-                } else if (t.uid) {
-                    // Remote player — send nuke_hit so their client applies damage
-                    state.money += PVP_NUKE_STEAL;
-                    updateMoneyUI();
-                    showMessage(`💥 Micro nuke! +$${PVP_NUKE_STEAL.toLocaleString()}`);
-                    if (supabaseRealtimeChannel) {
-                        try {
-                            supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'nuke_hit', targetUid: t.uid, x: p.x, y: p.y } });
-                        } catch (_) {}
+                // Gather all players in range (local + remote)
+                const targets = [];
+                for (let j = 0; j < state.players.length; j++) {
+                    if (j === pIdx || !state.players[j]) continue;
+                    const o = state.players[j];
+                    if (o.dead || o.downed || o.inVehicle) continue;
+                    if (dist(p.x, p.y, o.x, o.y) < PVP_NUKE_RADIUS) targets.push({ idx: j, p: o, name: `P${j+1}` });
+                }
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    if (!rp.dead && !rp.downed && dist(p.x, p.y, rp.x, rp.y) < PVP_NUKE_RADIUS) {
+                        targets.push({ uid, remote: rp, name: rp.username || 'player' });
                     }
                 }
+                if (targets.length === 0) { showMessage('No player in range for micro nuke'); return; }
+                // Pick target — if multiple, use the closest one
+                let chosen = targets[0];
+                let minD = Infinity;
+                targets.forEach(t => {
+                    const tx = t.p ? t.p.x : t.remote.x;
+                    const ty = t.p ? t.p.y : t.remote.y;
+                    const d = dist(p.x, p.y, tx, ty);
+                    if (d < minD) { minD = d; chosen = t; }
+                });
+                p.loadout.lastNukeFired = now;
+                state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
+                const nukeDmg = Math.ceil(PLAYER_MAX_HP * PVP_NUKE_DMG_FRAC);
+                if (chosen.idx != null) {
+                    state.money += PVP_NUKE_STEAL;
+                    updateMoneyUI();
+                    dealDamageToPlayer(chosen.idx, nukeDmg);
+                    showMessage(`💥 Micro nuke hit ${chosen.name}! -${nukeDmg}HP · +$${PVP_NUKE_STEAL.toLocaleString()} · 5min cooldown`);
+                } else if (chosen.uid) {
+                    state.money += PVP_NUKE_STEAL;
+                    updateMoneyUI();
+                    showMessage(`💥 Micro nuke hit ${chosen.name}! +$${PVP_NUKE_STEAL.toLocaleString()} · 5min cooldown`);
+                    if (supabaseRealtimeChannel) {
+                        try { supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'nuke_hit', targetUid: chosen.uid, x: p.x, y: p.y, dmg: nukeDmg } }); } catch (_) {}
+                    }
+                }
+                if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                    supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y } });
+                }
             } else {
+                const t = otherPlayerInRadius(p.x, p.y, 260, pIdx);
                 if (isZombieSecretActive() && (!t || t.idx < 0)) {
                     const z = tryHitZombieInRange(pIdx, def);
                     if (z.hit && z.killed) {
@@ -2058,15 +2108,14 @@
                     stunLocalPlayer(t.idx, def.kind === 'rocket' ? 1200 : 650);
                     showMessage(`${def.name} connected!`);
                 } else if (t && t.uid) {
-                    // Remote player hit — their client will apply damage on receiving pvp_fx targetUid
                     showMessage(`💥 ${def.name} hit ${t.remote.username || 'player'}!`);
                 } else {
                     showMessage('No player in range');
                 }
-            }
-            if (state.playMode === 'online' && supabaseRealtimeChannel) {
-                const targetUid = t && t.uid ? t.uid : null;
-                supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y, targetUid } });
+                if (state.playMode === 'online' && supabaseRealtimeChannel && t) {
+                    const targetUid = t.uid || null;
+                    supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y, targetUid } });
+                }
             }
         }
 
@@ -3172,7 +3221,11 @@
                 if (def) def.classList.remove('hidden');
                 if (schoolB) schoolB.classList.add('hidden');
                 if (jsub) jsub.textContent = 'Jail';
-                state.jailTime = Math.max(1, Math.floor(frames));
+                // Cap at 20s if player has less than $500
+                const cappedFrames = (state.money < 500)
+                    ? Math.min(Math.floor(frames), 20 * JAIL_FRAMES_PER_SEC)
+                    : Math.floor(frames);
+                state.jailTime = Math.max(1, cappedFrames);
                 if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
             }
             const bailBtn = document.getElementById('pay-bail-btn');
@@ -3236,13 +3289,31 @@
                     state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 25, hit: true });
                 }
                 if (payload.k === 'nuke_hit' && payload.targetUid === state.supabaseUserId) {
-                    // We were nuked — apply damage to our local player
                     state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 25, hit: true });
                     const myP = state.players[0];
                     if (myP && !myP.dead && !myP.downed && isInGame()) {
-                        const nearHosp = !!hospitalBuildingNear(myP, 240);
-                        dealDamageToPlayer(0, nearHosp ? Math.ceil(PLAYER_MAX_HP * 0.4) : PLAYER_MAX_HP + 50);
-                        showMessage('💥 You were nuked!');
+                        const dmg = payload.dmg || Math.ceil(PLAYER_MAX_HP * PVP_NUKE_DMG_FRAC);
+                        dealDamageToPlayer(0, dmg);
+                        showMessage(`💥 You were nuked! -${dmg}HP`);
+                    }
+                }
+                if (payload.k === 'revive' && payload.targetUid === state.supabaseUserId) {
+                    // A remote friend revived us
+                    const myP = state.players[0];
+                    if (myP && myP.downed && !myP.dead && isInGame()) {
+                        setPlayerFullHealth(myP);
+                        myP.downed = false;
+                        myP.bleedFrames = 0;
+                        myP.corpseX = null; myP.corpseY = null;
+                        showMessage(`💚 ${payload.reviverName || 'Friend'} revived you!`);
+                        updateHealthBars();
+                    }
+                }
+                if (payload.k === 'player_downed' && payload.uid !== state.supabaseUserId) {
+                    // Mark remote player as downed so we know they need reviving
+                    if (state.remotePlayers[payload.uid]) {
+                        state.remotePlayers[payload.uid].downed = true;
+                        showMessage(`${state.remotePlayers[payload.uid].username || 'Friend'} is DOWN — get close and press E!`);
                     }
                 }
                 if (payload.k === 'shot' && payload.kind !== 'nuke' && payload.targetUid === state.supabaseUserId) {
@@ -3769,6 +3840,8 @@
                 state.money = 10000000;
             } else if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
                 state.money = 50000;
+            } else if (!isZombieSecretActive()) {
+                state.money = 250;
             }
             if (isZombieSecretActive()) {
                 state.money = 0;
@@ -4120,6 +4193,23 @@
             if (p.dead) return;
             if (tryCollectOrb(pIdx)) return;
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
+            // Online revive: check if any downed remote player is nearby
+            if (state.playMode === 'online' && supabaseRealtimeChannel && state.supabaseUserId) {
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    if (rp.downed && !rp.dead && dist(p.x, p.y, rp.x, rp.y) < REVIVE_RANGE) {
+                        try {
+                            supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: {
+                                k: 'revive', targetUid: uid,
+                                reviverName: state.profileUsername || state.playerName || 'Friend'
+                            }});
+                        } catch (_) {}
+                        delete state.remotePlayers[uid].downed; // optimistic clear
+                        showMessage(`💚 Revived ${rp.username || 'friend'}!`);
+                        return;
+                    }
+                }
+            }
             const duo = state.playerMode === 2 && state.playMode !== 'online';
             if (duo) {
                 const tIdx = 1 - pIdx;
@@ -4518,6 +4608,8 @@
                 setupFullTouch();
             }
 
+            // Starting money: $250 base
+            state.money = 250;
             // Apply Regular Secrets (Not Admin)
             if (state.activeSecrets.includes('RICH') || state.activeSecrets.includes('MURDER')) {
                 state.money = 50000;
