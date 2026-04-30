@@ -6579,6 +6579,7 @@
                 state.supabaseUserId = null;
                 state.profileUsername = '';
                 state.playerName = '';
+                if (passInput) passInput.value = '';
                 updateSignedInUI();
                 updateLobbyHints();
                 // Go back to sign-in screen
