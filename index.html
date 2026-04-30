@@ -463,10 +463,10 @@
             </div>
 
             <div class="flex gap-2 mt-2">
-                <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">🆕 New game</button>
-                <button id="load-world-btn" class="bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-200 flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider hidden">🌍 Saved world</button>
+                <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">🆕 Start New Game</button>
+                <button id="load-world-btn" class="bg-slate-700 border border-slate-600 text-slate-500 flex-1 py-3 rounded-xl font-bold text-sm uppercase tracking-wider interactive" disabled>💾 No save found</button>
             </div>
-            <p id="autosave-hint" class="text-[8px] text-slate-600 text-center mt-1 hidden">Auto-saved world found — press Saved world to continue</p>
+            <p id="autosave-hint" class="text-[8px] text-slate-500 text-center mt-1 hidden"></p>
             
             <div class="pt-2 border-t border-slate-700">
                 <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300">Secret Modes</button>
@@ -2571,6 +2571,7 @@
         }
 
         function exitToLobby() {
+            autosaveWorld();
             hideWastedOverlay();
             state.isGameOver = true;
             clearGpsRoute();
@@ -4504,6 +4505,7 @@
         // ---------- World Autosave ----------
         function autosaveWorld() {
             if (!isInGame() || state.gamePaused || state.isGameOver) return;
+            const p0 = state.players[0];
             const data = {
                 money: state.money,
                 winCount: state.winCount,
@@ -4514,6 +4516,8 @@
                 cityNuked: state.cityNuked,
                 benHouseRobbed: state.benHouseRobbed,
                 isPresident: state.isPresident,
+                playerX: p0 ? Math.round(p0.x) : null,
+                playerY: p0 ? Math.round(p0.y) : null,
                 savedAt: Date.now()
             };
             try { localStorage.setItem(LS_AUTOSAVE, JSON.stringify(data)); } catch (_) {}
@@ -4547,6 +4551,11 @@
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
             }
+            // Restore player position if saved
+            if (typeof save.playerX === 'number' && typeof save.playerY === 'number' && state.players[0]) {
+                state.players[0].x = save.playerX;
+                state.players[0].y = save.playerY;
+            }
         }
 
         function updateSavedWorldButton() {
@@ -4554,15 +4563,24 @@
             const btn = document.getElementById('load-world-btn');
             const hint = document.getElementById('autosave-hint');
             if (save && save.savedAt) {
-                if (btn) btn.classList.remove('hidden');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.className = 'bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-200 flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider';
+                    btn.textContent = '💾 Load Saved Game';
+                }
                 if (hint) {
                     const mins = Math.round((Date.now() - save.savedAt) / 60000);
                     const timeStr = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
-                    hint.textContent = `Auto-saved ${timeStr} — press Saved world to continue`;
+                    const moneyStr = typeof save.money === 'number' ? ` · $${save.money.toLocaleString()}` : '';
+                    hint.textContent = `💾 Saved ${timeStr}${moneyStr}`;
                     hint.classList.remove('hidden');
                 }
             } else {
-                if (btn) btn.classList.add('hidden');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.className = 'bg-slate-700 border border-slate-600 text-slate-500 flex-1 py-3 rounded-xl font-bold text-sm uppercase tracking-wider interactive';
+                    btn.textContent = '💾 No save found';
+                }
                 if (hint) hint.classList.add('hidden');
             }
         }
@@ -5015,6 +5033,7 @@
         function update() {
             if (state.gamePaused || state.isGameOver) return;
             state.frameCount++;
+            if (state.frameCount % AUTOSAVE_INTERVAL_FRAMES === 0) autosaveWorld();
             processPvpNukeVfx();
             processTeleporterPads();
             processLandmines();
