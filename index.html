@@ -2537,6 +2537,7 @@
             updateLobbyStatsFabVisibility();
             updateSignedInUI();
             updateSavedWorldButton();
+            applyModeButtonStyles();
         }
 
         function isSignInScreenVisible() {
@@ -2583,13 +2584,18 @@
             if (hm) hm.style.display = 'none';
             state.hospitalAction = null;
             state.soloHospModalShown = false;
-            if (state.playMode === 'online') teardownOnlineRealtime();
+            if (state.playMode === 'online') {
+                // If this was a solo auto-host, revert to 'solo' so the 1 PLAYER tab stays active in lobby
+                if (state.isSoloAutoHost) state.playMode = 'solo';
+                teardownOnlineRealtime();
+            }
             state.players = [];
             document.getElementById('lobby-screen').style.display = 'flex';
             const xbOut = document.getElementById('exit-to-lobby-btn');
             if (xbOut) xbOut.style.display = 'none';
             setInGamePhoneVisible(false);
             updateOwnerDashboardFabVisibility();
+            applyModeButtonStyles();
             updateLobbyHints();
             updateSavedWorldButton();
         }
