@@ -415,33 +415,29 @@
                     <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
                     <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
                 </div>
-                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Multiplayer (online): same map + live friend dots. Sign in → host or join code → Start game. If you are on a strict network, online play may need IT to allow this site’s online service.</p>
-                <div id="online-lobby-panel" class="hidden mt-3 text-left space-y-3">
-                    <!-- Your Server (persistent code) -->
-                    <div class="bg-cyan-950/70 border-2 border-cyan-600/60 rounded-xl p-3 space-y-2">
-                        <p class="text-[11px] font-black text-cyan-200 uppercase tracking-widest">🏫 Your Server Link</p>
-                        <p class="text-[9px] text-slate-300 leading-snug">This link is <span class="text-white font-bold">always the same</span> — share it once and friends can rejoin any time!</p>
-                        <p id="lobby-server-link-display" class="text-[10px] text-sky-300 font-mono break-all leading-snug"></p>
-                        <button type="button" id="lobby-start-server-btn" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm py-2.5 rounded-xl interactive">🚀 Start my server</button>
-                        <button type="button" id="lobby-copy-server-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs py-2 rounded-xl interactive">📋 Copy server link</button>
+                <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Enter a friend's code to join their game 🎮</p>
+                <!-- 1 PLAYER info: auto-hosts silently, shows code to share -->
+                <div id="solo-share-block" class="hidden mt-2 bg-slate-900/60 border border-slate-600/40 rounded-xl p-3 space-y-1 text-left">
+                    <p class="text-[9px] text-slate-300 leading-snug">Your game will auto-host! Friends can join by going to <span class="text-cyan-300 font-bold">MULTIPLAYER</span> and typing your code:</p>
+                    <p id="solo-share-code" class="text-xl font-black text-white tracking-[0.3em] text-center py-1"></p>
+                    <button type="button" id="solo-copy-code-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy join code</button>
+                </div>
+                <!-- MULTIPLAYER: just paste a code -->
+                <div id="online-lobby-panel" class="hidden mt-3 text-left">
+                    <p class="text-[9px] text-slate-400 mb-2 leading-snug">🔗 Type the code from your friend to join their game:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="online-join-code-input" placeholder="Friend's code" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
+                        <button type="button" id="online-join-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0">✅ Join</button>
                     </div>
-                    <!-- Join with a code -->
-                    <div class="bg-slate-900/60 border border-slate-600/60 rounded-xl p-3">
-                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">🔗 Got a different code?</p>
-                        <p class="text-[9px] text-slate-400 mb-2 leading-snug">Paste a code your friend gave you.</p>
-                        <div class="flex gap-2">
-                            <input type="text" id="online-join-code-input" placeholder="Paste code here" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
-                            <button type="button" id="online-join-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0">✅ Join</button>
-                        </div>
-                    </div>
-                    <!-- Also host a temp session -->
-                    <button type="button" id="online-host-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-xl font-bold text-xs interactive">➕ Start a new temporary room instead</button>
-                    <div id="online-invite-block" class="hidden bg-emerald-950/60 border border-emerald-600/60 rounded-xl p-3 space-y-2">
-                        <p class="text-[11px] font-black text-emerald-300 uppercase tracking-widest">🎉 Temp room ready!</p>
-                        <a id="online-invite-link" href="#" class="text-[11px] text-sky-300 break-all underline interactive block font-mono leading-snug"></a>
-                        <button type="button" id="online-copy-invite-btn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-black py-2 rounded-xl interactive">📋 Copy temp link</button>
-                    </div>
-                    <p id="online-session-msg" class="text-[11px] font-bold min-h-[1.25rem] text-center px-1 leading-snug"></p>
+                    <p id="online-session-msg" class="text-[11px] font-bold min-h-[1.25rem] text-center px-1 mt-2 leading-snug"></p>
+                    <!-- Hidden elements kept for JS compat -->
+                    <div id="online-invite-block" class="hidden"></div>
+                    <a id="online-invite-link" href="#" class="hidden"></a>
+                    <button type="button" id="online-copy-invite-btn" class="hidden"></button>
+                    <button type="button" id="online-host-btn" class="hidden"></button>
+                    <button type="button" id="lobby-start-server-btn" class="hidden"></button>
+                    <button type="button" id="lobby-copy-server-btn" class="hidden"></button>
+                    <p id="lobby-server-link-display" class="hidden"></p>
                 </div>
             </div>
 
@@ -551,6 +547,26 @@
                 <p id="menu-server-link" class="text-[10px] text-sky-300 font-mono break-all leading-snug"></p>
                 <button type="button" id="menu-server-copy-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-black py-2 rounded-lg interactive">📋 Copy server link</button>
                 <button type="button" id="menu-server-reset-btn" class="w-full text-[9px] text-red-400 hover:text-red-300 interactive">🔄 Reset server link</button>
+            </div>
+
+            <!-- Session Settings (host only in multiplayer) -->
+            <div id="menu-session-settings-block" class="hidden border-t border-slate-700 pt-3 space-y-2">
+                <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest">⚙️ Session Settings</p>
+                <p id="menu-settings-host-only" class="hidden text-[9px] text-slate-500 text-center">Only the host can change these.</p>
+                <label class="flex items-center justify-between gap-3 cursor-pointer interactive">
+                    <span class="text-[11px] text-slate-200 font-bold">♻️ Infinite revive</span>
+                    <button type="button" id="menu-toggle-revive" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                    </button>
+                </label>
+                <p class="text-[8px] text-slate-500 -mt-1">Players respawn instantly instead of dying.</p>
+                <label class="flex items-center justify-between gap-3 cursor-pointer interactive">
+                    <span class="text-[11px] text-slate-200 font-bold">🔥 Friendly fire off</span>
+                    <button type="button" id="menu-toggle-ff" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                    </button>
+                </label>
+                <p class="text-[8px] text-slate-500 -mt-1">When ON — nobody can damage teammates.</p>
             </div>
 
             <!-- Delete progress (triple confirm) -->
@@ -1188,6 +1204,7 @@
         const PVP_NUKE_COOLDOWN_FRAMES = 5 * 60 * 60; // 5 minutes at 60fps
         const GADGET_ITEMS = [
             { id: 'ion_link', name: 'Ion link pad kit', price: 18000, blurb: '2 pads · Q to place · walk in = warp' },
+            { id: 'landmine', name: 'Landmine', price: 8000, blurb: 'Q to place — invisible on the ground, explodes on contact' },
             { id: 'cam_ipad', name: 'Camera iPad', price: 14000, blurb: 'Pro tablet with camera — flex in selfies' },
             { id: 'cam_pocket', name: 'Pocket camera', price: 9500, blurb: 'Point-and-shoot, fits in a pocket' },
             { id: 'dash_cell', name: 'Dash cell pack', price: 22000, blurb: 'Sprint +10% 30s (flavor, see message)' },
@@ -1195,6 +1212,8 @@
             { id: 'mag_boots', name: 'Mag-lock boots', price: 12000, blurb: 'Grip the grid' },
             { id: 'quantum_toy', name: 'Quantum puzzle box', price: 9000, blurb: 'Makes a neat beep' }
         ];
+        const LANDMINE_TRIGGER_R = 28;
+        const LANDMINE_DMG = 60;
         const BEN_HOUSE_ENTRY_CODE = '4789';
         const WEAPON_ITEMS = [
             { id: 'stunner', name: 'Tactical stunner', price: 12000, kind: 'stun' },
@@ -1305,7 +1324,9 @@
             zombieBankRobbed: false,
             lastZombieChipMsgFrame: 0,
             /** Pauses update loop (WASTED overlay, etc.) */
-            gamePaused: false
+            gamePaused: false,
+            landmines: [],
+            sessionSettings: { infiniteRevive: false, friendlyFire: false }
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1597,6 +1618,59 @@
                 }
             }
         }
+        function placeLandmine(pIdx, x, y) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            ensurePlayerLoadout(p);
+            if ((p.loadout.landminesToPlace || 0) <= 0) return;
+            p.loadout.landminesToPlace--;
+            const mine = { id: state.nextPadId++, x, y, owner: pIdx, ownerUid: state.supabaseUserId || null, triggered: false };
+            state.landmines.push(mine);
+            showMessage('💣 Landmine placed — invisible!');
+            updateLoadoutUI();
+            if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                try { supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'landmine_place', mine: { id: mine.id, x, y, ownerUid: mine.ownerUid } } }); } catch (_) {}
+            }
+        }
+
+        function processLandmines() {
+            if (state.landmines.length === 0) return;
+            state.landmines = state.landmines.filter(mine => {
+                if (mine.triggered) return false;
+                for (let i = 0; i < state.players.length; i++) {
+                    const p = state.players[i];
+                    if (!p || p.dead || p.downed) continue;
+                    if (i === mine.owner && !mine.ownerUid) continue; // don't trigger on placer (local)
+                    if (dist(p.x, p.y, mine.x, mine.y) < LANDMINE_TRIGGER_R) {
+                        mine.triggered = true;
+                        state.pvpNukeBlasts.push({ x: mine.x, y: mine.y, r: 0, maxR: 120, until: 18, hit: true });
+                        dealDamageToPlayer(i, LANDMINE_DMG);
+                        showMessage('💣 BOOM — landmine!');
+                        if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                            try { supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'landmine_boom', id: mine.id, x: mine.x, y: mine.y } }); } catch (_) {}
+                        }
+                        return false;
+                    }
+                }
+                // Also check remote players stepping on landmines we placed
+                if (mine.ownerUid === state.supabaseUserId) {
+                    for (const uid in state.remotePlayers) {
+                        const rp = state.remotePlayers[uid];
+                        if (!rp.dead && !rp.downed && dist(rp.x, rp.y, mine.x, mine.y) < LANDMINE_TRIGGER_R) {
+                            mine.triggered = true;
+                            state.pvpNukeBlasts.push({ x: mine.x, y: mine.y, r: 0, maxR: 120, until: 18, hit: true });
+                            showMessage(`💣 Landmine got ${rp.username || 'someone'}!`);
+                            if (supabaseRealtimeChannel) {
+                                try { supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'landmine_boom', id: mine.id, x: mine.x, y: mine.y, targetUid: uid, dmg: LANDMINE_DMG } }); } catch (_) {}
+                            }
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+        }
+
         function addTeleporterPad(pIdx, x, y) {
             const p = state.players[pIdx];
             if (!p) return;
@@ -1712,6 +1786,19 @@
         function goSpectate(pIdx) {
             const p = state.players[pIdx];
             if (!p) return;
+            // Infinite revive mode — respawn instead of dying
+            if (state.sessionSettings.infiniteRevive) {
+                setPlayerFullHealth(p);
+                p.downed = false;
+                p.bleedFrames = 0;
+                p.corpseX = null; p.corpseY = null;
+                const home = state.buildings.find(b => b.type === 'home');
+                if (home) { p.x = home.x + home.w / 2; p.y = home.y + home.h + 30; }
+                else { p.x = 2000 + pIdx * 30; p.y = 2200; }
+                showMessage('♻️ Infinite revive — back in the game!');
+                updateHealthBars();
+                return;
+            }
             p.dead = true;
             p.downed = false;
             p.bleedFrames = 0;
@@ -3317,13 +3404,31 @@
                     }
                 }
                 if (payload.k === 'shot' && payload.kind !== 'nuke' && payload.targetUid === state.supabaseUserId) {
-                    // Non-nuke weapon hit from a remote player — apply damage/stun locally
-                    const myP = state.players[0];
-                    if (myP && !myP.dead && !myP.downed && isInGame()) {
-                        const dmg = payload.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN;
-                        dealDamageToPlayer(0, dmg);
-                        stunLocalPlayer(0, payload.kind === 'rocket' ? 1200 : 650);
-                        showMessage('💥 You were hit!');
+                    if (!state.sessionSettings.friendlyFire) {
+                        const myP = state.players[0];
+                        if (myP && !myP.dead && !myP.downed && isInGame()) {
+                            const dmg = payload.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN;
+                            dealDamageToPlayer(0, dmg);
+                            stunLocalPlayer(0, payload.kind === 'rocket' ? 1200 : 650);
+                            showMessage('💥 You were hit!');
+                        }
+                    }
+                }
+                if (payload.k === 'landmine_place' && payload.mine) {
+                    const m = payload.mine;
+                    if (!state.landmines.find(l => l.id === m.id)) {
+                        state.landmines.push({ id: m.id, x: m.x, y: m.y, ownerUid: m.ownerUid, triggered: false });
+                    }
+                }
+                if (payload.k === 'landmine_boom') {
+                    state.landmines = state.landmines.filter(l => l.id !== payload.id);
+                    state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: 120, until: 18, hit: true });
+                    if (payload.targetUid === state.supabaseUserId) {
+                        const myP = state.players[0];
+                        if (myP && !myP.dead && !myP.downed && isInGame()) {
+                            dealDamageToPlayer(0, payload.dmg || LANDMINE_DMG);
+                            showMessage('💣 BOOM — you hit a landmine!');
+                        }
                     }
                 }
             });
@@ -3370,6 +3475,17 @@
                         }
                         showMessage(`Host shared modes: ${incoming.join(', ')}`);
                     }
+                }
+                if (payload.kind === 'session_settings' && payload.settings) {
+                    const s = payload.settings;
+                    if (typeof s.infiniteRevive === 'boolean') state.sessionSettings.infiniteRevive = s.infiniteRevive;
+                    if (typeof s.friendlyFire === 'boolean') state.sessionSettings.friendlyFire = s.friendlyFire;
+                    updateSessionSettingsUI();
+                    const labels = [];
+                    if (s.infiniteRevive) labels.push('Infinite revive ON');
+                    if (!s.friendlyFire) labels.push('Friendly fire OFF');
+                    if (s.friendlyFire) labels.push('Friendly fire ON');
+                    showMessage(`Host updated settings: ${labels.join(', ')}`);
                 }
             });
             supabaseRealtimeChannel = ch;
@@ -4107,6 +4223,9 @@
                     p.loadout.telePadsToPlace = (p.loadout.telePadsToPlace || 0) + 2;
                     p.loadout.telePlaced = 0;
                     p.loadout.pendingFirstPadId = null;
+                } else if (g.id === 'landmine') {
+                    p.loadout.landminesToPlace = (p.loadout.landminesToPlace || 0) + 1;
+                    showMessage('Landmine ready — press Q to place (invisible!)');
                 } else if (g.id === 'dash_cell') {
                     p.loadout.gadgetDashUntil = state.frameCount + 30 * JAIL_FRAMES_PER_SEC;
                     showMessage('Dash pack online — a bit snappier for a while');
@@ -4536,17 +4655,18 @@
 
         async function joinRoom() {
             if (state.playMode === 'online') {
+                // MULTIPLAYER mode: must have already joined a code
                 if (!supabase || !state.supabaseUserId) {
-                    showMessage('Sign in for multiplayer.');
+                    showMessage('Sign in first to join multiplayer.');
                     return;
                 }
                 if (!state.onlineSessionCode) {
-                    showMessage('Host or join with a code first.');
+                    showMessage('Paste your friend\'s code and press Join first.');
                     return;
                 }
                 const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
                 if (!sub.ok) {
-                    showMessage(sub.reason === 'timeout' ? 'Live sync failed (timeout). Check network, then try Host/Join again.' : 'Live sync failed. Try /connect in PixelPhone or re-join the code.');
+                    showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
                     document.getElementById('lobby-screen').style.display = 'flex';
                     setInGamePhoneVisible(false);
                     const xb2 = document.getElementById('exit-to-lobby-btn');
@@ -4555,6 +4675,33 @@
                 }
             } else {
                 state.worldSeed = null;
+                // 1 PLAYER mode: auto-host silently if signed in (generate fresh code)
+                if (supabase && state.supabaseUserId && state.playerMode === 1) {
+                    const runCode = refreshRunCode();
+                    const seed = Math.floor(Math.random() * 9007199254740990);
+                    try {
+                        const res = await supabase.from('game_sessions').insert({
+                            code: runCode, host_id: state.supabaseUserId,
+                            world_seed: seed, updated_at: new Date().toISOString()
+                        });
+                        if (!res.error) {
+                            state.onlineSessionCode = runCode;
+                            state.isOnlineHost = true;
+                            state.worldSeed = seed;
+                            state.playMode = 'online'; // treat as online so realtime works
+                            const sub = await subscribeToSessionChannelAsync(runCode);
+                            if (!sub.ok) {
+                                // Realtime failed — play offline but keep code display
+                                state.playMode = 'solo';
+                                state.onlineSessionCode = null;
+                                state.isOnlineHost = false;
+                            }
+                        }
+                    } catch (_) { /* play offline if DB unavailable */ }
+                    // Update the share code display
+                    const codeEl = document.getElementById('solo-share-code');
+                    if (codeEl) codeEl.textContent = runCode;
+                }
             }
             closeLobbyStatsOverlay();
 
@@ -4680,7 +4827,10 @@
                     const p0 = state.players[0];
                     if (p0 && !p0.inVehicle) {
                         ensurePlayerLoadout(p0);
-                        if (p0.loadout.telePadsToPlace > 0) {
+                        if (p0.loadout.landminesToPlace > 0) {
+                            e.preventDefault();
+                            placeLandmine(0, p0.x, p0.y);
+                        } else if (p0.loadout.telePadsToPlace > 0) {
                             e.preventDefault();
                             addTeleporterPad(0, p0.x, p0.y);
                         }
@@ -4707,7 +4857,8 @@
                     const p1 = state.players[1];
                     if (p1 && !p1.inVehicle) {
                         ensurePlayerLoadout(p1);
-                        if (p1.loadout.telePadsToPlace > 0) { e.preventDefault(); addTeleporterPad(1, p1.x, p1.y); }
+                        if (p1.loadout.landminesToPlace > 0) { e.preventDefault(); placeLandmine(1, p1.x, p1.y); }
+                        else if (p1.loadout.telePadsToPlace > 0) { e.preventDefault(); addTeleporterPad(1, p1.x, p1.y); }
                     }
                 }
                 if (k === 'f' && state.players[1] && !state.players[1].menuType) { e.preventDefault(); fireWeapon(1); }
@@ -4734,6 +4885,7 @@
             state.frameCount++;
             processPvpNukeVfx();
             processTeleporterPads();
+            processLandmines();
             updateGpsArrival();
             processBleedAndDowned();
             
@@ -5438,20 +5590,46 @@
             }
         }
 
+        function getOrRefreshRunCode() {
+            // Fresh random code per browser session (clears on tab close)
+            let code = sessionStorage.getItem('pixelCityRunCode') || '';
+            if (!code || code.length < 4) {
+                code = '';
+                for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+                sessionStorage.setItem('pixelCityRunCode', code);
+            }
+            return code;
+        }
+
+        function refreshRunCode() {
+            const code = '';
+            const newCode = (() => { let c=''; for(let i=0;i<6;i++) c+=SESSION_CODE_CHARS[Math.floor(Math.random()*SESSION_CODE_CHARS.length)]; return c; })();
+            sessionStorage.setItem('pixelCityRunCode', newCode);
+            return newCode;
+        }
+
         function updateLobbyHints() {
             if (!hintContainer) return;
             const onlineHint = document.getElementById('online-mode-hint');
             const panel = document.getElementById('online-lobby-panel');
-            if (onlineHint) onlineHint.classList.toggle('hidden', state.playMode !== 'online');
-            if (panel) panel.classList.toggle('hidden', state.playMode !== 'online');
-            // Update server link whenever panel is shown
-            if (state.playMode === 'online') {
-                const code = getOrCreateServerCode();
-                const url = buildJoinInviteUrl(code);
-                const lsd = document.getElementById('lobby-server-link-display');
-                if (lsd) lsd.textContent = url;
-                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>Online: WASD + E (friend sees you live)</p>";
-                else hintContainer.innerHTML = "<p class='text-white'>Online: drag to move, tap to interact</p>";
+            const soloBlock = document.getElementById('solo-share-block');
+            const isOnline = state.playMode === 'online';
+            const isSolo = state.playMode !== 'online' && state.playerMode === 1;
+            if (onlineHint) onlineHint.classList.toggle('hidden', !isOnline);
+            if (panel) panel.classList.toggle('hidden', !isOnline);
+            // Show solo share code block when 1 PLAYER + signed in
+            if (soloBlock) {
+                const showSolo = isSolo && supabase && state.supabaseUserId;
+                soloBlock.classList.toggle('hidden', !showSolo);
+                if (showSolo) {
+                    const code = getOrRefreshRunCode();
+                    const codeEl = document.getElementById('solo-share-code');
+                    if (codeEl) codeEl.textContent = code;
+                }
+            }
+            if (isOnline) {
+                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>Paste friend's code, press Join, then Start game</p>";
+                else hintContainer.innerHTML = "<p class='text-white'>Paste code, Join, Start game</p>";
             } else if (state.playerMode === 2) {
                 if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
@@ -6337,6 +6515,7 @@
             document.getElementById('ingame-menu-btn')?.addEventListener('click', () => {
                 if (menuOverlay) {
                     updateServerLinkUI();
+                    updateSessionSettingsUI();
                     menuOverlay.classList.remove('hidden');
                     deleteConfirmCount = 0;
                     const dm = document.getElementById('menu-delete-msg');
@@ -6362,6 +6541,53 @@
                 saveProgress();
                 if (menuOverlay) menuOverlay.classList.add('hidden');
                 exitToLobby();
+            });
+
+            // Session settings toggles
+            function applySettingsToggleUI(btnId, isOn) {
+                const btn = document.getElementById(btnId);
+                if (!btn) return;
+                btn.setAttribute('aria-checked', isOn ? 'true' : 'false');
+                btn.classList.toggle('bg-emerald-600', isOn);
+                btn.classList.toggle('border-emerald-400', isOn);
+                btn.classList.toggle('bg-slate-700', !isOn);
+                btn.classList.toggle('border-slate-500', !isOn);
+                const dot = btn.querySelector('span');
+                if (dot) dot.style.transform = isOn ? 'translateX(1.5rem)' : 'translateX(0)';
+                if (dot) dot.style.background = isOn ? '#fff' : '#94a3b8';
+            }
+
+            window.updateSessionSettingsUI = function() {
+                const block = document.getElementById('menu-session-settings-block');
+                const hostOnly = document.getElementById('menu-settings-host-only');
+                if (!block) return;
+                // Show settings panel only in online mode
+                const show = state.playMode === 'online' && isInGame();
+                block.classList.toggle('hidden', !show);
+                if (show) {
+                    const isHost = state.isOnlineHost;
+                    if (hostOnly) hostOnly.classList.toggle('hidden', isHost);
+                    const revBtn = document.getElementById('menu-toggle-revive');
+                    const ffBtn = document.getElementById('menu-toggle-ff');
+                    if (revBtn) revBtn.disabled = !isHost;
+                    if (ffBtn) ffBtn.disabled = !isHost;
+                    applySettingsToggleUI('menu-toggle-revive', state.sessionSettings.infiniteRevive);
+                    applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFire);
+                }
+            };
+
+            document.getElementById('menu-toggle-revive')?.addEventListener('click', async () => {
+                if (!state.isOnlineHost) return;
+                state.sessionSettings.infiniteRevive = !state.sessionSettings.infiniteRevive;
+                applySettingsToggleUI('menu-toggle-revive', state.sessionSettings.infiniteRevive);
+                await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
+            });
+
+            document.getElementById('menu-toggle-ff')?.addEventListener('click', async () => {
+                if (!state.isOnlineHost) return;
+                state.sessionSettings.friendlyFire = !state.sessionSettings.friendlyFire;
+                applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFire);
+                await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
             });
 
             document.getElementById('menu-delete-btn')?.addEventListener('click', () => {
@@ -6433,24 +6659,27 @@
             document.getElementById('mode-solo').onclick = () => {
                 state.playMode = 'solo';
                 state.playerMode = 1;
-                document.getElementById('online-invite-block')?.classList.add('hidden');
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
             document.getElementById('mode-duo').onclick = () => {
                 state.playMode = 'solo';
                 state.playerMode = 2;
-                document.getElementById('online-invite-block')?.classList.add('hidden');
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
             document.getElementById('mode-online').onclick = () => {
                 state.playMode = 'online';
                 state.playerMode = 1;
-                if (state.onlineSessionCode && state.isOnlineHost) updateOnlineInviteUI(state.onlineSessionCode);
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
+
+            document.getElementById('solo-copy-code-btn')?.addEventListener('click', async () => {
+                const code = getOrRefreshRunCode();
+                try { await navigator.clipboard.writeText(code); showMessage('Code copied! Friends can use it in MULTIPLAYER.'); }
+                catch { showMessage(`Your code: ${code}`); }
+            });
             applyModeButtonStyles();
             updateLobbyHints();
             
