@@ -1624,7 +1624,10 @@
                     continue;
                 }
                 const wdef = p.loadout.weapon ? getWeaponDef(p.loadout.weapon) : null;
-                if (wEl) wEl.textContent = wdef ? wdef.name : 'No weapon';
+                if (wEl) {
+                    wEl.textContent = wdef ? wdef.name : 'Find a weapon!';
+                    wEl.className = wdef ? 'text-rose-300' : 'text-amber-400';
+                }
                 if (tEl) {
                     if (p.loadout.telePadsToPlace > 0) {
                         tEl.textContent = `Pads: place ${p.loadout.telePadsToPlace} (Q) — set ${p.loadout.telePlaced}/2`;
