@@ -386,9 +386,17 @@
         <p class="text-blue-300 mb-2 text-[10px] md:text-xs font-bold text-center italic px-2">you didn't think Thomas could make this did ya</p>
         <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
         <p id="lobby-wins-display" class="text-yellow-400 font-black mb-2 text-sm">🏆 Wins: 0</p>
+        <!-- Saved progress banner -->
+        <div id="lobby-saved-progress-banner" class="hidden w-full max-w-sm mb-2 bg-emerald-950/70 border border-emerald-600/60 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+            <p class="text-[10px] text-emerald-300 font-bold">💾 Saved progress found!</p>
+            <div class="flex gap-2 shrink-0">
+                <button type="button" id="lobby-load-progress-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-lg interactive">Load</button>
+                <button type="button" id="lobby-discard-progress-btn" class="text-slate-400 hover:text-white text-[10px] font-bold interactive">Ignore</button>
+            </div>
+        </div>
         <div class="w-full max-w-sm mb-4 space-y-2">
-            <button type="button" id="lobby-school-mode-btn" class="w-full bg-amber-700/90 hover:bg-amber-600 border-2 border-amber-500 text-amber-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">School mode: Off</button>
-            <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">Same world — school jobs replace shops. If you get jailed, you type a line 5 times (the game shows the exact words), then a quick math problem. Tap again to turn off.</p>
+            <button type="button" id="lobby-school-mode-btn" class="w-full bg-amber-700/90 hover:bg-amber-600 border-2 border-amber-500 text-amber-100 text-xs font-black uppercase tracking-widest py-2.5 rounded-xl interactive">🏫 School Edition: Off</button>
+            <p id="lobby-school-mode-hint" class="text-[8px] text-amber-200/80 text-center mt-1.5 px-1">School Edition: school jobs replace shops. Jail = type lines + math problem. Fun classroom mode! Tap again to turn off.</p>
         </div>
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
@@ -408,18 +416,32 @@
                     <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
                 </div>
                 <p id="online-mode-hint" class="text-[9px] text-cyan-400/90 font-bold mt-2 hidden leading-snug">Multiplayer (online): same map + live friend dots. Sign in → host or join code → Start game. If you are on a strict network, online play may need IT to allow this site’s online service.</p>
-                <div id="online-lobby-panel" class="hidden mt-2 space-y-2 text-left">
-                    <button type="button" id="online-host-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs interactive">Host — get invite link</button>
-                    <div class="flex gap-2">
-                        <input type="text" id="online-join-code-input" placeholder="Friend code" maxlength="8" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 uppercase interactive">
-                        <button type="button" id="online-join-btn" class="bg-slate-600 hover:bg-slate-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">Join</button>
+                <div id="online-lobby-panel" class="hidden mt-3 text-left space-y-3">
+                    <!-- Your Server (persistent code) -->
+                    <div class="bg-cyan-950/70 border-2 border-cyan-600/60 rounded-xl p-3 space-y-2">
+                        <p class="text-[11px] font-black text-cyan-200 uppercase tracking-widest">🏫 Your Server Link</p>
+                        <p class="text-[9px] text-slate-300 leading-snug">This link is <span class="text-white font-bold">always the same</span> — share it once and friends can rejoin any time!</p>
+                        <p id="lobby-server-link-display" class="text-[10px] text-sky-300 font-mono break-all leading-snug"></p>
+                        <button type="button" id="lobby-start-server-btn" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm py-2.5 rounded-xl interactive">🚀 Start my server</button>
+                        <button type="button" id="lobby-copy-server-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs py-2 rounded-xl interactive">📋 Copy server link</button>
                     </div>
-                    <p id="online-session-msg" class="text-[10px] text-cyan-300/90 min-h-[1rem]"></p>
-                    <div id="online-invite-block" class="hidden space-y-1">
-                        <p class="text-[9px] text-slate-500 uppercase font-bold">Invite link</p>
-                        <a id="online-invite-link" href="#" class="text-[9px] text-sky-400 break-all underline interactive block"></a>
-                        <button type="button" id="online-copy-invite-btn" class="w-full bg-slate-700 text-white text-[10px] font-bold py-2 rounded interactive">Copy invite link</button>
+                    <!-- Join with a code -->
+                    <div class="bg-slate-900/60 border border-slate-600/60 rounded-xl p-3">
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">🔗 Got a different code?</p>
+                        <p class="text-[9px] text-slate-400 mb-2 leading-snug">Paste a code your friend gave you.</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="online-join-code-input" placeholder="Paste code here" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
+                            <button type="button" id="online-join-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0">✅ Join</button>
+                        </div>
                     </div>
+                    <!-- Also host a temp session -->
+                    <button type="button" id="online-host-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-xl font-bold text-xs interactive">➕ Start a new temporary room instead</button>
+                    <div id="online-invite-block" class="hidden bg-emerald-950/60 border border-emerald-600/60 rounded-xl p-3 space-y-2">
+                        <p class="text-[11px] font-black text-emerald-300 uppercase tracking-widest">🎉 Temp room ready!</p>
+                        <a id="online-invite-link" href="#" class="text-[11px] text-sky-300 break-all underline interactive block font-mono leading-snug"></a>
+                        <button type="button" id="online-copy-invite-btn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-black py-2 rounded-xl interactive">📋 Copy temp link</button>
+                    </div>
+                    <p id="online-session-msg" class="text-[11px] font-bold min-h-[1.25rem] text-center px-1 leading-snug"></p>
                 </div>
             </div>
 
@@ -506,8 +528,41 @@
         <h1 class="text-7xl md:text-9xl font-black text-yellow-400 animate-pulse" style="text-shadow: 0 10px 30px rgba(0,0,0,0.8);">JACKPOT!</h1>
     </div>
 
+    <!-- In-game progress/server menu overlay -->
+    <div id="ingame-menu-overlay" class="hidden fixed inset-0 bg-black/80 z-[450] flex items-center justify-center p-4 pointer-events-auto">
+        <div class="bg-slate-900 border-2 border-slate-600 rounded-2xl p-5 w-full max-w-xs text-white shadow-2xl space-y-3">
+            <div class="flex items-center justify-between mb-1">
+                <h2 class="text-lg font-black text-white uppercase tracking-widest">⚙️ Menu</h2>
+                <button type="button" id="ingame-menu-close" class="text-slate-400 hover:text-white text-2xl leading-none interactive">×</button>
+            </div>
+
+            <!-- Save progress -->
+            <button type="button" id="menu-save-btn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-black py-3 rounded-xl interactive text-sm">💾 Save progress</button>
+            <p id="menu-save-msg" class="text-[10px] text-emerald-400 text-center min-h-[1rem] -mt-1"></p>
+
+            <!-- Save & leave -->
+            <button type="button" id="menu-save-leave-btn" class="w-full bg-blue-700 hover:bg-blue-600 text-white font-black py-3 rounded-xl interactive text-sm">🚪 Save &amp; leave to menu</button>
+
+            <!-- Server invite -->
+            <div id="menu-server-block" class="bg-cyan-950/60 border border-cyan-700/50 rounded-xl p-3 space-y-2">
+                <p class="text-[10px] font-black text-cyan-300 uppercase tracking-widest">🏫 Your Server</p>
+                <p class="text-[9px] text-slate-300 leading-snug">Share this link — it stays the same every time!</p>
+                <p id="menu-server-link" class="text-[10px] text-sky-300 font-mono break-all leading-snug"></p>
+                <button type="button" id="menu-server-copy-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-black py-2 rounded-lg interactive">📋 Copy server link</button>
+                <button type="button" id="menu-server-reset-btn" class="w-full text-[9px] text-red-400 hover:text-red-300 interactive">🔄 Reset server link</button>
+            </div>
+
+            <!-- Delete progress (triple confirm) -->
+            <div class="border-t border-slate-700 pt-3">
+                <button type="button" id="menu-delete-btn" class="w-full bg-red-900/70 hover:bg-red-800 text-red-300 font-black py-2.5 rounded-xl interactive text-xs border border-red-700/60">🗑️ Delete saved progress</button>
+                <p id="menu-delete-msg" class="text-[10px] text-red-400 text-center mt-1 min-h-[1rem]"></p>
+            </div>
+        </div>
+    </div>
+
     <div id="ui-layer">
-        <button type="button" id="exit-to-lobby-btn" style="display:none" class="fixed top-4 right-28 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg shadow-lg interactive max-[520px]:right-4 max-[520px]:top-14" title="Leave the run and return to menu">Exit to menu</button>
+        <button type="button" id="exit-to-lobby-btn" style="display:none;right:3rem" class="fixed top-4 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg shadow-lg interactive" title="Leave the run and return to menu">Exit to menu</button>
+        <button type="button" id="ingame-menu-btn" style="display:none" class="fixed top-4 right-4 z-[340] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-lg leading-none w-9 h-9 rounded-lg shadow-lg interactive flex items-center justify-center" title="Menu">⚙️</button>
         <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto cursor-pointer" title="Click to copy invite link">
             <div class="text-[8px] text-cyan-400 uppercase font-bold tracking-widest">Multiplayer · tap to copy</div>
             <div id="session-code-display" class="text-lg font-black text-white tracking-[0.2em]"></div>
@@ -1062,6 +1117,8 @@
         const LS_FRIENDS = 'pixelCityFriends';
         const LS_LAST_USER = 'pixelCityLastUser';
         const LS_SESSION = 'pixelCitySession';
+        const LS_SERVER_CODE = 'pixelCityServerCode';
+        const LS_SAVED_PROGRESS = 'pixelCitySavedProgress';
         /** Dev-only: optional URL/key override (see README; not shown in the public UI). */
         const LS_SUPABASE_URL_OVERRIDE = 'pixelCitySupabaseUrl';
         const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
@@ -3291,27 +3348,42 @@
             });
         }
 
-        async function hostOnlineSession() {
+        async function hostServerSession() {
+            const code = getOrCreateServerCode();
+            await hostOnlineSession(code);
+        }
+
+        async function hostOnlineSession(fixedCode) {
             const el = document.getElementById('online-session-msg');
             if (!supabase || !state.supabaseUserId) {
-                if (el) el.textContent = 'Sign in to host an online game.';
+                setSessionMsg('👤 Sign in first to create a room!', false);
                 return;
             }
-            if (el) el.textContent = 'Creating session…';
+            setSessionMsg('Creating room…', null);
             if (state.isOnlineHost && state.onlineSessionCode) {
                 teardownOnlineRealtime();
             }
             const seed = Math.floor(Math.random() * 9007199254740990);
-            let code = '';
-            for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
-            const { error } = await supabase.from('game_sessions').upsert({
-                code,
-                host_id: state.supabaseUserId,
-                world_seed: seed,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'code' });
-            if (error) {
-                if (el) el.textContent = error.message;
+            let code = fixedCode || '';
+            let insertError = null;
+            const maxAttempts = fixedCode ? 1 : 5;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                if (!code) {
+                    code = '';
+                    for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+                }
+                // For persistent server code: upsert to update seed if already exists
+                const op = fixedCode
+                    ? supabase.from('game_sessions').upsert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() }, { onConflict: 'code' })
+                    : supabase.from('game_sessions').insert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() });
+                const res = await op;
+                insertError = res.error;
+                if (!insertError) break;
+                if (insertError.code !== '23505') break;
+                code = ''; // retry with new random code
+            }
+            if (insertError) {
+                setSessionMsg(insertError.message, false);
                 return;
             }
             state.onlineSessionCode = code;
@@ -3333,35 +3405,17 @@
         }
 
         async function joinOnlineSession(rawCode) {
-            const el = document.getElementById('online-session-msg');
             const code = (rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-            if (!code) {
-                if (el) el.textContent = 'Enter a code.';
-                return;
-            }
-            if (!supabase) {
-                if (el) el.textContent = 'Online session isn’t available. Use Play offline, or try again when online play works.';
-                return;
-            }
-            if (!state.supabaseUserId) {
-                if (el) el.textContent = 'Sign in first, then join a friend’s code.';
-                return;
-            }
+            if (!code) { setSessionMsg('👆 Paste your friend’s code first!', false); return; }
+            if (!supabase) { setSessionMsg('😕 Online play isn’t available right now. Try Play offline!', false); return; }
+            if (!state.supabaseUserId) { setSessionMsg('👤 Sign in first, then paste your friend’s code!', false); return; }
+            setSessionMsg('Looking for room…', null);
             const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at').eq('code', code).maybeSingle();
-            if (error) {
-                if (el) el.textContent = formatSupabaseNetworkError(error);
-                return;
-            }
-            if (!data || data.host_id == null) {
-                if (el) el.textContent = 'Invalid or expired code.';
-                return;
-            }
+            if (error) { setSessionMsg(formatSupabaseNetworkError(error), false); return; }
+            if (!data || data.host_id == null) { setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return; }
             if (data.updated_at) {
                 const ageMs = Date.now() - new Date(data.updated_at).getTime();
-                if (ageMs > 20 * 60 * 1000) {
-                    if (el) el.textContent = 'That session has expired. Ask your friend to host a new one.';
-                    return;
-                }
+                if (ageMs > 4 * 60 * 60 * 1000) { setSessionMsg('😕 That room has been inactive for a while. Ask your friend to start it again!', false); return; }
             }
             state.onlineSessionCode = code;
             state.isOnlineHost = data.host_id === state.supabaseUserId;
@@ -3369,14 +3423,12 @@
             const sub = await subscribeToSessionChannelAsync(code);
             if (!sub.ok) {
                 teardownOnlineRealtime();
-                if (el) {
-                    el.textContent = sub.reason === 'timeout'
-                        ? 'Joined room lookup OK, but live sync timed out. Check network / Realtime and try the code again.'
-                        : `Could not connect live sync${sub.reason ? `: ${sub.reason}` : ''}. Try again.`;
-                }
+                setSessionMsg(sub.reason === 'timeout'
+                    ? '📶 Found the room but couldn’t connect. Check your internet and try again!'
+                    : `📶 Connection problem${sub.reason ? ': ' + sub.reason : ''}. Check your internet and try again!`, false);
                 return;
             }
-            if (el) el.textContent = `Joined ${code} — same map as host. Press Start game.`;
+            setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
             if (!state.isOnlineHost) {
                 const block = document.getElementById('online-invite-block');
                 if (block) block.classList.add('hidden');
@@ -4070,6 +4122,60 @@
             } catch { return null; }
         }
 
+        // ---------- Progress Save / Load / Delete ----------
+        function saveProgress() {
+            const data = {
+                money: state.money,
+                winCount: state.winCount,
+                skin: getSavedPlayerSkin(),
+                activeSecrets: state.activeSecrets.slice(),
+                schoolGameMode: state.schoolGameMode,
+                savedAt: Date.now()
+            };
+            try { localStorage.setItem(LS_SAVED_PROGRESS, JSON.stringify(data)); } catch (_) {}
+        }
+
+        function loadSavedProgress() {
+            try {
+                const raw = localStorage.getItem(LS_SAVED_PROGRESS);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function deleteSavedProgress() {
+            try { localStorage.removeItem(LS_SAVED_PROGRESS); } catch (_) {}
+        }
+
+        function applySavedProgress() {
+            const p = loadSavedProgress();
+            if (!p) return false;
+            if (typeof p.money === 'number') { state.money = p.money; updateMoneyUI(); }
+            if (typeof p.winCount === 'number') {
+                state.winCount = p.winCount;
+                localStorage.setItem('pixelCityWins', state.winCount);
+                if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+            }
+            if (Array.isArray(p.activeSecrets)) state.activeSecrets = p.activeSecrets;
+            if (p.schoolGameMode != null) setSchoolGameMode(!!p.schoolGameMode);
+            return true;
+        }
+
+        // ---------- Persistent Server Code ----------
+        function getOrCreateServerCode() {
+            let code = '';
+            try { code = localStorage.getItem(LS_SERVER_CODE) || ''; } catch (_) {}
+            if (!code || code.length < 4) {
+                code = '';
+                for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+                try { localStorage.setItem(LS_SERVER_CODE, code); } catch (_) {}
+            }
+            return code;
+        }
+
+        function deleteServerCode() {
+            try { localStorage.removeItem(LS_SERVER_CODE); } catch (_) {}
+        }
+
         function stopPresenceLoop() {
             if (presenceInterval) {
                 clearInterval(presenceInterval);
@@ -4141,62 +4247,93 @@
             if (supabase) ensureGlobalServerNoticeSubscribed();
         }
 
+        let _touchSetupDone = false;
+        // Visual joystick ring shown while dragging on phone
+        let _joystickEl = null;
+        function getJoystickEl() {
+            if (!_joystickEl) {
+                _joystickEl = document.createElement('div');
+                _joystickEl.style.cssText = 'position:fixed;pointer-events:none;z-index:9999;width:80px;height:80px;border-radius:50%;border:3px solid rgba(56,189,248,0.6);background:rgba(56,189,248,0.08);transform:translate(-50%,-50%);display:none;transition:opacity 0.15s';
+                const dot = document.createElement('div');
+                dot.style.cssText = 'position:absolute;top:50%;left:50%;width:20px;height:20px;border-radius:50%;background:rgba(56,189,248,0.7);transform:translate(-50%,-50%)';
+                dot.id = 'joystick-dot';
+                _joystickEl.appendChild(dot);
+                document.body.appendChild(_joystickEl);
+            }
+            return _joystickEl;
+        }
+
         function setupFullTouch() {
-            window.addEventListener('touchstart', (e) => {
+            if (_touchSetupDone) return; // prevent duplicate listeners
+            _touchSetupDone = true;
+
+            const onStart = (e) => {
                 if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 if (state.gamePaused) return;
-                if (e.target.closest('.interactive')) return; 
-
+                if (e.target.closest('.interactive')) return;
+                e.preventDefault();
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
                     const pIdx = (state.playerMode === 2 && state.playMode !== 'online' && touch.clientX > window.innerWidth / 2) ? 1 : 0;
-                    
                     activeTouches[touch.identifier] = {
-                        pIdx: pIdx,
-                        startX: touch.clientX,
-                        startY: touch.clientY,
-                        time: Date.now(),
-                        moved: false
+                        pIdx, startX: touch.clientX, startY: touch.clientY,
+                        time: Date.now(), moved: false
                     };
+                    // Show joystick ring for player 0 only
+                    if (pIdx === 0) {
+                        const j = getJoystickEl();
+                        j.style.left = touch.clientX + 'px';
+                        j.style.top = touch.clientY + 'px';
+                        j.style.display = 'block';
+                        j.style.opacity = '1';
+                    }
                 }
-            }, {passive: false});
+            };
 
-            window.addEventListener('touchmove', (e) => {
+            const onMove = (e) => {
                 if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 if (state.gamePaused) return;
-                
+                e.preventDefault();
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
                     const data = activeTouches[touch.identifier];
                     if (!data) continue;
-                    
                     const dx = touch.clientX - data.startX;
                     const dy = touch.clientY - data.startY;
-                    
-                    if (Math.abs(dx) > 15 || Math.abs(dy) > 15) data.moved = true;
-
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) data.moved = true;
                     const keys = data.pIdx === 0 ? ['w','s','a','d'] : ['arrowup','arrowdown','arrowleft','arrowright'];
-                    state.keys[keys[0]] = dy < -25;
-                    state.keys[keys[1]] = dy > 25;
-                    state.keys[keys[2]] = dx < -25;
-                    state.keys[keys[3]] = dx > 25;
+                    state.keys[keys[0]] = dy < -20;
+                    state.keys[keys[1]] = dy > 20;
+                    state.keys[keys[2]] = dx < -20;
+                    state.keys[keys[3]] = dx > 20;
+                    // Move joystick dot
+                    if (data.pIdx === 0) {
+                        const j = getJoystickEl();
+                        const dot = j.querySelector('#joystick-dot');
+                        const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+                        const cx = clamp(dx, 28), cy = clamp(dy, 28);
+                        if (dot) dot.style.transform = `translate(calc(-50% + ${cx}px), calc(-50% + ${cy}px))`;
+                    }
                 }
-            }, {passive: false});
+            };
 
-            window.addEventListener('touchend', (e) => {
+            const onEnd = (e) => {
                 if (state.deviceMode !== 'phone' || isSignInScreenVisible() || !isInGame()) return;
                 if (state.gamePaused) return;
-                
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
                     const data = activeTouches[touch.identifier];
                     if (!data) continue;
-
                     const keys = data.pIdx === 0 ? ['w','s','a','d'] : ['arrowup','arrowdown','arrowleft','arrowright'];
                     keys.forEach(k => state.keys[k] = false);
-
-                    // Detect a "Tap"
-                    if (!data.moved && Date.now() - data.time < 300) {
+                    if (data.pIdx === 0) {
+                        const j = getJoystickEl();
+                        j.style.opacity = '0';
+                        setTimeout(() => { if (j.style.opacity === '0') j.style.display = 'none'; }, 150);
+                        const dot = j.querySelector('#joystick-dot');
+                        if (dot) dot.style.transform = 'translate(-50%,-50%)';
+                    }
+                    if (!data.moved && Date.now() - data.time < 350) {
                         const p = state.players[data.pIdx];
                         if (p && !p.dead && !p.isRobbing && !state.isJailed) {
                             if (p.activeJob) window.handleWork(data.pIdx);
@@ -4205,7 +4342,11 @@
                     }
                     delete activeTouches[touch.identifier];
                 }
-            });
+            };
+
+            window.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
         }
 
         async function joinRoom() {
@@ -5114,7 +5255,12 @@
             const panel = document.getElementById('online-lobby-panel');
             if (onlineHint) onlineHint.classList.toggle('hidden', state.playMode !== 'online');
             if (panel) panel.classList.toggle('hidden', state.playMode !== 'online');
+            // Update server link whenever panel is shown
             if (state.playMode === 'online') {
+                const code = getOrCreateServerCode();
+                const url = buildJoinInviteUrl(code);
+                const lsd = document.getElementById('lobby-server-link-display');
+                if (lsd) lsd.textContent = url;
                 if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>Online: WASD + E (friend sees you live)</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Online: drag to move, tap to interact</p>";
             } else if (state.playerMode === 2) {
@@ -5135,6 +5281,8 @@
         function setInGamePhoneVisible(show) {
             const b = document.getElementById('in-game-phone-btn');
             if (b) b.style.display = show ? 'flex' : 'none';
+            const mb = document.getElementById('ingame-menu-btn');
+            if (mb) mb.style.display = show ? 'flex' : 'none';
             updateOwnerDashboardFabVisibility();
         }
 
@@ -5934,12 +6082,119 @@
                 const code = state.onlineSessionCode;
                 if (!code) return;
                 const text = buildJoinInviteUrl(code);
-                try {
-                    await navigator.clipboard.writeText(text);
-                    showMessage('Invite link copied!');
-                } catch {
-                    showMessage('Copy failed — tap the link to share');
+                try { await navigator.clipboard.writeText(text); showMessage('Invite link copied!'); }
+                catch { showMessage('Copy failed — tap the link to share'); }
+            });
+
+            // Persistent server code — shown in lobby MULTIPLAYER panel and in-game menu
+            const updateServerLinkUI = () => {
+                const code = getOrCreateServerCode();
+                const url = buildJoinInviteUrl(code);
+                const lsd = document.getElementById('lobby-server-link-display');
+                const msl = document.getElementById('menu-server-link');
+                if (lsd) lsd.textContent = url;
+                if (msl) msl.textContent = url;
+            };
+            updateServerLinkUI();
+
+            document.getElementById('lobby-start-server-btn')?.addEventListener('click', () => {
+                if (!supabase || !state.supabaseUserId) {
+                    setSessionMsg('👤 Sign in first to start your server!', false);
+                    return;
                 }
+                hostServerSession();
+            });
+
+            document.getElementById('lobby-copy-server-btn')?.addEventListener('click', async () => {
+                const code = getOrCreateServerCode();
+                const url = buildJoinInviteUrl(code);
+                try { await navigator.clipboard.writeText(url); showMessage('Server link copied!'); }
+                catch { showMessage(url); }
+            });
+
+            document.getElementById('menu-server-copy-btn')?.addEventListener('click', async () => {
+                const code = getOrCreateServerCode();
+                const url = buildJoinInviteUrl(code);
+                try { await navigator.clipboard.writeText(url); showMessage('Server link copied!'); }
+                catch { showMessage(url); }
+            });
+
+            document.getElementById('menu-server-reset-btn')?.addEventListener('click', () => {
+                if (!confirm('Reset your server link? The old link will stop working.')) return;
+                deleteServerCode();
+                updateServerLinkUI();
+                showMessage('Server link reset!');
+            });
+
+            // Saved progress banner in lobby
+            const spBanner = document.getElementById('lobby-saved-progress-banner');
+            if (spBanner && loadSavedProgress()) spBanner.classList.remove('hidden');
+            document.getElementById('lobby-load-progress-btn')?.addEventListener('click', () => {
+                applySavedProgress();
+                if (spBanner) spBanner.classList.add('hidden');
+                showMessage('Progress loaded!');
+            });
+            document.getElementById('lobby-discard-progress-btn')?.addEventListener('click', () => {
+                if (spBanner) spBanner.classList.add('hidden');
+            });
+
+            // In-game menu button
+            let deleteConfirmCount = 0;
+            let deleteConfirmTimer = null;
+            const menuOverlay = document.getElementById('ingame-menu-overlay');
+            document.getElementById('ingame-menu-btn')?.addEventListener('click', () => {
+                if (menuOverlay) {
+                    updateServerLinkUI();
+                    menuOverlay.classList.remove('hidden');
+                    deleteConfirmCount = 0;
+                    const dm = document.getElementById('menu-delete-msg');
+                    const db = document.getElementById('menu-delete-btn');
+                    if (dm) dm.textContent = '';
+                    if (db) db.textContent = '🗑️ Delete saved progress';
+                }
+            });
+            document.getElementById('ingame-menu-close')?.addEventListener('click', () => {
+                if (menuOverlay) menuOverlay.classList.add('hidden');
+            });
+            menuOverlay?.addEventListener('click', (e) => {
+                if (e.target === menuOverlay) menuOverlay.classList.add('hidden');
+            });
+
+            document.getElementById('menu-save-btn')?.addEventListener('click', () => {
+                saveProgress();
+                const msg = document.getElementById('menu-save-msg');
+                if (msg) { msg.textContent = '✅ Saved!'; setTimeout(() => { msg.textContent = ''; }, 2000); }
+            });
+
+            document.getElementById('menu-save-leave-btn')?.addEventListener('click', () => {
+                saveProgress();
+                if (menuOverlay) menuOverlay.classList.add('hidden');
+                exitToLobby();
+            });
+
+            document.getElementById('menu-delete-btn')?.addEventListener('click', () => {
+                deleteConfirmCount++;
+                const dm = document.getElementById('menu-delete-msg');
+                const db = document.getElementById('menu-delete-btn');
+                if (deleteConfirmCount === 1) {
+                    if (dm) dm.textContent = '⚠️ Are you sure? Press again to confirm.';
+                    if (db) db.textContent = '🗑️ Yes, delete (press again)';
+                } else if (deleteConfirmCount === 2) {
+                    if (dm) dm.textContent = '⚠️ LAST WARNING — press once more to delete!';
+                    if (db) db.textContent = '🗑️ REALLY delete? (final press)';
+                } else {
+                    deleteSavedProgress();
+                    deleteConfirmCount = 0;
+                    if (dm) dm.textContent = '🗑️ Progress deleted.';
+                    if (db) db.textContent = '🗑️ Delete saved progress';
+                    if (spBanner) spBanner.classList.add('hidden');
+                }
+                clearTimeout(deleteConfirmTimer);
+                deleteConfirmTimer = setTimeout(() => {
+                    deleteConfirmCount = 0;
+                    if (db) db.textContent = '🗑️ Delete saved progress';
+                    if (dm) dm.textContent = '';
+                }, 5000);
             });
 
             document.getElementById('session-code-badge')?.addEventListener('click', async () => {
