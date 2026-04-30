@@ -446,14 +446,15 @@
             </div>
 
             <div class="pt-2 border-t border-slate-700 text-left">
-                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest text-center">Friends</h2>
-                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in to sync friends. Offline play keeps a local list only.</p>
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="friend-add-input" placeholder="Friend's username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive">
-                    <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">ADD</button>
+                <h2 class="text-[10px] font-bold mb-1 text-slate-400 uppercase tracking-widest text-center">👫 Friends</h2>
+                <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Type a friend's <span class="text-white font-bold">username</span> to add them. When they're playing you can join them with one tap!</p>
+                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in to sync friends across devices.</p>
+                <div class="flex gap-2 mb-1">
+                    <input type="text" id="friend-add-input" placeholder="Their username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive" autocomplete="off" autocapitalize="none">
+                    <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">➕ Add</button>
                 </div>
                 <p id="friend-add-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem]"></p>
-                <ul id="friends-list-ul" class="max-h-36 overflow-y-auto space-y-1 text-xs"></ul>
+                <ul id="friends-list-ul" class="max-h-48 overflow-y-auto space-y-1.5 text-xs"></ul>
             </div>
 
             <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white w-full py-3 rounded-xl font-bold interactive uppercase tracking-widest mt-2 ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">Start game</button>
@@ -2844,41 +2845,98 @@
             return [...new Set([...cloud, ...local])];
         }
 
+        const friendSessionCache = {}; // username -> { code, checkedAt }
+        const FRIEND_SESSION_CACHE_MS = 20000; // re-check every 20s
+
+        async function getFriendSessionCode(username) {
+            const cached = friendSessionCache[username];
+            if (cached && Date.now() - cached.checkedAt < FRIEND_SESSION_CACHE_MS) return cached.code;
+            if (!supabase) return null;
+            try {
+                const { data } = await supabase.rpc('get_friend_session', { p_username: username });
+                const code = (data && data.ok && data.code) ? data.code : null;
+                friendSessionCache[username] = { code, checkedAt: Date.now() };
+                return code;
+            } catch { return null; }
+        }
+
         async function updateFriendsListUIAsync() {
             const ul = document.getElementById('friends-list-ul');
             if (!ul) return;
             ul.innerHTML = '';
             const friends = await getMergedFriendnames();
             if (friends.length === 0) {
-                ul.innerHTML = '<li class="text-slate-500 text-center py-2">No friends yet</li>';
+                ul.innerHTML = '<li class="text-slate-500 text-center py-2 text-[10px]">No friends yet — add one above!</li>';
                 return;
             }
             await refreshFriendPresence();
+
+            // Fetch session codes for online friends in parallel
+            const sessionCodes = {};
+            if (supabase && state.supabaseUserId) {
+                await Promise.all(friends.map(async name => {
+                    if (friendOnlineStatus[name]) {
+                        sessionCodes[name] = await getFriendSessionCode(name);
+                    }
+                }));
+            }
+
             friends.forEach(name => {
                 const li = document.createElement('li');
-                li.className = 'flex items-center justify-between gap-2 bg-slate-900/80 px-2 py-1.5 rounded border border-slate-700';
                 const online = friendOnlineStatus[name];
-                const dot = online ? '🟢' : '⚪';
-                li.innerHTML = `<span class="text-slate-200">${dot} ${escapeHtml(name)}</span><div class="flex gap-1 shrink-0"></div>`;
-                const wrap = li.querySelector('div');
-                if (state.playMode === 'online' && supabase && state.supabaseUserId) {
+                const inGame = !!(online && sessionCodes[name]);
+                const sessionCode = sessionCodes[name];
+
+                if (inGame) {
+                    li.className = 'flex items-center justify-between gap-2 bg-emerald-950/60 px-2 py-2 rounded-lg border border-emerald-600/60';
+                } else if (online) {
+                    li.className = 'flex items-center justify-between gap-2 bg-slate-900/80 px-2 py-1.5 rounded-lg border border-slate-600';
+                } else {
+                    li.className = 'flex items-center justify-between gap-2 bg-slate-900/40 px-2 py-1.5 rounded-lg border border-slate-800';
+                }
+
+                const statusDot = inGame ? '🎮' : (online ? '🟢' : '⚪');
+                const statusLabel = inGame ? '<span class="text-[8px] text-emerald-400 font-bold block">In game!</span>' : '';
+                li.innerHTML = `<div class="min-w-0"><span class="text-slate-200 font-bold">${statusDot} ${escapeHtml(name)}</span>${statusLabel}</div><div class="flex gap-1 shrink-0 items-center"></div>`;
+                const wrap = li.querySelector('div:last-child');
+
+                if (inGame && supabase && state.supabaseUserId) {
+                    // One-click join
                     const j = document.createElement('button');
                     j.type = 'button';
-                    j.className = 'text-[10px] bg-cyan-800 hover:bg-cyan-700 px-2 py-0.5 rounded font-bold interactive';
-                    j.textContent = 'Join';
+                    j.className = 'text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg font-black interactive';
+                    j.textContent = '▶ Join';
+                    j.onclick = () => {
+                        state.playMode = 'online';
+                        state.playerMode = 1;
+                        document.getElementById('mode-online')?.click();
+                        const inp = document.getElementById('online-join-code-input');
+                        if (inp) inp.value = sessionCode;
+                        joinOnlineSession(sessionCode);
+                    };
+                    wrap.appendChild(j);
+                } else if (online && supabase && state.supabaseUserId) {
+                    // Online but no active session
+                    const j = document.createElement('button');
+                    j.type = 'button';
+                    j.className = 'text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded font-bold interactive';
+                    j.textContent = 'Invite';
                     j.onclick = () => startOnlineWithFriend(name);
                     wrap.appendChild(j);
                 }
+
                 const rm = document.createElement('button');
                 rm.type = 'button';
-                rm.className = 'text-[10px] text-red-400 hover:text-red-300 interactive';
+                rm.className = 'text-[11px] text-slate-500 hover:text-red-400 interactive px-1';
                 rm.textContent = '✕';
+                rm.title = 'Remove friend';
                 rm.onclick = async () => {
                     saveLocalFriends(loadLocalFriends().filter(f => f !== name));
                     if (supabase && state.supabaseUserId) {
                         await supabase.rpc('remove_friend', { p_user_id: state.supabaseUserId, p_friend_username: name });
                     }
                     delete friendOnlineStatus[name];
+                    delete friendSessionCache[name];
                     updateFriendsListUIAsync();
                 };
                 wrap.appendChild(rm);
@@ -2919,29 +2977,33 @@
             const un = normalizeUsername(raw);
             const msg = document.getElementById('friend-add-msg');
             if (!un || un.length < 2) {
-                if (msg) msg.textContent = 'Enter a valid username.';
+                if (msg) msg.textContent = '👆 Type their username (just the name, no password needed!)';
                 return;
             }
             if (state.profileUsername && un === state.profileUsername) {
-                if (msg) msg.textContent = "You can't add yourself.";
+                if (msg) msg.textContent = "😄 That's you! Add someone else's username.";
                 return;
             }
             if (supabase && state.supabaseUserId) {
+                if (msg) msg.textContent = 'Looking up player…';
                 const { data, error } = await supabase.rpc('add_friend_by_username', { p_user_id: state.supabaseUserId, p_target_username: un });
                 if (error) {
                     if (msg) msg.textContent = error.message || 'Could not add friend.';
                     return;
                 }
                 if (data && !data.ok) {
-                    if (msg) msg.textContent = data.error || 'Could not add friend.';
+                    const errText = data.error || 'Could not add friend.';
+                    if (msg) msg.textContent = errText === 'User not found'
+                        ? `🔍 No player called "${un}" — check the spelling!`
+                        : errText;
                     return;
                 }
-                if (msg) msg.textContent = 'Friend added.';
+                if (msg) msg.textContent = `✅ ${un} added! You'll see a 🎮 Join button when they're in a game.`;
             } else {
                 const list = loadLocalFriends();
                 if (!list.includes(un)) list.push(un);
                 saveLocalFriends(list);
-                if (msg) msg.textContent = 'Saved locally (sign in to sync).';
+                if (msg) msg.textContent = `✅ Saved! Sign in to see when ${un} is online.`;
             }
             document.getElementById('friend-add-input').value = '';
             updateFriendsListUIAsync();
@@ -6106,6 +6168,9 @@
                 const v = document.getElementById('friend-add-input');
                 addFriendByUsername(v ? v.value : '');
             };
+            document.getElementById('friend-add-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); document.getElementById('friend-add-btn').click(); }
+            });
 
             document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
             document.getElementById('online-join-btn').onclick = async () => {
