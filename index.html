@@ -1245,6 +1245,61 @@
             { id: 'nukette', name: 'Micro nuke (PvP)', price: 50000, kind: 'nuke' }
         ];
 
+        /** Verbose console + ring buffer for support. Enable: ?debug=1 or localStorage pixelCityDebugVerbose=1 */
+        const LS_DEBUG_VERBOSE = 'pixelCityDebugVerbose';
+        const DEBUG_RING_MAX = 100;
+        const debugRing = [];
+        let debugVerbose = false;
+
+        function initPixelCityDebug() {
+            try {
+                const p = new URLSearchParams(window.location.search);
+                const v = (p.get('debug') || '').toLowerCase();
+                if (v === '1' || v === 'true' || v === 'yes') localStorage.setItem(LS_DEBUG_VERBOSE, '1');
+                if (v === '0' || v === 'false' || v === 'off') localStorage.removeItem(LS_DEBUG_VERBOSE);
+            } catch (_) {}
+            try {
+                debugVerbose = localStorage.getItem(LS_DEBUG_VERBOSE) === '1';
+            } catch (_) {
+                debugVerbose = false;
+            }
+        }
+        initPixelCityDebug();
+
+        function pcDebugSanitizeUrl(url) {
+            try {
+                const u = new URL(String(url || '').trim(), window.location.origin);
+                return u.hostname || '(bad-url)';
+            } catch (_) {
+                return '(invalid-url)';
+            }
+        }
+
+        /**
+         * @param {'error'|'warn'|'info'|'debug'} level
+         * @param {string} tag
+         * @param {Record<string, unknown>|string|null} [detail]
+         */
+        function pcDebug(level, tag, detail) {
+            const ts = new Date().toISOString();
+            const row = { ts, level, tag, detail: detail == null ? null : detail };
+            debugRing.push(row);
+            if (debugRing.length > DEBUG_RING_MAX) debugRing.splice(0, debugRing.length - DEBUG_RING_MAX);
+
+            const alwaysConsole = level === 'error' || level === 'warn';
+            const verboseOk = debugVerbose || alwaysConsole;
+            if (!verboseOk) return;
+
+            const prefix = `[PixelCity ${level.toUpperCase()}] ${tag}`;
+            if (detail != null && typeof detail === 'object') {
+                console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](prefix, detail);
+            } else if (detail != null) {
+                console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](`${prefix}: ${detail}`);
+            } else {
+                console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](prefix);
+            }
+        }
+
         /** One space between words, trim, compare to canonical school jail line */
         function normalizeJailLineInput(s) {
             return String(s || '')
@@ -2639,6 +2694,55 @@
             return { url, key, ok: !!(url && key) };
         }
 
+        function pcDebugSnapshot() {
+            const cfg = getSupabaseConfig();
+            return {
+                ts: new Date().toISOString(),
+                href: typeof location !== 'undefined' ? location.href.split('#')[0] : '',
+                ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+                debugVerbose,
+                supabaseConfigured: !!(cfg && cfg.ok),
+                supabaseHost: cfg && cfg.ok ? pcDebugSanitizeUrl(cfg.url) : null,
+                signedIn: !!(state && state.supabaseUserId),
+                userId: state && state.supabaseUserId ? state.supabaseUserId : null,
+                username: state && (state.profileUsername || state.playerName) ? String(state.profileUsername || state.playerName) : null,
+                playMode: state && state.playMode,
+                isOnlineHost: !!(state && state.isOnlineHost),
+                isSoloAutoHost: !!(state && state.isSoloAutoHost),
+                sessionCode: state && state.onlineSessionCode ? state.onlineSessionCode : null,
+                lobbyRunCode: (() => {
+                    try { return sessionStorage.getItem('pixelCityRunCode'); } catch (_) { return null; }
+                })(),
+                realtimeReady: typeof onlineRealtimeReady !== 'undefined' ? !!onlineRealtimeReady : false,
+                realtimeSubscribedCode: state && state.onlineRealtimeSubscribedCode != null ? state.onlineRealtimeSubscribedCode : null,
+                lobbyHostUpsertSuppressed: typeof lobbyHostUpsertSuppressed !== 'undefined' ? !!lobbyHostUpsertSuppressed : false
+            };
+        }
+
+        window.copyPixelCityDebugInfo = async function copyPixelCityDebugInfo() {
+            const bundle = {
+                snapshot: pcDebugSnapshot(),
+                recentLogs: debugRing.slice(-40)
+            };
+            const text = JSON.stringify(bundle, null, 2);
+            try {
+                await navigator.clipboard.writeText(text);
+                pcDebug('info', 'debug_bundle_copied', { chars: text.length });
+                return { ok: true, text };
+            } catch (e) {
+                pcDebug('warn', 'debug_bundle_clipboard_failed', { message: String(e && e.message) });
+                console.log('--- PixelCity debug bundle (copy manually) ---\n', text);
+                return { ok: false, text };
+            }
+        };
+
+        window.pixelCityEnableDebugLogs = function () {
+            try { localStorage.setItem(LS_DEBUG_VERBOSE, '1'); } catch (_) {}
+            debugVerbose = true;
+            pcDebug('info', 'verbose_enabled_runtime', null);
+            console.info('[PixelCity] Verbose logging ON for this tab. Reload or use ?debug=1 to persist.');
+        };
+
         function serverNotConfiguredUserMessage() {
             return 'Online play isn’t available in this build. Use Play offline, or try again later on another device or network.';
         }
@@ -3238,6 +3342,9 @@
 
         function teardownOnlineRealtime(opts) {
             const o = opts || {};
+            const hadCode = state.onlineSessionCode;
+            const skipDel = !!o.skipDelete;
+            pcDebug('debug', 'realtime_teardown_start', { skipDelete: skipDel, hadCode: hadCode || null, wasHost: !!state.isOnlineHost });
             if (onlineRealtimeReady && supabaseRealtimeChannel && state.supabaseUserId) {
                 try {
                     supabaseRealtimeChannel.send({ type: 'broadcast', event: 'leave', payload: { uid: state.supabaseUserId } });
@@ -3261,6 +3368,7 @@
             if (badge) badge.classList.add('hidden');
             const invite = document.getElementById('online-invite-block');
             if (invite) invite.classList.add('hidden');
+            pcDebug('debug', 'realtime_teardown_done', null);
         }
 
         function disconnectRealtimeOnly() {
@@ -3431,6 +3539,7 @@
             }
             disconnectRealtimeOnly();
             const topic = `pixel-city-${code}`;
+            pcDebug('debug', 'realtime_subscribe_start', { topic, skipIfSame, uid: state.supabaseUserId || null });
             const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
             ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
                 if (!payload || payload.uid === state.supabaseUserId) return;
@@ -3589,9 +3698,11 @@
                     if (ok) {
                         onlineRealtimeReady = true;
                         state.onlineRealtimeSubscribedCode = code;
+                        pcDebug('info', 'realtime_subscribed', { topic });
                     } else {
                         onlineRealtimeReady = false;
                         state.onlineRealtimeSubscribedCode = null;
+                        pcDebug('error', 'realtime_subscribe_failed', { topic, reason: reason || 'unknown' });
                         if (supabaseRealtimeChannel === ch && supabase) {
                             supabase.removeChannel(ch);
                             supabaseRealtimeChannel = null;
@@ -3602,6 +3713,7 @@
                 let wasEverSubscribed = false;
                 const t = setTimeout(() => finish(false, 'timeout'), ONLINE_REALTIME_SUB_TIMEOUT_MS);
                 ch.subscribe((status, err) => {
+                    pcDebug(debugVerbose ? 'debug' : 'info', 'realtime_channel_status', { topic, status, err: err ? String(err) : null });
                     if (status === 'SUBSCRIBED') {
                         clearTimeout(t);
                         wasEverSubscribed = true;
@@ -3702,10 +3814,22 @@
             const fail = (errMsg) => ({ ok: false, errMsg: errMsg || null });
             const ok = () => ({ ok: true, errMsg: null });
 
-            if (!supabase || !state.supabaseUserId) return fail();
-            if (state.playMode !== 'online' || state.isSoloAutoHost || isInGame()) return fail();
-            if (state.onlineSessionCode && !state.isOnlineHost) return fail();
-            if (lobbyHostUpsertSuppressed) return fail();
+            if (!supabase || !state.supabaseUserId) {
+                pcDebug(debugVerbose ? 'debug' : 'warn', 'lobby_host_sync_skip', { reason: 'no_supabase_or_user' });
+                return fail();
+            }
+            if (state.playMode !== 'online' || state.isSoloAutoHost || isInGame()) {
+                pcDebug('debug', 'lobby_host_sync_skip', { reason: 'wrong_mode_or_in_game', playMode: state.playMode, isSoloAutoHost: state.isSoloAutoHost });
+                return fail();
+            }
+            if (state.onlineSessionCode && !state.isOnlineHost) {
+                pcDebug('debug', 'lobby_host_sync_skip', { reason: 'guest_already_joined', code: state.onlineSessionCode });
+                return fail();
+            }
+            if (lobbyHostUpsertSuppressed) {
+                pcDebug('debug', 'lobby_host_sync_skip', { reason: 'join_host_flow_active' });
+                return fail();
+            }
 
             const code = getOrRefreshRunCode();
             let seed = state.worldSeed;
@@ -3713,17 +3837,31 @@
                 seed = Math.floor(Math.random() * 9007199254740990);
             }
 
+            pcDebug(debugVerbose ? 'debug' : 'info', 'game_sessions_upsert_attempt', { code, seed, uid: state.supabaseUserId });
             const res = await supabase.from('game_sessions').upsert(
                 { code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() },
                 { onConflict: 'code' }
             );
-            if (lobbyHostUpsertSuppressed) return fail();
+            if (lobbyHostUpsertSuppressed) {
+                pcDebug('debug', 'lobby_host_sync_aborted', { reason: 'suppressed_after_request' });
+                return fail();
+            }
             if (state.onlineSessionCode && !state.isOnlineHost) return fail();
-            if (res.error) return fail(formatSupabaseNetworkError(res.error) || res.error.message || 'Could not save your room online');
+            if (res.error) {
+                pcDebug('error', 'game_sessions_upsert_failed', {
+                    code,
+                    message: res.error.message,
+                    codePg: res.error.code,
+                    details: res.error.details,
+                    hint: res.error.hint
+                });
+                return fail(formatSupabaseNetworkError(res.error) || res.error.message || 'Could not save your room online');
+            }
 
             state.onlineSessionCode = code;
             state.isOnlineHost = true;
             state.worldSeed = seed;
+            pcDebug(debugVerbose ? 'debug' : 'info', 'game_sessions_upsert_ok', { code, seed });
             return ok();
         }
 
@@ -3738,15 +3876,18 @@
         async function regenerateMultiplayerInviteCode() {
             if (!supabase || !state.supabaseUserId) {
                 setSessionMsg('👤 Sign in first to get a join code!', false);
+                pcDebug('warn', 'regenerate_code_skip', { reason: 'not_signed_in' });
                 return;
             }
             if (state.playMode !== 'online' || state.isSoloAutoHost) return;
             if (state.onlineSessionCode && !state.isOnlineHost) {
                 setSessionMsg('You joined a friend’s room — leave that session first for your own code.', false);
+                pcDebug('warn', 'regenerate_code_skip', { reason: 'is_guest' });
                 return;
             }
 
             const oldCode = (state.onlineSessionCode || sessionStorage.getItem('pixelCityRunCode') || '').trim();
+            pcDebug('info', 'invite_code_regenerate', { oldCode: oldCode || null });
             if (oldCode && supabase) {
                 try { await supabase.from('game_sessions').delete().eq('code', oldCode); } catch (_) {}
             }
@@ -3758,8 +3899,10 @@
             const syncRes = await syncMultiplayerLobbyHostRow();
             if (!syncRes.ok) {
                 setSessionMsg(syncRes.errMsg || '😕 Could not save the new code. Check your connection and try again.', false);
+                pcDebug('error', 'invite_code_regenerate_failed', { errMsg: syncRes.errMsg });
             } else {
                 setSessionMsg('🔄 New code ready — share it with friends!', true);
+                pcDebug('info', 'invite_code_regenerate_ok', { code: state.onlineSessionCode });
             }
         }
 
@@ -3839,6 +3982,11 @@
                     code = ''; // retry with new random code
                 }
                 if (insertError) {
+                    pcDebug('error', 'host_online_session_insert_failed', {
+                        message: insertError.message,
+                        code: insertError.code,
+                        fixedCode: !!fixedCode
+                    });
                     setSessionMsg(insertError.message, false);
                     return;
                 }
@@ -3847,6 +3995,7 @@
                 state.worldSeed = seed;
                 const sub = await subscribeToSessionChannelAsync(code);
                 if (!sub.ok) {
+                    pcDebug('error', 'host_online_session_realtime_failed', { code, reason: sub.reason || null });
                     await supabase.from('game_sessions').delete().eq('code', code);
                     teardownOnlineRealtime({ skipDelete: true });
                     if (el) {
@@ -3856,6 +4005,7 @@
                     }
                     return;
                 }
+                pcDebug('info', 'host_online_session_ok', { code });
                 if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
                 updateOnlineInviteUI(code);
             } finally {
@@ -3872,8 +4022,14 @@
                 if (!state.supabaseUserId) { setSessionMsg('👤 Sign in first, then paste your friend’s code!', false); return; }
                 setSessionMsg('Looking for room…', null);
                 const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at').eq('code', code).maybeSingle();
-                if (error) { setSessionMsg(formatSupabaseNetworkError(error), false); return; }
-                if (!data || data.host_id == null) { setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return; }
+                if (error) {
+                    pcDebug('error', 'join_online_session_select_failed', { code, message: error.message, codePg: error.code });
+                    setSessionMsg(formatSupabaseNetworkError(error), false); return;
+                }
+                if (!data || data.host_id == null) {
+                    pcDebug('warn', 'join_online_session_not_found', { code });
+                    setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return;
+                }
                 if (data.updated_at) {
                     const ageMs = Date.now() - new Date(data.updated_at).getTime();
                     if (ageMs > 4 * 60 * 60 * 1000) { setSessionMsg('😕 That room has been inactive for a while. Ask your friend to start it again!', false); return; }
@@ -3883,12 +4039,14 @@
                 state.worldSeed = data.world_seed;
                 const sub = await subscribeToSessionChannelAsync(code);
                 if (!sub.ok) {
+                    pcDebug('error', 'join_online_session_realtime_failed', { code, reason: sub.reason || null });
                     teardownOnlineRealtime();
                     setSessionMsg(sub.reason === 'timeout'
                         ? '📶 Found the room but couldn’t connect. Check your internet and try again!'
                         : `📶 Connection problem${sub.reason ? ': ' + sub.reason : ''}. Check your internet and try again!`, false);
                     return;
                 }
+                pcDebug('info', 'join_online_session_ok', { code, isHost: state.isOnlineHost });
                 setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
                 if (!state.isOnlineHost) {
                     const block = document.getElementById('online-invite-block');
@@ -4804,15 +4962,18 @@
             const cfg = getSupabaseConfig();
             const hint = document.getElementById('supabase-config-hint');
             if (!cfg.ok) {
+                pcDebug('error', 'supabase_init', { reason: 'config_missing', host: null });
                 if (hint) hint.classList.remove('hidden');
                 supabase = null;
             } else if (typeof createClient !== 'function') {
+                pcDebug('error', 'supabase_init', { reason: 'createClient_missing' });
                 if (hint) {
                     hint.textContent = 'Game files failed to load. Try a hard refresh; if it keeps happening, check back later.';
                     hint.classList.remove('hidden');
                 }
                 supabase = null;
             } else {
+                pcDebug(debugVerbose ? 'debug' : 'info', 'supabase_init', { host: pcDebugSanitizeUrl(cfg.url) });
                 if (hint) hint.classList.add('hidden');
                 supabase = createClient(cfg.url, cfg.key, {
                     auth: { persistSession: false, autoRefreshToken: false }
@@ -4822,6 +4983,7 @@
                     state.supabaseUserId = saved.userId;
                     state.profileUsername = saved.username || '';
                     state.playerName = saved.username || '';
+                    pcDebug(debugVerbose ? 'debug' : 'info', 'session_restored', { userId: saved.userId, username: saved.username || null });
                     startPresenceLoop();
                     void loadMyProfile();
                 } else {
@@ -4950,12 +5112,14 @@
                 if (!state.onlineSessionCode || state.isOnlineHost) {
                     const syncRes = await syncMultiplayerLobbyHostRow();
                     if (!syncRes.ok || !state.onlineSessionCode) {
+                        pcDebug('error', 'join_room_multiplayer_sync_failed', { errMsg: syncRes.errMsg });
                         showMessage(syncRes.errMsg || 'Could not open your room online. Check your connection, stay on MULTIPLAYER, and try again.');
                         return;
                     }
                 }
                 const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
                 if (!sub.ok) {
+                    pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
                     showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
                     document.getElementById('lobby-screen').style.display = 'flex';
                     setInGamePhoneVisible(false);
@@ -4963,6 +5127,7 @@
                     if (xb2) xb2.style.display = 'none';
                     return;
                 }
+                pcDebug(debugVerbose ? 'debug' : 'info', 'join_room_multiplayer_enter', { code: state.onlineSessionCode });
             } else {
                 state.worldSeed = null;
                 state.isSoloAutoHost = false;
@@ -4983,12 +5148,21 @@
                             state.isSoloAutoHost = true; // user sees solo UX; realtime runs silently
                             const sub = await subscribeToSessionChannelAsync(runCode);
                             if (!sub.ok) {
+                                pcDebug('error', 'solo_autohost_realtime_failed', { code: runCode, reason: sub.reason || null });
                                 // Realtime failed — stay purely offline
                                 state.playMode = 'solo';
                                 state.onlineSessionCode = null;
                                 state.isOnlineHost = false;
                                 state.isSoloAutoHost = false;
+                            } else {
+                                pcDebug(debugVerbose ? 'debug' : 'info', 'solo_autohost_ok', { code: runCode });
                             }
+                        } else {
+                            pcDebug('error', 'solo_autohost_insert_failed', {
+                                code: runCode,
+                                message: res.error.message,
+                                codePg: res.error.code
+                            });
                         }
                     } catch (_) { /* play offline if DB unavailable */ }
                     // Update the share code display (inside MULTIPLAYER panel only, already hidden for solo)
@@ -6668,6 +6842,8 @@
             await initSupabaseAndSession();
             await tryApplyPendingJoinFromUrl();
 
+            console.info('[PixelCity] Console help: multiplayer errors/warnings always log here. Verbose: add ?debug=1 to the URL or run pixelCityEnableDebugLogs(). Export for support: await copyPixelCityDebugInfo()');
+
             const signInMsg = document.getElementById('sign-in-msg');
             const userInput = document.getElementById('auth-username-input');
             const passInput = document.getElementById('auth-password-input');
@@ -6719,18 +6895,20 @@
                 if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
                 try {
                     let r = await supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password });
-                    if (r.error) { if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
+                    if (r.error) { pcDebug('error', 'auth_signin_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
                     if (!r.data.ok && r.data.error === 'User not found') {
                         if (btn) btn.textContent = 'Creating account…';
                         r = await supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password });
-                        if (r.error) { if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
-                        if (!r.data.ok) { if (signInMsg) signInMsg.textContent = r.data.error || 'Could not create account.'; return; }
+                        if (r.error) { pcDebug('error', 'auth_signup_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
+                        if (!r.data.ok) { pcDebug('warn', 'auth_signup_rejected', { error: r.data.error }); if (signInMsg) signInMsg.textContent = r.data.error || 'Could not create account.'; return; }
                     } else if (!r.data.ok) {
+                        pcDebug('warn', 'auth_signin_rejected', { error: r.data.error });
                         if (signInMsg) signInMsg.textContent = r.data.error || 'Sign-in failed.';
                         return;
                     }
                     finishAuth(r.data.user_id, r.data.username);
                 } catch (e) {
+                    pcDebug('error', 'auth_signin_exception', { message: String(e && e.message) });
                     if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
                 } finally {
                     if (btn) { btn.disabled = false; btn.textContent = 'Play online'; }
