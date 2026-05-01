@@ -3892,6 +3892,11 @@
                     continue;
                 }
                 const err = res.error;
+                if (err && err.code === '23503') {
+                    invalidateStaleOnlineSession('game_sessions_host_fk_violation');
+                    setSessionMsg('👤 Your saved login no longer matches this server — please sign in again.', false);
+                    return fail('Your saved login is outdated — please sign in again.');
+                }
                 pcDebug('error', 'game_sessions_publish_failed', {
                     code,
                     message: err && err.message,
@@ -4032,6 +4037,10 @@
                         code: insertError.code,
                         fixedCode: !!fixedCode
                     });
+                    if (handleGameSessionsFkViolation(insertError)) {
+                        setSessionMsg('👤 Your saved login no longer matches this server — please sign in again.', false);
+                        return;
+                    }
                     setSessionMsg(insertError.message, false);
                     return;
                 }
@@ -4985,6 +4994,41 @@
             updateOwnerDashboardFabVisibility();
         }
 
+        /** Stored pixelCitySession points at a user row that no longer exists (DB reset, wrong project, etc.). */
+        async function validateRestoredSessionUser(userId) {
+            if (!supabase || !userId) return false;
+            const { data, error } = await supabase.from('users').select('id').eq('id', userId).maybeSingle();
+            if (error) {
+                pcDebug('warn', 'validate_session_user_lookup_failed', { message: error.message, code: error.code });
+                return true;
+            }
+            if (!data) {
+                pcDebug('warn', 'validate_session_user_missing', { userId });
+                return false;
+            }
+            return true;
+        }
+
+        function invalidateStaleOnlineSession(reason) {
+            pcDebug('warn', 'session_cleared_stale_user', { reason: reason || null });
+            teardownOnlineRealtime({ skipDelete: true });
+            clearSession();
+            recomputeIsAdmin();
+            updateSignedInUI();
+            try {
+                document.getElementById('lobby-screen').style.display = 'none';
+                document.getElementById('sign-in-screen').style.display = 'flex';
+            } catch (_) {}
+        }
+
+        function handleGameSessionsFkViolation(err) {
+            if (err && err.code === '23503') {
+                invalidateStaleOnlineSession('game_sessions_host_fk_violation');
+                return true;
+            }
+            return false;
+        }
+
         function startPresenceLoop() {
             if (!state.supabaseUserId) return;
             if (presenceInterval) clearInterval(presenceInterval);
@@ -5025,12 +5069,17 @@
                 });
                 const saved = loadSession();
                 if (saved && saved.userId) {
-                    state.supabaseUserId = saved.userId;
-                    state.profileUsername = saved.username || '';
-                    state.playerName = saved.username || '';
-                    pcDebug(debugVerbose ? 'debug' : 'info', 'session_restored', { userId: saved.userId, username: saved.username || null });
-                    startPresenceLoop();
-                    void loadMyProfile();
+                    const userOk = await validateRestoredSessionUser(saved.userId);
+                    if (!userOk) {
+                        invalidateStaleOnlineSession('restored_user_id_not_in_db');
+                    } else {
+                        state.supabaseUserId = saved.userId;
+                        state.profileUsername = saved.username || '';
+                        state.playerName = saved.username || '';
+                        pcDebug(debugVerbose ? 'debug' : 'info', 'session_restored', { userId: saved.userId, username: saved.username || null });
+                        startPresenceLoop();
+                        void loadMyProfile();
+                    }
                 } else {
                     recomputeIsAdmin();
                 }
@@ -5217,17 +5266,27 @@
                                     state.isSoloAutoHost = false;
                                 }
                             } else {
+                                const e2 = claim2.error;
+                                if (handleGameSessionsFkViolation(e2)) {
+                                    showMessage('Your saved login no longer matches this server — please sign in again.');
+                                    return;
+                                }
                                 pcDebug('error', 'solo_autohost_claim_failed', {
                                     code: newCode,
-                                    message: claim2.error && claim2.error.message,
-                                    codePg: claim2.error && claim2.error.code
+                                    message: e2 && e2.message,
+                                    codePg: e2 && e2.code
                                 });
                             }
                         } else {
+                            const ce = claim.error;
+                            if (handleGameSessionsFkViolation(ce)) {
+                                showMessage('Your saved login no longer matches this server — please sign in again.');
+                                return;
+                            }
                             pcDebug('error', 'solo_autohost_claim_failed', {
                                 code: runCode,
-                                message: claim.error && claim.error.message,
-                                codePg: claim.error && claim.error.code
+                                message: ce && ce.message,
+                                codePg: ce && ce.code
                             });
                         }
                     } catch (_) { /* play offline if DB unavailable */ }
