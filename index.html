@@ -3806,6 +3806,36 @@
         let lobbyHostUpsertSuppressed = false;
 
         /**
+         * Claim or refresh this user's row in game_sessions for `code` (no upsert — avoids REST 409 edge cases).
+         * @returns {Promise<{ ok: boolean, taken?: boolean, error?: object|null }>}
+         */
+        async function gameSessionsClaimOrUpdateHost(code, seed) {
+            const uid = state.supabaseUserId;
+            if (!supabase || !uid) return { ok: false, error: { message: 'no_supabase' } };
+            const now = new Date().toISOString();
+            for (let attempt = 0; attempt < 4; attempt++) {
+                const { data: row, error: selErr } = await supabase.from('game_sessions').select('host_id').eq('code', code).maybeSingle();
+                if (selErr) return { ok: false, error: selErr };
+                if (!row) {
+                    const { error: insErr } = await supabase.from('game_sessions').insert({
+                        code, host_id: uid, world_seed: seed, updated_at: now
+                    });
+                    if (!insErr) return { ok: true };
+                    if (insErr.code === '23505') continue;
+                    return { ok: false, error: insErr };
+                }
+                if (row.host_id === uid) {
+                    const { error: updErr } = await supabase.from('game_sessions').update({
+                        world_seed: seed, updated_at: now
+                    }).eq('code', code).eq('host_id', uid);
+                    return { ok: !updErr, error: updErr || null };
+                }
+                return { ok: false, taken: true, error: { message: 'Session code already in use by another player.' } };
+            }
+            return { ok: false, error: { message: 'Could not save session (race). Try New code or refresh.' } };
+        }
+
+        /**
          * Ensures the MULTIPLAYER "your code" row exists in game_sessions so friends can look it up.
          * Skips when this client already joined another host's session.
          * @returns {Promise<{ ok: boolean, errMsg: string|null }>}
@@ -3831,38 +3861,47 @@
                 return fail();
             }
 
-            const code = getOrRefreshRunCode();
+            let code = getOrRefreshRunCode();
             let seed = state.worldSeed;
             if (!(state.isOnlineHost && state.onlineSessionCode === code && seed != null)) {
                 seed = Math.floor(Math.random() * 9007199254740990);
             }
 
-            pcDebug(debugVerbose ? 'debug' : 'info', 'game_sessions_upsert_attempt', { code, seed, uid: state.supabaseUserId });
-            const res = await supabase.from('game_sessions').upsert(
-                { code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() },
-                { onConflict: 'code' }
-            );
-            if (lobbyHostUpsertSuppressed) {
-                pcDebug('debug', 'lobby_host_sync_aborted', { reason: 'suppressed_after_request' });
-                return fail();
-            }
-            if (state.onlineSessionCode && !state.isOnlineHost) return fail();
-            if (res.error) {
-                pcDebug('error', 'game_sessions_upsert_failed', {
+            for (let attempt = 0; attempt < 8; attempt++) {
+                pcDebug(debugVerbose ? 'debug' : 'info', 'game_sessions_publish_attempt', { code, seed, uid: state.supabaseUserId, attempt });
+                const res = await gameSessionsClaimOrUpdateHost(code, seed);
+                if (lobbyHostUpsertSuppressed) {
+                    pcDebug('debug', 'lobby_host_sync_aborted', { reason: 'suppressed_after_request' });
+                    return fail();
+                }
+                if (state.onlineSessionCode && !state.isOnlineHost) return fail();
+                if (res.ok) {
+                    try { sessionStorage.setItem('pixelCityRunCode', code); } catch (_) {}
+                    state.onlineSessionCode = code;
+                    state.isOnlineHost = true;
+                    state.worldSeed = seed;
+                    pcDebug(debugVerbose ? 'debug' : 'info', 'game_sessions_publish_ok', { code, seed });
+                    return ok();
+                }
+                if (res.taken || (res.error && res.error.code === '23505')) {
+                    pcDebug('warn', 'game_sessions_code_collision', { code, attempt });
+                    code = refreshRunCode();
+                    seed = Math.floor(Math.random() * 9007199254740990);
+                    const codeEl = document.getElementById('solo-share-code');
+                    if (codeEl) codeEl.textContent = code;
+                    continue;
+                }
+                const err = res.error;
+                pcDebug('error', 'game_sessions_publish_failed', {
                     code,
-                    message: res.error.message,
-                    codePg: res.error.code,
-                    details: res.error.details,
-                    hint: res.error.hint
+                    message: err && err.message,
+                    codePg: err && err.code,
+                    details: err && err.details,
+                    hint: err && err.hint
                 });
-                return fail(formatSupabaseNetworkError(res.error) || res.error.message || 'Could not save your room online');
+                return fail(formatSupabaseNetworkError(err) || (err && err.message) || 'Could not save your room online');
             }
-
-            state.onlineSessionCode = code;
-            state.isOnlineHost = true;
-            state.worldSeed = seed;
-            pcDebug(debugVerbose ? 'debug' : 'info', 'game_sessions_upsert_ok', { code, seed });
-            return ok();
+            return fail('Could not get a free session code. Tap New code or refresh the page.');
         }
 
         /** New random invite code for this browser tab; replaces sessionStorage value. */
@@ -3971,11 +4010,17 @@
                         code = '';
                         for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
                     }
-                    // For persistent server code: upsert to update seed if already exists
-                    const op = fixedCode
-                        ? supabase.from('game_sessions').upsert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() }, { onConflict: 'code' })
-                        : supabase.from('game_sessions').insert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() });
-                    const res = await op;
+                    let res;
+                    if (fixedCode) {
+                        const claim = await gameSessionsClaimOrUpdateHost(code, seed);
+                        res = claim.ok ? { error: null } : { error: claim.error || { message: 'Could not claim session code' } };
+                        if (!claim.ok && claim.taken) {
+                            insertError = { message: 'That server link code is already used by someone else. Ask an admin or pick “New code” in MULTIPLAYER.', code: 'CODE_TAKEN' };
+                            break;
+                        }
+                    } else {
+                        res = await supabase.from('game_sessions').insert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() });
+                    }
                     insertError = res.error;
                     if (!insertError) break;
                     if (insertError.code !== '23505') break;
@@ -5136,11 +5181,8 @@
                     const runCode = getOrRefreshRunCode();
                     const seed = savedSeed != null ? savedSeed : Math.floor(Math.random() * 9007199254740990);
                     try {
-                        const res = await supabase.from('game_sessions').insert({
-                            code: runCode, host_id: state.supabaseUserId,
-                            world_seed: seed, updated_at: new Date().toISOString()
-                        });
-                        if (!res.error) {
+                        const claim = await gameSessionsClaimOrUpdateHost(runCode, seed);
+                        if (claim.ok) {
                             state.onlineSessionCode = runCode;
                             state.isOnlineHost = true;
                             state.worldSeed = seed;
@@ -5157,17 +5199,41 @@
                             } else {
                                 pcDebug(debugVerbose ? 'debug' : 'info', 'solo_autohost_ok', { code: runCode });
                             }
+                        } else if (claim.taken || (claim.error && claim.error.code === '23505')) {
+                            const newCode = refreshRunCode();
+                            pcDebug('warn', 'solo_autohost_code_collision', { oldCode: runCode, newCode });
+                            const claim2 = await gameSessionsClaimOrUpdateHost(newCode, seed);
+                            if (claim2.ok) {
+                                state.onlineSessionCode = newCode;
+                                state.isOnlineHost = true;
+                                state.worldSeed = seed;
+                                state.playMode = 'online';
+                                state.isSoloAutoHost = true;
+                                const sub = await subscribeToSessionChannelAsync(newCode);
+                                if (!sub.ok) {
+                                    state.playMode = 'solo';
+                                    state.onlineSessionCode = null;
+                                    state.isOnlineHost = false;
+                                    state.isSoloAutoHost = false;
+                                }
+                            } else {
+                                pcDebug('error', 'solo_autohost_claim_failed', {
+                                    code: newCode,
+                                    message: claim2.error && claim2.error.message,
+                                    codePg: claim2.error && claim2.error.code
+                                });
+                            }
                         } else {
-                            pcDebug('error', 'solo_autohost_insert_failed', {
+                            pcDebug('error', 'solo_autohost_claim_failed', {
                                 code: runCode,
-                                message: res.error.message,
-                                codePg: res.error.code
+                                message: claim.error && claim.error.message,
+                                codePg: claim.error && claim.error.code
                             });
                         }
                     } catch (_) { /* play offline if DB unavailable */ }
                     // Update the share code display (inside MULTIPLAYER panel only, already hidden for solo)
                     const codeEl = document.getElementById('solo-share-code');
-                    if (codeEl) codeEl.textContent = runCode;
+                    if (codeEl) codeEl.textContent = state.onlineSessionCode || runCode;
                 }
             }
             closeLobbyStatsOverlay();
