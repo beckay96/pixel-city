@@ -374,6 +374,14 @@
                     </button>
                 </div>
             </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Character</label>
+                <div class="flex gap-2" id="auth-character-btns">
+                    <button type="button" data-char="boy"    class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300 hover:border-blue-400">👦 Boy</button>
+                    <button type="button" data-char="girl"   class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300 hover:border-pink-400">👧 Girl</button>
+                    <button type="button" data-char="circle" class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300 hover:border-slate-400">⚪ Other</button>
+                </div>
+            </div>
             <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
             <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive text-sm">Play online</button>
             <p class="text-[8px] text-slate-500 text-center -mt-1">New username? An account is created for you automatically.</p>
@@ -808,6 +816,12 @@
                 </div>
                 <p id="admin-skin-hex-err" class="text-[10px] text-red-400 min-h-[1rem] text-center"></p>
                 <button type="button" id="admin-skin-apply-custom" class="w-full bg-cyan-700 hover:bg-cyan-600 py-2 rounded-lg font-bold text-sm mb-3">Use this custom color</button>
+                <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Character style</p>
+                <div class="flex gap-2 mb-3" id="admin-char-btns">
+                    <button type="button" data-char="boy"    class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300">👦 Boy</button>
+                    <button type="button" data-char="girl"   class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300">👧 Girl</button>
+                    <button type="button" data-char="circle" class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300">⚪ Other</button>
+                </div>
                 <button type="button" id="admin-skin-close" class="w-full bg-slate-700 py-2 rounded-lg font-bold text-sm">Done</button>
             </div>
         </div>
@@ -1148,6 +1162,7 @@
 
         const LS_FRIENDS = 'pixelCityFriends';
         const LS_LAST_USER = 'pixelCityLastUser';
+        const LS_CHARACTER_TYPE = 'pixelCityCharacterType';
         const LS_SESSION = 'pixelCitySession';
         const LS_SERVER_CODE = 'pixelCityServerCode';
         const LS_SAVED_PROGRESS = 'pixelCitySavedProgress';
@@ -1256,11 +1271,15 @@
         const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
         const JOBS = [{ id: 'shelves', name: 'Stock Shelves' }, { id: 'floor', name: 'Mop Floor' }, { id: 'customers', name: 'Cashier' }];
         const VEHICLE_TYPES = [
-            { id: 'sedan', name: 'Standard Sedan', price: 400, topSpeed: 6, accel: 0.2, color: '#3b82f6' },
-            { id: 'truck', name: 'Ironclad Truck', price: 1500, topSpeed: 5, accel: 0.15, color: '#94a3b8' },
-            { id: 'sport', name: 'Phoenix GT', price: 2000, topSpeed: 50, accel: 1.5, color: '#facc15' },
-            { id: 'porsche', name: 'Porsche 911', price: 10000, topSpeed: 75, accel: 2.0, color: '#475569' },
-            { id: 'lambo', name: 'Aventador LAMBO', price: 100000, topSpeed: 150, accel: 4.0, color: '#fbbf24' }
+            { id: 'sedan',   name: 'Standard Sedan',    price: 400,     topSpeed: 6,   accel: 0.2,  color: '#3b82f6', tier: 0, storeBonus: 10  },
+            { id: 'truck',   name: 'Ironclad Truck',    price: 1500,    topSpeed: 5,   accel: 0.15, color: '#94a3b8', tier: 1, storeBonus: 20  },
+            { id: 'sport',   name: 'Phoenix GT',        price: 2000,    topSpeed: 50,  accel: 1.5,  color: '#facc15', tier: 2, storeBonus: 50  },
+            { id: 'porsche', name: 'Porsche 911',       price: 10000,   topSpeed: 55,  accel: 2.0,  color: '#475569', tier: 3, storeBonus: 75  },
+            { id: 'lambo',   name: 'Aventador LAMBO',   price: 100000,  topSpeed: 140, accel: 4.0,  color: '#fbbf24', tier: 4, storeBonus: 100 },
+            { id: 'bugatti', name: 'Bugatti Chiron',    price: 350000,  topSpeed: 160, accel: 4.5,  color: '#6366f1', tier: 5, storeBonus: 150 },
+            { id: 'ferrari', name: 'Ferrari LaFerrari', price: 750000,  topSpeed: 175, accel: 5.0,  color: '#ef4444', tier: 6, storeBonus: 200 },
+            { id: 'mclaren', name: 'McLaren Speedtail', price: 1500000, topSpeed: 190, accel: 5.5,  color: '#f97316', tier: 7, storeBonus: 300 },
+            { id: 'god',     name: '⭐ God Lambo',      price: 5000000, topSpeed: 220, accel: 6.0,  color: '#a78bfa', tier: 8, storeBonus: 500, secret: true }
         ];
 
         function fastLamboTypeForNuke() {
@@ -1346,7 +1365,11 @@
             /** Pauses update loop (WASTED overlay, etc.) */
             gamePaused: false,
             landmines: [],
-            sessionSettings: { infiniteRevive: false, friendlyFire: false }
+            sessionSettings: { infiniteRevive: false, friendlyFire: false },
+            /** Highest car tier bought this run — controls store earnings per tap */
+            bestCarTier: -1,
+            /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
+            characterType: 'circle'
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -2459,11 +2482,21 @@
             });
         }
 
+        function applyAdminCharBtnStyles() {
+            document.querySelectorAll('#admin-char-btns [data-char]').forEach(btn => {
+                const active = btn.dataset.char === state.characterType;
+                btn.className = 'flex-1 py-2 rounded-lg border-2 text-sm font-bold interactive ' + (active
+                    ? (btn.dataset.char === 'boy' ? 'border-blue-400 text-white' : btn.dataset.char === 'girl' ? 'border-pink-400 text-white' : 'border-slate-300 text-white')
+                    : 'border-slate-600 text-slate-300');
+            });
+        }
+
         function openAdminSkinModal() {
             const m = document.getElementById('admin-skin-modal');
             if (!m) return;
             buildAdminSkinSwatches();
             updateAdminSkinPreview();
+            applyAdminCharBtnStyles();
             m.classList.remove('hidden');
             m.classList.add('flex');
         }
@@ -4000,6 +4033,7 @@
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
             state.money = 0;
+            state.bestCarTier = -1;
             state.wantedLevel = 0;
             state.policeDelay = 0;
             state.arrestCount = 0;
@@ -4107,15 +4141,22 @@
             if(exitBtn) exitBtn.classList.remove('hidden');
         };
 
+        function getStoreEarningsPerTap() {
+            if (state.bestCarTier < 0) return 10;
+            const car = VEHICLE_TYPES.find(v => v.tier === state.bestCarTier);
+            return car ? car.storeBonus : 10;
+        }
+
         window.handleWork = (pIdx) => {
             const p = state.players[pIdx];
             if (!p || p.activeJob === null) return;
             if (p.schoolTask) return;
-            state.money += 10;
+            const earn = getStoreEarningsPerTap();
+            state.money += earn;
             p.jobClicksDone++;
             updateMoneyUI();
             const cnt = document.getElementById(`job-count-${pIdx}`);
-            if(cnt) cnt.innerText = `${p.jobClicksDone} taps this shift`;
+            if(cnt) cnt.innerText = `${p.jobClicksDone} taps — $${earn}/tap`;
         };
 
         window.submitSchoolWork = (pIdx) => {
@@ -4245,10 +4286,11 @@
                         storeList.appendChild(btn);
                     });
                 } else {
+                const earnPerTap = getStoreEarningsPerTap();
                 JOBS.forEach((j, i) => {
                     const btn = document.createElement('div');
                     btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
-                    btn.innerHTML = `<div class="font-bold uppercase text-sm">${j.name}</div><div class="text-green-400 font-bold text-xs">$10 / TAP</div>`;
+                    btn.innerHTML = `<div class="font-bold uppercase text-sm">${j.name}</div><div class="text-green-400 font-bold text-xs">$${earnPerTap} / TAP</div>`;
                     btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
                     storeList.appendChild(btn);
                 });
@@ -4356,15 +4398,23 @@
                     updateMoneyUI();
                     
                     state.vehicles.push({ x: 2000, y: 2100, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(car)), occupied: false });
-                    if (state.playerMode === 2 && car.id === 'lambo') {
+                    if (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) {
                         state.vehicles.push({ x: 2100, y: 2100, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(car)), occupied: false });
+                    }
+                    // Track best car for store earnings boost
+                    if (car.tier > state.bestCarTier) {
+                        state.bestCarTier = car.tier;
                     }
                     window.closePlayerModal(pIdx);
                     
-                    if (car.id === 'lambo') {
+                    if (car.id === 'god') {
                         triggerVictory();
+                        showMessage('🌟 GOD LAMBO! You\'re the ultimate! Store earns $' + car.storeBonus + '/tap!');
+                    } else if (car.id === 'lambo') {
+                        showMessage('🏆 AVENTADOR LAMBO! Milestone reached! Store earns $' + car.storeBonus + '/tap! Keep going!');
                     } else {
-                        showMessage(`Purchased ${car.name}!`);
+                        const bonus = car.storeBonus;
+                        showMessage(`Purchased ${car.name}! Store now earns $${bonus}/tap!`);
                     }
                 } else showMessage("Insufficient Funds!");
             } else if (p.menuType === 'rob') {
@@ -4874,6 +4924,7 @@
             document.getElementById('lobby-screen').style.display = 'none';
             state.isGameOver = false;
             state.gamePaused = false;
+            state.bestCarTier = -1;
             hideWastedOverlay();
             const xb = document.getElementById('exit-to-lobby-btn');
             if (xb) xb.style.display = 'block';
@@ -5514,6 +5565,50 @@
 
             state.vehicles.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = v.type.color; c.fillRect(-25, -15, 50, 30); c.restore(); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#fff'; c.fillRect(-25, -15, 50, 30); c.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; c.fillRect(0,-15,10,30); c.restore(); });
+            // Draw a pixel-art avatar based on characterType ('boy', 'girl', 'circle')
+            function drawPlayerAvatar(ctx, charType, color) {
+                const col = color || DEFAULT_PLAYER_COLOR;
+                ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
+                if (charType === 'boy') {
+                    // Head
+                    ctx.fillStyle = col;
+                    ctx.beginPath(); ctx.arc(0, -10, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
+                    // Body
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 4); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+                    // Arms
+                    ctx.beginPath(); ctx.moveTo(-7, -2); ctx.lineTo(7, -2); ctx.lineWidth = 2.5; ctx.stroke();
+                    // Left leg
+                    ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(-5, 13); ctx.lineWidth = 2.5; ctx.stroke();
+                    // Right leg
+                    ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(5, 13); ctx.lineWidth = 2.5; ctx.stroke();
+                } else if (charType === 'girl') {
+                    // Head
+                    ctx.fillStyle = col;
+                    ctx.beginPath(); ctx.arc(0, -11, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
+                    // Body / torso
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 2); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+                    // Arms
+                    ctx.beginPath(); ctx.moveTo(-7, -3); ctx.lineTo(7, -3); ctx.lineWidth = 2.5; ctx.stroke();
+                    // Dress / skirt (triangle)
+                    ctx.fillStyle = col;
+                    ctx.beginPath(); ctx.moveTo(-7, 2); ctx.lineTo(7, 2); ctx.lineTo(9, 13); ctx.lineTo(-9, 13); ctx.closePath(); ctx.fill();
+                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.stroke();
+                } else {
+                    // circle (default)
+                    ctx.fillStyle = col;
+                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3; ctx.stroke();
+                    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(-4, -4, 5, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+            }
+
             const prR = 14;
             state.players.forEach(p => {
                 if (!p) return;
@@ -5549,18 +5644,7 @@
                 } else if (!p.inVehicle) {
                     c.save(); c.translate(p.x, p.y); c.rotate(p.angle);
                     if (state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
-                    c.fillStyle = p.color || DEFAULT_PLAYER_COLOR;
-                    c.beginPath();
-                    c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 6; c.shadowOffsetX = 0; c.shadowOffsetY = 0;
-                    c.arc(0, 0, prR, 0, Math.PI * 2);
-                    c.fill();
-                    c.shadowBlur = 0;
-                    c.beginPath(); c.arc(0, 0, prR, 0, Math.PI * 2);
-                    c.strokeStyle = '#0f172a';
-                    c.lineWidth = 3; c.stroke();
-                    c.beginPath();
-                    c.fillStyle = 'rgba(255,255,255,0.25)'; c.arc(-4, -4, 5, 0, Math.PI * 2);
-                    c.fill();
+                    drawPlayerAvatar(c, state.characterType, p.color);
                     c.restore();
                 }
             });
@@ -6499,6 +6583,24 @@
             if (userInput) userInput.addEventListener('input', clearSignInMsg);
             if (passInput) passInput.addEventListener('input', clearSignInMsg);
 
+            // Character type picker — load saved preference and wire buttons
+            state.characterType = localStorage.getItem(LS_CHARACTER_TYPE) || 'circle';
+            const charBtns = document.querySelectorAll('#auth-character-btns [data-char]');
+            function applyCharBtnStyles() {
+                charBtns.forEach(btn => {
+                    const active = btn.dataset.char === state.characterType;
+                    btn.className = 'flex-1 py-2 rounded-lg border-2 text-sm font-bold interactive ' + (active
+                        ? (btn.dataset.char === 'boy' ? 'border-blue-400 text-white' : btn.dataset.char === 'girl' ? 'border-pink-400 text-white' : 'border-slate-300 text-white')
+                        : 'border-slate-600 text-slate-300 hover:border-slate-400');
+                });
+            }
+            applyCharBtnStyles();
+            charBtns.forEach(btn => btn.addEventListener('click', () => {
+                state.characterType = btn.dataset.char;
+                try { localStorage.setItem(LS_CHARACTER_TYPE, state.characterType); } catch(_) {}
+                applyCharBtnStyles();
+            }));
+
             const passToggleBtn = document.getElementById('auth-password-toggle');
             if (passToggleBtn && passInput) {
                 passToggleBtn.addEventListener('click', () => {
@@ -6996,6 +7098,15 @@
             document.getElementById('admin-skin-close')?.addEventListener('click', () => {
                 const m = document.getElementById('admin-skin-modal');
                 if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+            });
+            document.querySelectorAll('#admin-char-btns [data-char]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.characterType = btn.dataset.char;
+                    try { localStorage.setItem(LS_CHARACTER_TYPE, state.characterType); } catch(_) {}
+                    applyAdminCharBtnStyles();
+                    // Also sync the sign-in screen picker if visible
+                    if (typeof applyCharBtnStyles === 'function') applyCharBtnStyles();
+                });
             });
             if (supabase && state.supabaseUserId) {
                 showLobbyFromSignIn();
