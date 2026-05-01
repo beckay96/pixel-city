@@ -2578,6 +2578,7 @@
             updateSignedInUI();
             updateSavedWorldButton();
             applyModeButtonStyles();
+            updateLobbyHints();
         }
 
         function isSignInScreenVisible() {
@@ -3705,6 +3706,40 @@
             await joinOnlineSession(code);
         }
 
+        /** True while user is joining someone else's room — blocks lobby host upsert from racing join state. */
+        let lobbyHostUpsertSuppressed = false;
+
+        /**
+         * Ensures the MULTIPLAYER "your code" row exists in game_sessions so friends can look it up.
+         * Skips when this client already joined another host's session.
+         * @returns {Promise<boolean>}
+         */
+        async function syncMultiplayerLobbyHostRow() {
+            if (!supabase || !state.supabaseUserId) return false;
+            if (state.playMode !== 'online' || state.isSoloAutoHost || isInGame()) return false;
+            if (state.onlineSessionCode && !state.isOnlineHost) return false;
+            if (lobbyHostUpsertSuppressed) return false;
+
+            const code = getOrRefreshRunCode();
+            let seed = state.worldSeed;
+            if (!(state.isOnlineHost && state.onlineSessionCode === code && seed != null)) {
+                seed = Math.floor(Math.random() * 9007199254740990);
+            }
+
+            const res = await supabase.from('game_sessions').upsert(
+                { code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() },
+                { onConflict: 'code' }
+            );
+            if (lobbyHostUpsertSuppressed) return false;
+            if (state.onlineSessionCode && !state.isOnlineHost) return false;
+            if (res.error) return false;
+
+            state.onlineSessionCode = code;
+            state.isOnlineHost = true;
+            state.worldSeed = seed;
+            return true;
+        }
+
         async function broadcastAdminCmd(payload) {
             if (!onlineRealtimeReady || !supabaseRealtimeChannel) return false;
             try {
@@ -3750,84 +3785,94 @@
         }
 
         async function hostOnlineSession(fixedCode) {
-            const el = document.getElementById('online-session-msg');
-            if (!supabase || !state.supabaseUserId) {
-                setSessionMsg('👤 Sign in first to create a room!', false);
-                return;
-            }
-            setSessionMsg('Creating room…', null);
-            if (state.isOnlineHost && state.onlineSessionCode) {
-                teardownOnlineRealtime();
-            }
-            const seed = Math.floor(Math.random() * 9007199254740990);
-            let code = fixedCode || '';
-            let insertError = null;
-            const maxAttempts = fixedCode ? 1 : 5;
-            for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                if (!code) {
-                    code = '';
-                    for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+            lobbyHostUpsertSuppressed = true;
+            try {
+                const el = document.getElementById('online-session-msg');
+                if (!supabase || !state.supabaseUserId) {
+                    setSessionMsg('👤 Sign in first to create a room!', false);
+                    return;
                 }
-                // For persistent server code: upsert to update seed if already exists
-                const op = fixedCode
-                    ? supabase.from('game_sessions').upsert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() }, { onConflict: 'code' })
-                    : supabase.from('game_sessions').insert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() });
-                const res = await op;
-                insertError = res.error;
-                if (!insertError) break;
-                if (insertError.code !== '23505') break;
-                code = ''; // retry with new random code
-            }
-            if (insertError) {
-                setSessionMsg(insertError.message, false);
-                return;
-            }
-            state.onlineSessionCode = code;
-            state.isOnlineHost = true;
-            state.worldSeed = seed;
-            const sub = await subscribeToSessionChannelAsync(code);
-            if (!sub.ok) {
-                await supabase.from('game_sessions').delete().eq('code', code);
-                teardownOnlineRealtime({ skipDelete: true });
-                if (el) {
-                    el.textContent = sub.reason === 'timeout'
-                        ? 'Could not connect live sync (timed out). Check network / Realtime, then try Host again.'
-                        : `Could not connect live sync${sub.reason ? `: ${sub.reason}` : ''}. Try again.`;
+                setSessionMsg('Creating room…', null);
+                if (state.isOnlineHost && state.onlineSessionCode) {
+                    teardownOnlineRealtime();
                 }
-                return;
+                const seed = Math.floor(Math.random() * 9007199254740990);
+                let code = fixedCode || '';
+                let insertError = null;
+                const maxAttempts = fixedCode ? 1 : 5;
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    if (!code) {
+                        code = '';
+                        for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+                    }
+                    // For persistent server code: upsert to update seed if already exists
+                    const op = fixedCode
+                        ? supabase.from('game_sessions').upsert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() }, { onConflict: 'code' })
+                        : supabase.from('game_sessions').insert({ code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() });
+                    const res = await op;
+                    insertError = res.error;
+                    if (!insertError) break;
+                    if (insertError.code !== '23505') break;
+                    code = ''; // retry with new random code
+                }
+                if (insertError) {
+                    setSessionMsg(insertError.message, false);
+                    return;
+                }
+                state.onlineSessionCode = code;
+                state.isOnlineHost = true;
+                state.worldSeed = seed;
+                const sub = await subscribeToSessionChannelAsync(code);
+                if (!sub.ok) {
+                    await supabase.from('game_sessions').delete().eq('code', code);
+                    teardownOnlineRealtime({ skipDelete: true });
+                    if (el) {
+                        el.textContent = sub.reason === 'timeout'
+                            ? 'Could not connect live sync (timed out). Check network / Realtime, then try Host again.'
+                            : `Could not connect live sync${sub.reason ? `: ${sub.reason}` : ''}. Try again.`;
+                    }
+                    return;
+                }
+                if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
+                updateOnlineInviteUI(code);
+            } finally {
+                lobbyHostUpsertSuppressed = false;
             }
-            if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
-            updateOnlineInviteUI(code);
         }
 
         async function joinOnlineSession(rawCode) {
-            const code = (rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-            if (!code) { setSessionMsg('👆 Paste your friend’s code first!', false); return; }
-            if (!supabase) { setSessionMsg('😕 Online play isn’t available right now. Try Play offline!', false); return; }
-            if (!state.supabaseUserId) { setSessionMsg('👤 Sign in first, then paste your friend’s code!', false); return; }
-            setSessionMsg('Looking for room…', null);
-            const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at').eq('code', code).maybeSingle();
-            if (error) { setSessionMsg(formatSupabaseNetworkError(error), false); return; }
-            if (!data || data.host_id == null) { setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return; }
-            if (data.updated_at) {
-                const ageMs = Date.now() - new Date(data.updated_at).getTime();
-                if (ageMs > 4 * 60 * 60 * 1000) { setSessionMsg('😕 That room has been inactive for a while. Ask your friend to start it again!', false); return; }
-            }
-            state.onlineSessionCode = code;
-            state.isOnlineHost = data.host_id === state.supabaseUserId;
-            state.worldSeed = data.world_seed;
-            const sub = await subscribeToSessionChannelAsync(code);
-            if (!sub.ok) {
-                teardownOnlineRealtime();
-                setSessionMsg(sub.reason === 'timeout'
-                    ? '📶 Found the room but couldn’t connect. Check your internet and try again!'
-                    : `📶 Connection problem${sub.reason ? ': ' + sub.reason : ''}. Check your internet and try again!`, false);
-                return;
-            }
-            setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
-            if (!state.isOnlineHost) {
-                const block = document.getElementById('online-invite-block');
-                if (block) block.classList.add('hidden');
+            lobbyHostUpsertSuppressed = true;
+            try {
+                const code = (rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                if (!code) { setSessionMsg('👆 Paste your friend’s code first!', false); return; }
+                if (!supabase) { setSessionMsg('😕 Online play isn’t available right now. Try Play offline!', false); return; }
+                if (!state.supabaseUserId) { setSessionMsg('👤 Sign in first, then paste your friend’s code!', false); return; }
+                setSessionMsg('Looking for room…', null);
+                const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at').eq('code', code).maybeSingle();
+                if (error) { setSessionMsg(formatSupabaseNetworkError(error), false); return; }
+                if (!data || data.host_id == null) { setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return; }
+                if (data.updated_at) {
+                    const ageMs = Date.now() - new Date(data.updated_at).getTime();
+                    if (ageMs > 4 * 60 * 60 * 1000) { setSessionMsg('😕 That room has been inactive for a while. Ask your friend to start it again!', false); return; }
+                }
+                state.onlineSessionCode = code;
+                state.isOnlineHost = data.host_id === state.supabaseUserId;
+                state.worldSeed = data.world_seed;
+                const sub = await subscribeToSessionChannelAsync(code);
+                if (!sub.ok) {
+                    teardownOnlineRealtime();
+                    setSessionMsg(sub.reason === 'timeout'
+                        ? '📶 Found the room but couldn’t connect. Check your internet and try again!'
+                        : `📶 Connection problem${sub.reason ? ': ' + sub.reason : ''}. Check your internet and try again!`, false);
+                    return;
+                }
+                setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
+                if (!state.isOnlineHost) {
+                    const block = document.getElementById('online-invite-block');
+                    if (block) block.classList.add('hidden');
+                }
+            } finally {
+                lobbyHostUpsertSuppressed = false;
             }
         }
 
@@ -4878,9 +4923,13 @@
                     showMessage('Sign in first to join multiplayer.');
                     return;
                 }
-                if (!state.onlineSessionCode) {
-                    showMessage('Paste your friend\'s code and press Join first.');
-                    return;
+                // Guest already joined a friend's room — keep their session; hosts need a published row
+                if (!state.onlineSessionCode || state.isOnlineHost) {
+                    const syncOk = await syncMultiplayerLobbyHostRow();
+                    if (!syncOk || !state.onlineSessionCode) {
+                        showMessage('Could not open your room online. Check your connection, stay on MULTIPLAYER, and try again.');
+                        return;
+                    }
                 }
                 const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
                 if (!sub.ok) {
@@ -4896,7 +4945,7 @@
                 state.isSoloAutoHost = false;
                 // 1 PLAYER mode: auto-host silently if signed in (generate fresh code)
                 if (supabase && state.supabaseUserId && state.playerMode === 1) {
-                    const runCode = refreshRunCode();
+                    const runCode = getOrRefreshRunCode();
                     const seed = savedSeed != null ? savedSeed : Math.floor(Math.random() * 9007199254740990);
                     try {
                         const res = await supabase.from('game_sessions').insert({
@@ -5907,6 +5956,7 @@
                 const code = getOrRefreshRunCode();
                 const codeEl = document.getElementById('solo-share-code');
                 if (codeEl) codeEl.textContent = supabase && state.supabaseUserId ? code : '— sign in —';
+                if (supabase && state.supabaseUserId) void syncMultiplayerLobbyHostRow();
                 if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Share code · Join friend · Start game</p>";
             } else if (state.playerMode === 2) {
