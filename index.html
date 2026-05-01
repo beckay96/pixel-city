@@ -626,6 +626,7 @@
             <div class="px-4 text-center min-w-[8rem]">
                 <div class="text-[10px] text-rose-100 font-black uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" id="health-p0-label">P1</div>
                 <div class="h-3 w-full min-w-[7rem] bg-slate-950 rounded-md overflow-hidden mt-1 ring-2 ring-white/25 shadow-inner" title="Health"><div id="health-p0-bar" class="h-full bg-emerald-400 rounded-sm transition-all duration-150" style="width:100%"></div></div>
+                <div class="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden mt-1" title="Stamina (hold Shift to sprint)"><div id="stamina-bar" class="h-full bg-lime-400 rounded-full transition-all duration-75" style="width:100%"></div></div>
             </div>
             <div id="health-wrap-1" class="hidden px-4 text-center min-w-[8rem]">
                 <div class="text-[10px] text-emerald-100 font-black uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" id="health-p1-label">P2</div>
@@ -1369,7 +1370,9 @@
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
             /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
-            characterType: 'circle'
+            characterType: 'circle',
+            /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
+            stamina: 100
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -1448,6 +1451,7 @@
             if (t === 'home') return 'HOME';
             if (t === 'house') return 'HOUSE';
             if (t === 'ruins') return 'RUINS';
+            if (t === 'jail') return 'POLICE';
             return String(t || '').toUpperCase();
         }
 
@@ -1466,7 +1470,7 @@
             { id: 'school', name: 'School' },
             { id: 'bank', name: 'Bank' },
             { id: 'hospital', name: 'Hospital' },
-            { id: 'jail', name: 'Jail' },
+            { id: 'jail', name: 'Police Station' },
             { id: 'dealership', name: 'Dealership' },
             { id: 'gadget', name: 'Gizmo & gadgets' },
             { id: 'weapons', name: 'Warden arms' }
@@ -3031,11 +3035,11 @@
                 for (let y = 0; y < WORLD_SIZE; y += GRID_SIZE) {
                     let type = 'house', color = COLORS[Math.floor(rnd() * COLORS.length)];
                     if (x === 2000 && y === 2000) { type = 'home'; color = '#000'; }
-                    else if (x === 0 && y === 3500) { type = 'admin_hall'; color = '#0e7490'; }
-                    else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }
-                    else if (x === 500 && y === 500) { type = 'jail'; color = '#475569'; }
-                    else if (x === 0 && y === 0) { type = 'hospital'; color = '#0f766e'; }
-                    else if (x === 500 && y === 3500) { type = 'dealership'; color = '#3b82f6'; }
+                    else if (x === 0 && y === 0) { type = 'hospital'; color = '#0f766e'; }    // top-left
+                    else if (x === 3500 && y === 0) { type = 'dealership'; color = '#3b82f6'; } // top-right
+                    else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }    // bottom-right
+                    else if (x === 0 && y === 3500) { type = 'jail'; color = '#dc2626'; }       // bottom-left = police station
+                    else if (x === 0 && y === 500) { type = 'admin_hall'; color = '#0e7490'; }  // near top-left
                     else if (rnd() > 0.85) { type = state.schoolGameMode ? 'school' : 'store'; color = state.schoolGameMode ? '#f59e0b' : '#10b981'; }
                     for (const s of GADGET_WEAPON_SHOP_SLOTS) {
                         if (x === s.x && y === s.y) { type = s.t; color = s.c; break; }
@@ -4033,6 +4037,7 @@
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
             state.money = 0;
+            state.stamina = 100;
             state.bestCarTier = -1;
             state.wantedLevel = 0;
             state.policeDelay = 0;
@@ -4925,6 +4930,7 @@
             state.isGameOver = false;
             state.gamePaused = false;
             state.bestCarTier = -1;
+            state.stamina = 100;
             hideWastedOverlay();
             const xb = document.getElementById('exit-to-lobby-btn');
             if (xb) xb.style.display = 'block';
@@ -5130,6 +5136,21 @@
             }
             const pedSpeed = customSpeed;
 
+            // SPRINT & STAMINA — P1 only in solo mode; Shift in 2P mode stays as P2 action
+            const STAMINA_MAX = 100;
+            const STAMINA_DRAIN = 0.8;   // per frame while sprinting
+            const STAMINA_REGEN = 0.3;   // per frame while not sprinting
+            const SPRINT_MULTIPLIER = 4.0; // sprint speed multiplier (makes player faster than police at 14)
+            const canSprint = state.playerMode === 1 && !state.isJailed;
+            const isSprinting = canSprint && (state.keys['shift'] || state.keys['shiftleft'] || state.keys['shiftright']) && state.stamina > 0 && state.players[0] && !state.players[0].inVehicle;
+            if (isSprinting) {
+                state.stamina = Math.max(0, state.stamina - STAMINA_DRAIN);
+            } else if (state.stamina < STAMINA_MAX) {
+                state.stamina = Math.min(STAMINA_MAX, state.stamina + STAMINA_REGEN);
+            }
+            const staminaBar = document.getElementById('stamina-bar');
+            if (staminaBar) staminaBar.style.width = (state.stamina / STAMINA_MAX * 100) + '%';
+
             // MURDER MODE & GOD MODE LOGIC (CIVILIANS)
             let targetCivs = 0;
             if (canUseGodPanelInGame()) targetCivs = parseInt(document.getElementById('god-civs').value) || 0;
@@ -5232,7 +5253,8 @@
                 ensurePlayerLoadout(p);
                 const stunLock = p.loadout.stunUntil > state.frameCount;
                 const controls = idx === 0 ? { u:'w', d:'s', l:'a', r:'d' } : { u:'arrowup', d:'arrowdown', l:'arrowleft', r:'arrowright' };
-                const spd = (p.loadout.gadgetDashUntil > state.frameCount) ? pedSpeed * 1.12 : pedSpeed;
+                const isThisPlayerSprinting = isSprinting && idx === 0;
+                const spd = (p.loadout.gadgetDashUntil > state.frameCount) ? pedSpeed * 1.12 : isThisPlayerSprinting ? pedSpeed * SPRINT_MULTIPLIER : pedSpeed;
                 if (p.inVehicle) {
                     const v = p.inVehicle;
                     if (state.keys[controls.u]) { if (v.angle !== 3*Math.PI/2) { if (isIntersection(v.x, v.y) || v.angle === Math.PI/2) { v.x = Math.round(v.x/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x, v.y-20)) v.angle = 3*Math.PI/2; } } }
@@ -5304,8 +5326,11 @@
                 if (state.policeDelay > 0) { state.policeDelay--; state.police = []; }
                 else {
                     if (state.police.length < 6) {
-                        const corners = [{x:0,y:0},{x:4000,y:0},{x:0,y:4000},{x:4000,y:4000}];
-                        corners.forEach(c => state.police.push({ x: c.x, y: c.y, angle: 0, speed: 0, type: { topSpeed: 14 } }));
+                        // Spawn from police station (bottom-left corner) with slight spread
+                        const stationX = 200, stationY = 3800;
+                        for (let i = 0; i < 4; i++) {
+                            state.police.push({ x: stationX + (i%2)*60, y: stationY - Math.floor(i/2)*60, angle: 0, speed: 0, type: { topSpeed: 14 } });
+                        }
                     }
                     state.police.forEach(v => {
                         const alive = state.players.filter(p => p && !p.dead);
@@ -5460,7 +5485,7 @@
                 c.restore();
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
-                let short = b.type === 'hospital' ? 'Hospital' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type))));
+                let short = b.type === 'hospital' ? 'Hospital' : b.type === 'jail' ? 'Police Station' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type))));
                 if (isZombieSecretActive() && b.type === 'ruins' && b.zombieBank) short = 'BANK (ruin)';
                 else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'house' && b.zombieHouseLooted === false) short = 'HOUSE (ruin)';
                 else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'home' && b.zombieHouseLooted === false) short = 'HOME (ruin)';
