@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel City Evolution 1</title>
     <meta name="description" content="Pixel City Evolution 1 — multiplayer low‑res city game. Sign in for online play or go offline.">
+    <!-- Production root URL — invite links and meta tags point here so shares work from forks/GitHub Pages previews -->
+    <link rel="canonical" href="https://pixelcity.quest/">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pixelcity.quest/">
+    <meta property="og:title" content="Pixel City Evolution 1">
+    <meta property="og:description" content="Multiplayer low‑res city game — sign in for online play or go offline. Share your join code with friends.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pixel City Evolution 1">
+    <meta name="twitter:description" content="Multiplayer low‑res city game at pixelcity.quest">
     <link rel="stylesheet" href="assets/tailwind.css">
     <script src="supabase-config.js"></script>
     <!--SUPABASE_BUILD_INJECT-->
@@ -1165,6 +1174,8 @@
         const ONLINE_BROADCAST_MS = 120;
         const ONLINE_REALTIME_SUB_TIMEOUT_MS = 15000;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        /** Invite links use this origin — matches <link rel="canonical"> in index.html */
+        const PUBLIC_GAME_ORIGIN = 'https://pixelcity.quest';
         /** Jail duration in game frames (~60/sec). Police: 35–60s real. Slash admin jail: 30s. */
         const JAIL_FRAMES_PER_SEC = 60;
         const jailFramesPolice = () => (15 + Math.floor(Math.random() * 6)) * JAIL_FRAMES_PER_SEC; // 15-20s
@@ -3734,18 +3745,15 @@
 
         function buildJoinInviteUrl(code) {
             try {
-                const u = new URL(window.location.href);
-                u.search = '';
-                u.hash = '';
-                // Strip index.html and any existing join-code segment, then append code
-                let base = u.pathname.replace(/\/index\.html$/i, '').replace(/\/$/, '') || '';
-                // Remove a trailing segment that already looks like a code
-                const lastSeg = base.split('/').pop() || '';
-                if (/^[A-Z0-9]{4,8}$/i.test(lastSeg)) base = base.slice(0, base.lastIndexOf('/' + lastSeg)) || '';
-                u.pathname = base + '/' + encodeURIComponent(code);
-                return u.toString();
+                const normalized = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                if (!normalized) return PUBLIC_GAME_ORIGIN + '/';
+                const canon = new URL(PUBLIC_GAME_ORIGIN.endsWith('/') ? PUBLIC_GAME_ORIGIN : PUBLIC_GAME_ORIGIN + '/');
+                canon.pathname = '/' + encodeURIComponent(normalized);
+                canon.search = '';
+                canon.hash = '';
+                return canon.toString();
             } catch {
-                return `${window.location.origin}/${encodeURIComponent(code)}`;
+                return `${PUBLIC_GAME_ORIGIN.replace(/\/?$/, '')}/${encodeURIComponent(code)}`;
             }
         }
 
