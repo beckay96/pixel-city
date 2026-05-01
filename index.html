@@ -374,14 +374,6 @@
                     </button>
                 </div>
             </div>
-            <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Character</label>
-                <div class="flex gap-2" id="auth-character-btns">
-                    <button type="button" data-char="boy"    class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300 hover:border-blue-400">👦 Boy</button>
-                    <button type="button" data-char="girl"   class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300 hover:border-pink-400">👧 Girl</button>
-                    <button type="button" data-char="circle" class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300 hover:border-slate-400">⚪ Other</button>
-                </div>
-            </div>
             <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
             <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive text-sm">Play online</button>
             <p class="text-[8px] text-slate-500 text-center -mt-1">New username? An account is created for you automatically.</p>
@@ -434,7 +426,10 @@
                         <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">📤 Your code</p>
                         <p class="text-[9px] text-slate-400 leading-snug">Share this with friends so they can join your game.</p>
                         <p id="solo-share-code" class="text-2xl font-black text-white tracking-[0.3em] text-center py-1">—</p>
-                        <button type="button" id="solo-copy-code-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy code</button>
+                        <div class="flex gap-2">
+                            <button type="button" id="solo-copy-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy code</button>
+                            <button type="button" id="solo-new-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">🔄 New code</button>
+                        </div>
                     </div>
                     <!-- Join a friend's code -->
                     <div class="bg-slate-900/60 border border-slate-600/40 rounded-xl p-3">
@@ -817,12 +812,6 @@
                 </div>
                 <p id="admin-skin-hex-err" class="text-[10px] text-red-400 min-h-[1rem] text-center"></p>
                 <button type="button" id="admin-skin-apply-custom" class="w-full bg-cyan-700 hover:bg-cyan-600 py-2 rounded-lg font-bold text-sm mb-3">Use this custom color</button>
-                <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Character style</p>
-                <div class="flex gap-2 mb-3" id="admin-char-btns">
-                    <button type="button" data-char="boy"    class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300">👦 Boy</button>
-                    <button type="button" data-char="girl"   class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300">👧 Girl</button>
-                    <button type="button" data-char="circle" class="flex-1 py-2 rounded-lg border-2 border-slate-600 text-sm font-bold interactive text-slate-300">⚪ Other</button>
-                </div>
                 <button type="button" id="admin-skin-close" class="w-full bg-slate-700 py-2 rounded-lg font-bold text-sm">Done</button>
             </div>
         </div>
@@ -2487,12 +2476,7 @@
         }
 
         function applyAdminCharBtnStyles() {
-            document.querySelectorAll('#admin-char-btns [data-char]').forEach(btn => {
-                const active = btn.dataset.char === state.characterType;
-                btn.className = 'flex-1 py-2 rounded-lg border-2 text-sm font-bold interactive ' + (active
-                    ? (btn.dataset.char === 'boy' ? 'border-blue-400 text-white' : btn.dataset.char === 'girl' ? 'border-pink-400 text-white' : 'border-slate-300 text-white')
-                    : 'border-slate-600 text-slate-300');
-            });
+            /* Avatar is always the dot (circle); character picker removed from UI. */
         }
 
         function openAdminSkinModal() {
@@ -3712,13 +3696,16 @@
         /**
          * Ensures the MULTIPLAYER "your code" row exists in game_sessions so friends can look it up.
          * Skips when this client already joined another host's session.
-         * @returns {Promise<boolean>}
+         * @returns {Promise<{ ok: boolean, errMsg: string|null }>}
          */
         async function syncMultiplayerLobbyHostRow() {
-            if (!supabase || !state.supabaseUserId) return false;
-            if (state.playMode !== 'online' || state.isSoloAutoHost || isInGame()) return false;
-            if (state.onlineSessionCode && !state.isOnlineHost) return false;
-            if (lobbyHostUpsertSuppressed) return false;
+            const fail = (errMsg) => ({ ok: false, errMsg: errMsg || null });
+            const ok = () => ({ ok: true, errMsg: null });
+
+            if (!supabase || !state.supabaseUserId) return fail();
+            if (state.playMode !== 'online' || state.isSoloAutoHost || isInGame()) return fail();
+            if (state.onlineSessionCode && !state.isOnlineHost) return fail();
+            if (lobbyHostUpsertSuppressed) return fail();
 
             const code = getOrRefreshRunCode();
             let seed = state.worldSeed;
@@ -3730,14 +3717,50 @@
                 { code, host_id: state.supabaseUserId, world_seed: seed, updated_at: new Date().toISOString() },
                 { onConflict: 'code' }
             );
-            if (lobbyHostUpsertSuppressed) return false;
-            if (state.onlineSessionCode && !state.isOnlineHost) return false;
-            if (res.error) return false;
+            if (lobbyHostUpsertSuppressed) return fail();
+            if (state.onlineSessionCode && !state.isOnlineHost) return fail();
+            if (res.error) return fail(formatSupabaseNetworkError(res.error) || res.error.message || 'Could not save your room online');
 
             state.onlineSessionCode = code;
             state.isOnlineHost = true;
             state.worldSeed = seed;
-            return true;
+            return ok();
+        }
+
+        /** New random invite code for this browser tab; replaces sessionStorage value. */
+        function refreshRunCode() {
+            let c = '';
+            for (let i = 0; i < 6; i++) c += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+            sessionStorage.setItem('pixelCityRunCode', c);
+            return c;
+        }
+
+        async function regenerateMultiplayerInviteCode() {
+            if (!supabase || !state.supabaseUserId) {
+                setSessionMsg('👤 Sign in first to get a join code!', false);
+                return;
+            }
+            if (state.playMode !== 'online' || state.isSoloAutoHost) return;
+            if (state.onlineSessionCode && !state.isOnlineHost) {
+                setSessionMsg('You joined a friend’s room — leave that session first for your own code.', false);
+                return;
+            }
+
+            const oldCode = (state.onlineSessionCode || sessionStorage.getItem('pixelCityRunCode') || '').trim();
+            if (oldCode && supabase) {
+                try { await supabase.from('game_sessions').delete().eq('code', oldCode); } catch (_) {}
+            }
+            teardownOnlineRealtime({ skipDelete: true });
+            const newCode = refreshRunCode();
+            const codeEl = document.getElementById('solo-share-code');
+            if (codeEl) codeEl.textContent = newCode;
+
+            const syncRes = await syncMultiplayerLobbyHostRow();
+            if (!syncRes.ok) {
+                setSessionMsg(syncRes.errMsg || '😕 Could not save the new code. Check your connection and try again.', false);
+            } else {
+                setSessionMsg('🔄 New code ready — share it with friends!', true);
+            }
         }
 
         async function broadcastAdminCmd(payload) {
@@ -4925,9 +4948,9 @@
                 }
                 // Guest already joined a friend's room — keep their session; hosts need a published row
                 if (!state.onlineSessionCode || state.isOnlineHost) {
-                    const syncOk = await syncMultiplayerLobbyHostRow();
-                    if (!syncOk || !state.onlineSessionCode) {
-                        showMessage('Could not open your room online. Check your connection, stay on MULTIPLAYER, and try again.');
+                    const syncRes = await syncMultiplayerLobbyHostRow();
+                    if (!syncRes.ok || !state.onlineSessionCode) {
+                        showMessage(syncRes.errMsg || 'Could not open your room online. Check your connection, stay on MULTIPLAYER, and try again.');
                         return;
                     }
                 }
@@ -5931,18 +5954,9 @@
             // Fresh random code per browser session (clears on tab close)
             let code = sessionStorage.getItem('pixelCityRunCode') || '';
             if (!code || code.length < 4) {
-                code = '';
-                for (let i = 0; i < 6; i++) code += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
-                sessionStorage.setItem('pixelCityRunCode', code);
+                code = refreshRunCode();
             }
             return code;
-        }
-
-        function refreshRunCode() {
-            const code = '';
-            const newCode = (() => { let c=''; for(let i=0;i<6;i++) c+=SESSION_CODE_CHARS[Math.floor(Math.random()*SESSION_CODE_CHARS.length)]; return c; })();
-            sessionStorage.setItem('pixelCityRunCode', newCode);
-            return newCode;
         }
 
         function updateLobbyHints() {
@@ -5956,7 +5970,13 @@
                 const code = getOrRefreshRunCode();
                 const codeEl = document.getElementById('solo-share-code');
                 if (codeEl) codeEl.textContent = supabase && state.supabaseUserId ? code : '— sign in —';
-                if (supabase && state.supabaseUserId) void syncMultiplayerLobbyHostRow();
+                if (supabase && state.supabaseUserId) {
+                    void (async () => {
+                        const syncRes = await syncMultiplayerLobbyHostRow();
+                        if (syncRes.errMsg) setSessionMsg(syncRes.errMsg, false);
+                        else if (syncRes.ok) setSessionMsg('Friends can join with your code below.', true);
+                    })();
+                }
                 if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Share code · Join friend · Start game</p>";
             } else if (state.playerMode === 2) {
@@ -6658,23 +6678,8 @@
             if (userInput) userInput.addEventListener('input', clearSignInMsg);
             if (passInput) passInput.addEventListener('input', clearSignInMsg);
 
-            // Character type picker — load saved preference and wire buttons
-            state.characterType = localStorage.getItem(LS_CHARACTER_TYPE) || 'circle';
-            const charBtns = document.querySelectorAll('#auth-character-btns [data-char]');
-            function applyCharBtnStyles() {
-                charBtns.forEach(btn => {
-                    const active = btn.dataset.char === state.characterType;
-                    btn.className = 'flex-1 py-2 rounded-lg border-2 text-sm font-bold interactive ' + (active
-                        ? (btn.dataset.char === 'boy' ? 'border-blue-400 text-white' : btn.dataset.char === 'girl' ? 'border-pink-400 text-white' : 'border-slate-300 text-white')
-                        : 'border-slate-600 text-slate-300 hover:border-slate-400');
-                });
-            }
-            applyCharBtnStyles();
-            charBtns.forEach(btn => btn.addEventListener('click', () => {
-                state.characterType = btn.dataset.char;
-                try { localStorage.setItem(LS_CHARACTER_TYPE, state.characterType); } catch(_) {}
-                applyCharBtnStyles();
-            }));
+            state.characterType = 'circle';
+            try { localStorage.removeItem(LS_CHARACTER_TYPE); } catch (_) {}
 
             const passToggleBtn = document.getElementById('auth-password-toggle');
             if (passToggleBtn && passInput) {
@@ -7045,6 +7050,7 @@
                 try { await navigator.clipboard.writeText(code); showMessage('Code copied! Friends can use it in MULTIPLAYER.'); }
                 catch { showMessage(`Your code: ${code}`); }
             });
+            document.getElementById('solo-new-code-btn')?.addEventListener('click', () => { void regenerateMultiplayerInviteCode(); });
             applyModeButtonStyles();
             updateLobbyHints();
             
@@ -7173,15 +7179,6 @@
             document.getElementById('admin-skin-close')?.addEventListener('click', () => {
                 const m = document.getElementById('admin-skin-modal');
                 if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
-            });
-            document.querySelectorAll('#admin-char-btns [data-char]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    state.characterType = btn.dataset.char;
-                    try { localStorage.setItem(LS_CHARACTER_TYPE, state.characterType); } catch(_) {}
-                    applyAdminCharBtnStyles();
-                    // Also sync the sign-in screen picker if visible
-                    if (typeof applyCharBtnStyles === 'function') applyCharBtnStyles();
-                });
             });
             if (supabase && state.supabaseUserId) {
                 showLobbyFromSignIn();
