@@ -5430,6 +5430,22 @@
             initGameLoop();
         }
 
+        /** Grid cars: accelerate only while the key matching travel direction is held. */
+        function vehicleForwardKeyHeld(v, controls) {
+            const c = Math.cos(v.angle);
+            const s = Math.sin(v.angle);
+            const t = 0.02;
+            if (Math.abs(c - 1) < t && Math.abs(s) < t) return !!state.keys[controls.r];
+            if (Math.abs(c + 1) < t && Math.abs(s) < t) return !!state.keys[controls.l];
+            if (Math.abs(s - 1) < t && Math.abs(c) < t) return !!state.keys[controls.d];
+            if (Math.abs(s + 1) < t && Math.abs(c) < t) return !!state.keys[controls.u];
+            return false;
+        }
+
+        function clearMovementKeysForBlur() {
+            ['w', 's', 'a', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].forEach(k => { state.keys[k] = false; });
+        }
+
         function initGameLoop() {
             generateCity();
             state.benCodeOkThisRun = false;
@@ -5506,7 +5522,11 @@
                 if (k === 'f' && state.players[1] && !state.players[1].menuType) { e.preventDefault(); fireWeapon(1); }
                 if (k === 'g' && state.players[1] && !state.players[1].menuType) { e.preventDefault(); toggleBodyDrag(1); }
             };
-            window.onkeyup = e => state.keys[e.key.toLowerCase()] = false;
+            window.onkeyup = e => { state.keys[e.key.toLowerCase()] = false; };
+            if (!window.__pixelCityBlurBound) {
+                window.__pixelCityBlurBound = true;
+                window.addEventListener('blur', clearMovementKeysForBlur);
+            }
             requestAnimationFrame(gameLoop);
         }
 
@@ -5669,11 +5689,12 @@
                     else if (state.keys[controls.d]) { if (v.angle !== Math.PI/2) { if (isIntersection(v.x, v.y) || v.angle === 3*Math.PI/2) { v.x = Math.round(v.x/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x, v.y+20)) v.angle = Math.PI/2; } } }
                     else if (state.keys[controls.l]) { if (v.angle !== Math.PI) { if (isIntersection(v.x, v.y) || v.angle === 0) { v.y = Math.round(v.y/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x-20, v.y)) v.angle = Math.PI; } } }
                     else if (state.keys[controls.r]) { if (v.angle !== 0) { if (isIntersection(v.x, v.y) || v.angle === Math.PI) { v.y = Math.round(v.y/GRID_SIZE)*GRID_SIZE; if (getRoadAt(v.x+20, v.y)) v.angle = 0; } } }
-                    const nextX = v.x + Math.cos(v.angle) * v.type.topSpeed, nextY = v.y + Math.sin(v.angle) * v.type.topSpeed;
-                    
-                    const hitBuilding = state.buildings.some(b => buildingBlocksMovement(b) && nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
-                    const openWorld = state.buildings.length === 0;
-                    if (!hitBuilding && (openWorld || getRoadAt(nextX, nextY))) { v.x = nextX; v.y = nextY; }
+                    if (vehicleForwardKeyHeld(v, controls)) {
+                        const nextX = v.x + Math.cos(v.angle) * v.type.topSpeed, nextY = v.y + Math.sin(v.angle) * v.type.topSpeed;
+                        const hitBuilding = state.buildings.some(b => buildingBlocksMovement(b) && nextX > b.x-10 && nextX < b.x+b.w+10 && nextY > b.y-10 && nextY < b.y+b.h+10);
+                        const openWorld = state.buildings.length === 0;
+                        if (!hitBuilding && (openWorld || getRoadAt(nextX, nextY))) { v.x = nextX; v.y = nextY; }
+                    }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
                 } else if (!stunLock) {
                     let mx=0, my=0; 
