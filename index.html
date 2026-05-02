@@ -713,6 +713,8 @@
                 <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase">🏎️ Dealer</h2>
                 <div class="car-list space-y-2 mb-4"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to buy</div>
+                <button type="button" id="dealer-buy-friend-0" class="w-full bg-amber-800/90 hover:bg-amber-700 text-amber-100 text-xs font-bold py-2 rounded-lg mb-2 interactive border border-amber-600/60">🎁 Buy for friend (tap twice)</button>
+                <p id="dealer-friend-hint-0" class="text-[9px] text-amber-200/80 text-center mb-2 min-h-[1rem]"></p>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
             <div id="bank-modal-0" class="modal interactive">
@@ -775,6 +777,8 @@
                 <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase">🏎️ Dealer</h2>
                 <div class="car-list space-y-2 mb-4"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to buy</div>
+                <button type="button" id="dealer-buy-friend-1" class="w-full bg-amber-800/90 hover:bg-amber-700 text-amber-100 text-xs font-bold py-2 rounded-lg mb-2 interactive border border-amber-600/60">🎁 Buy for friend (tap twice)</button>
+                <p id="dealer-friend-hint-1" class="text-[9px] text-amber-200/80 text-center mb-2 min-h-[1rem]"></p>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="bank-modal-1" class="modal interactive">
@@ -1363,9 +1367,14 @@
         const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
         const JOBS = [{ id: 'shelves', name: 'Stock Shelves' }, { id: 'floor', name: 'Mop Floor' }, { id: 'customers', name: 'Cashier' }];
         const VEHICLE_TYPES = [
+            { id: 'compact', name: 'City Compact',      price: 250,     topSpeed: 5.5, accel: 0.18, color: '#22c55e', tier: 0, storeBonus: 8   },
             { id: 'sedan',   name: 'Standard Sedan',    price: 400,     topSpeed: 6,   accel: 0.2,  color: '#3b82f6', tier: 0, storeBonus: 10  },
+            { id: 'hatch',   name: 'Sport Hatch',       price: 900,     topSpeed: 7,   accel: 0.22, color: '#e11d48', tier: 1, storeBonus: 15  },
             { id: 'truck',   name: 'Ironclad Truck',    price: 1500,    topSpeed: 5,   accel: 0.15, color: '#94a3b8', tier: 1, storeBonus: 20  },
+            { id: 'van',     name: 'Cargo Van',         price: 1800,    topSpeed: 5.2, accel: 0.14, color: '#64748b', tier: 1, storeBonus: 22  },
             { id: 'sport',   name: 'Phoenix GT',        price: 2000,    topSpeed: 50,  accel: 1.5,  color: '#facc15', tier: 2, storeBonus: 50  },
+            { id: 'pickup',  name: 'Ridge Pickup',      price: 4500,    topSpeed: 6.5, accel: 0.25, color: '#b45309', tier: 2, storeBonus: 55  },
+            { id: 'suv',     name: 'Summit SUV',        price: 8500,    topSpeed: 7.5, accel: 0.28, color: '#1e293b', tier: 3, storeBonus: 70  },
             { id: 'porsche', name: 'Porsche 911',       price: 10000,   topSpeed: 55,  accel: 2.0,  color: '#475569', tier: 3, storeBonus: 75  },
             { id: 'lambo',   name: 'Aventador LAMBO',   price: 100000,  topSpeed: 140, accel: 4.0,  color: '#fbbf24', tier: 4, storeBonus: 100 },
             { id: 'bugatti', name: 'Bugatti Chiron',    price: 350000,  topSpeed: 160, accel: 4.5,  color: '#6366f1', tier: 5, storeBonus: 150 },
@@ -1470,10 +1479,17 @@
             sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
+            /** Monotonic id for world vehicles (save/load + multiplayer sync). */
+            nextVehicleId: 1,
+            /** Dealership: after two taps on "Buy for friend", next E/Shift purchase spawns an extra car for peers. */
+            dealerBuyForFriendArmed: false,
+            dealerFriendConfirmStep: 0,
             /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
             characterType: 'circle',
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
-            stamina: 100
+            stamina: 100,
+            /** Lobby "Load progress" stores full save here until joinRoom creates players. */
+            pendingLobbySave: null
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -3492,12 +3508,70 @@
             x = Math.max(25, Math.min(WORLD_SIZE - 25, Math.round(x)));
             y = Math.max(25, Math.min(WORLD_SIZE - 25, Math.round(y)));
             return {
+                id: state.nextVehicleId++,
                 x, y,
                 angle: Math.PI / 2,
                 speed: 0,
                 type: JSON.parse(JSON.stringify(carType)),
                 occupied: false
             };
+        }
+
+        function getVehicleDefById(id) {
+            return VEHICLE_TYPES.find(v => v.id === id) || null;
+        }
+
+        function serializeVehiclesForSave() {
+            return state.vehicles.map(v => ({
+                id: v.id,
+                x: v.x,
+                y: v.y,
+                angle: v.angle,
+                occupied: !!v.occupied,
+                typeId: v.type && v.type.id ? v.type.id : 'sedan'
+            }));
+        }
+
+        function hydrateVehiclesFromSave(rows) {
+            if (!Array.isArray(rows) || rows.length === 0) return;
+            let maxId = 0;
+            state.vehicles = rows.map(row => {
+                const def = getVehicleDefById(row.typeId) || getVehicleDefById('sedan');
+                const typeCopy = JSON.parse(JSON.stringify(def));
+                const id = typeof row.id === 'number' ? row.id : state.nextVehicleId++;
+                maxId = Math.max(maxId, id);
+                return {
+                    id,
+                    x: Number(row.x) || 2000,
+                    y: Number(row.y) || 2200,
+                    angle: Number(row.angle) || 0,
+                    speed: 0,
+                    type: typeCopy,
+                    occupied: !!row.occupied
+                };
+            });
+            state.nextVehicleId = Math.max(state.nextVehicleId, maxId + 1);
+        }
+
+        function broadcastVehicleSpawnIfOnline(veh) {
+            if (state.playMode !== 'online' || !supabaseRealtimeChannel || !veh) return;
+            try {
+                supabaseRealtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'pvp_fx',
+                    payload: {
+                        k: 'vehicle_spawn',
+                        v: {
+                            id: veh.id,
+                            x: veh.x,
+                            y: veh.y,
+                            angle: veh.angle,
+                            typeId: veh.type && veh.type.id ? veh.type.id : 'sedan',
+                            occupied: !!veh.occupied
+                        }
+                    }
+                });
+            } catch (_) {}
         }
 
         async function fetchCloudFriendnames() {
@@ -3771,6 +3845,7 @@
                 if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; }
                 const typeCopy = JSON.parse(JSON.stringify(t));
                 const v = {
+                    id: state.nextVehicleId++,
                     x: 2000 + i * 140,
                     y: 2150,
                     angle: 0,
@@ -3905,6 +3980,7 @@
                 state.remotePlayers[payload.uid] = {
                     x: payload.x, y: payload.y, angle: payload.angle || 0,
                     inVehicle: !!payload.inVehicle,
+                    inJail: !!payload.inJail,
                     username: payload.u || 'Friend',
                     color: payload.c || null,
                     hp: payload.hp != null ? payload.hp : PLAYER_MAX_HP,
@@ -3991,6 +4067,23 @@
                             ownerUid: t.ownerUid,
                             lastStunFrame: 0
                         });
+                    }
+                }
+                if (payload.k === 'vehicle_spawn' && payload.v) {
+                    const row = payload.v;
+                    if (!state.vehicles.find(v => v.id === row.id)) {
+                        const def = getVehicleDefById(row.typeId) || getVehicleDefById('sedan');
+                        const typeCopy = JSON.parse(JSON.stringify(def));
+                        state.vehicles.push({
+                            id: row.id,
+                            x: Number(row.x) || 0,
+                            y: Number(row.y) || 0,
+                            angle: Number(row.angle) || 0,
+                            speed: 0,
+                            type: typeCopy,
+                            occupied: !!row.occupied
+                        });
+                        state.nextVehicleId = Math.max(state.nextVehicleId, row.id + 1);
                     }
                 }
                 if (payload.k === 'landmine_boom') {
@@ -4343,14 +4436,22 @@
             if (now - lastOnlineBroadcast < ONLINE_BROADCAST_MS) return;
             lastOnlineBroadcast = now;
             const p = state.players[0];
+            const jail = state.isJailed && state.buildings ? state.buildings.find(b => b.type === 'jail') : null;
+            let bx = p.x;
+            let by = p.y;
+            if (state.isJailed && jail) {
+                bx = jail.x + jail.w / 2;
+                by = jail.y + jail.h / 2;
+            }
             supabaseRealtimeChannel.send({
                 type: 'broadcast',
                 event: 'pos',
                 payload: {
                     uid: state.supabaseUserId,
                     u: state.profileUsername || state.playerName || 'player',
-                    x: p.x, y: p.y, angle: p.angle,
+                    x: bx, y: by, angle: p.angle,
                     inVehicle: !!p.inVehicle,
+                    inJail: !!state.isJailed,
                     c: p.color || DEFAULT_PLAYER_COLOR,
                     hp: p.hp != null ? Math.max(0, Math.ceil(p.hp)) : PLAYER_MAX_HP,
                     dead: !!p.dead,
@@ -4704,6 +4805,7 @@
             state.police = [];
             state.civilians = [];
             state.vehicles = [];
+            state.nextVehicleId = 1;
             state.isPresident = false;
             state.isGameOver = false;
             state.isJailed = false;
@@ -4790,6 +4892,9 @@
             document.querySelectorAll(`[id$="-${pIdx}"]`).forEach(m => {
                 if (m.classList.contains('modal')) m.style.display = 'none';
             });
+            if (state.players[pIdx] && state.players[pIdx].menuType === 'dealer') {
+                resetDealerFriendGiftUI(pIdx);
+            }
             if (state.players[pIdx]) {
                 state.players[pIdx].activeJob = null;
                 state.players[pIdx].schoolTask = null;
@@ -4993,6 +5098,80 @@
             }
         }
 
+        function resetDealerFriendGiftUI(pIdx) {
+            state.dealerBuyForFriendArmed = false;
+            state.dealerFriendConfirmStep = 0;
+            const h = document.getElementById(`dealer-friend-hint-${pIdx}`);
+            if (h) h.textContent = '';
+            const b = document.getElementById(`dealer-buy-friend-${pIdx}`);
+            if (b) {
+                b.textContent = '🎁 Buy for friend (tap twice)';
+                b.classList.remove('ring-2', 'ring-amber-400');
+            }
+        }
+
+        function onDealerBuyForFriendClick(pIdx) {
+            const p = state.players[pIdx];
+            if (!p || p.menuType !== 'dealer') return;
+            if (state.dealerFriendConfirmStep === 0) {
+                state.dealerFriendConfirmStep = 1;
+                const h = document.getElementById(`dealer-friend-hint-${pIdx}`);
+                if (h) h.textContent = 'Tap again to confirm — your next buy will include an extra car for a friend (2× price).';
+            } else {
+                state.dealerBuyForFriendArmed = true;
+                state.dealerFriendConfirmStep = 2;
+                const h = document.getElementById(`dealer-friend-hint-${pIdx}`);
+                if (h) h.textContent = 'Gift mode ON — press E / Shift to buy the selected car.';
+                const b = document.getElementById(`dealer-buy-friend-${pIdx}`);
+                if (b) {
+                    b.textContent = '🎁 Gift mode ready';
+                    b.classList.add('ring-2', 'ring-amber-400');
+                }
+            }
+        }
+
+        /** Complete a dealership purchase (self + optional gift car for multiplayer / teammate). */
+        function completeDealershipPurchase(pIdx, car, opts) {
+            const gift = !!(opts && opts.giftForFriend);
+            const totalPrice = gift ? car.price * 2 : car.price;
+            if (state.money < totalPrice) {
+                showMessage(gift ? 'Not enough for you + friend (2× price)' : 'Insufficient Funds!');
+                return;
+            }
+            state.money -= totalPrice;
+            updateMoneyUI();
+
+            const v1 = spawnVehicleAtDealership(car, 0);
+            state.vehicles.push(v1);
+            broadcastVehicleSpawnIfOnline(v1);
+
+            if (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) {
+                const v2 = spawnVehicleAtDealership(car, 1);
+                state.vehicles.push(v2);
+                broadcastVehicleSpawnIfOnline(v2);
+            }
+            if (gift) {
+                const slot = (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) ? 2 : 1;
+                const vGift = spawnVehicleAtDealership(car, slot);
+                state.vehicles.push(vGift);
+                broadcastVehicleSpawnIfOnline(vGift);
+            }
+
+            if (car.tier > state.bestCarTier) state.bestCarTier = car.tier;
+
+            resetDealerFriendGiftUI(pIdx);
+            window.closePlayerModal(pIdx);
+
+            if (car.id === 'god') {
+                triggerVictory();
+                showMessage(gift ? '🌟 GOD LAMBO × gift! You\'re the ultimate!' : '🌟 GOD LAMBO! You\'re the ultimate! Store earns $' + car.storeBonus + '/tap!');
+            } else if (car.id === 'lambo') {
+                showMessage(gift ? '🏆 LAMBO + friend car at the lot!' : '🏆 AVENTADOR LAMBO! Milestone reached! Store earns $' + car.storeBonus + '/tap! Keep going!');
+            } else {
+                showMessage(gift ? `🎁 ${car.name} for you + one for a friend at the lot!` : `Purchased ${car.name}! Store now earns $${car.storeBonus}/tap!`);
+            }
+        }
+
         function selectMenuItem(pIdx) {
             const p = state.players[pIdx];
             if (!p || !p.menuType) return;
@@ -5046,30 +5225,8 @@
                 }
             } else if (p.menuType === 'dealer') {
                 const car = VEHICLE_TYPES[p.menuSelection];
-                if (state.money >= car.price) {
-                    state.money -= car.price;
-                    updateMoneyUI();
-
-                    state.vehicles.push(spawnVehicleAtDealership(car, 0));
-                    if (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) {
-                        state.vehicles.push(spawnVehicleAtDealership(car, 1));
-                    }
-                    // Track best car for store earnings boost
-                    if (car.tier > state.bestCarTier) {
-                        state.bestCarTier = car.tier;
-                    }
-                    window.closePlayerModal(pIdx);
-                    
-                    if (car.id === 'god') {
-                        triggerVictory();
-                        showMessage('🌟 GOD LAMBO! You\'re the ultimate! Store earns $' + car.storeBonus + '/tap!');
-                    } else if (car.id === 'lambo') {
-                        showMessage('🏆 AVENTADOR LAMBO! Milestone reached! Store earns $' + car.storeBonus + '/tap! Keep going!');
-                    } else {
-                        const bonus = car.storeBonus;
-                        showMessage(`Purchased ${car.name}! Store now earns $${bonus}/tap!`);
-                    }
-                } else showMessage("Insufficient Funds!");
+                const gift = state.dealerBuyForFriendArmed;
+                completeDealershipPurchase(pIdx, car, { giftForFriend: gift });
             } else if (p.menuType === 'rob') {
                 window.startRobbery(pIdx);
             }
@@ -5166,7 +5323,13 @@
                 } else if (bNear.type === 'store' || bNear.type === 'school') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'shop_g') { openGadgetModal(pIdx); }
                 else if (bNear.type === 'shop_w') { openWeaponModal(pIdx); }
-                else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
+                else if (bNear.type === 'dealership') {
+                    resetDealerFriendGiftUI(pIdx);
+                    p.menuType = 'dealer';
+                    p.menuSelection = 0;
+                    updateMenuUI(pIdx);
+                    document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block';
+                }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'home' && state.wantedLevel > 0) { 
@@ -5210,12 +5373,26 @@
 
         // ---------- Progress Save / Load / Delete ----------
         function saveProgress() {
+            const p0 = state.players[0];
+            const p1 = state.players[1];
             const data = {
                 money: state.money,
                 winCount: state.winCount,
                 skin: getSavedPlayerSkin(),
                 activeSecrets: state.activeSecrets.slice(),
                 schoolGameMode: state.schoolGameMode,
+                worldSeed: state.worldSeed,
+                bestCarTier: state.bestCarTier,
+                inventoryGadgetCounts: { ...state.inventoryGadgetCounts },
+                inventoryWeaponCounts: { ...state.inventoryWeaponCounts },
+                vehicles: serializeVehiclesForSave(),
+                nextVehicleId: state.nextVehicleId,
+                playerX: p0 ? Math.round(p0.x) : null,
+                playerY: p0 ? Math.round(p0.y) : null,
+                playerLoadout: p0 && p0.loadout ? JSON.parse(JSON.stringify(p0.loadout)) : null,
+                player2X: p1 ? Math.round(p1.x) : null,
+                player2Y: p1 ? Math.round(p1.y) : null,
+                player2Loadout: p1 && p1.loadout ? JSON.parse(JSON.stringify(p1.loadout)) : null,
                 savedAt: Date.now()
             };
             try { localStorage.setItem(LS_SAVED_PROGRESS, JSON.stringify(data)); } catch (_) {}
@@ -5236,6 +5413,7 @@
         function autosaveWorld() {
             if (!isInGame() || state.gamePaused || state.isGameOver) return;
             const p0 = state.players[0];
+            const p1 = state.players[1];
             const data = {
                 money: state.money,
                 winCount: state.winCount,
@@ -5246,11 +5424,17 @@
                 cityNuked: state.cityNuked,
                 benHouseRobbed: state.benHouseRobbed,
                 isPresident: state.isPresident,
-                playerX: p0 ? Math.round(p0.x) : null,
-                playerY: p0 ? Math.round(p0.y) : null,
+                bestCarTier: state.bestCarTier,
+                vehicles: serializeVehiclesForSave(),
+                nextVehicleId: state.nextVehicleId,
                 inventoryGadgetCounts: { ...state.inventoryGadgetCounts },
                 inventoryWeaponCounts: { ...state.inventoryWeaponCounts },
                 loadout: p0 && p0.loadout ? JSON.parse(JSON.stringify(p0.loadout)) : null,
+                loadoutP2: p1 && p1.loadout ? JSON.parse(JSON.stringify(p1.loadout)) : null,
+                playerX: p0 ? Math.round(p0.x) : null,
+                playerY: p0 ? Math.round(p0.y) : null,
+                player2X: p1 ? Math.round(p1.x) : null,
+                player2Y: p1 ? Math.round(p1.y) : null,
                 savedAt: Date.now()
             };
             try { localStorage.setItem(LS_AUTOSAVE, JSON.stringify(data)); } catch (_) {}
@@ -5281,6 +5465,8 @@
             if (save.cityNuked) state.cityNuked = true;
             if (save.benHouseRobbed) state.benHouseRobbed = true;
             if (save.isPresident) state.isPresident = true;
+            if (typeof save.bestCarTier === 'number') state.bestCarTier = save.bestCarTier;
+            if (typeof save.nextVehicleId === 'number' && save.nextVehicleId > 0) state.nextVehicleId = save.nextVehicleId;
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
             }
@@ -5294,11 +5480,37 @@
                 ensurePlayerLoadout(state.players[0]);
                 Object.assign(state.players[0].loadout, save.loadout);
             }
-            // Restore player position if saved
+            if (save.loadoutP2 && state.players[1]) {
+                ensurePlayerLoadout(state.players[1]);
+                Object.assign(state.players[1].loadout, save.loadoutP2);
+            }
+            if (Array.isArray(save.vehicles) && save.vehicles.length > 0) {
+                hydrateVehiclesFromSave(save.vehicles);
+            }
+            // Restore player positions if saved
             if (typeof save.playerX === 'number' && typeof save.playerY === 'number' && state.players[0]) {
                 state.players[0].x = save.playerX;
                 state.players[0].y = save.playerY;
             }
+            if (typeof save.player2X === 'number' && typeof save.player2Y === 'number' && state.players[1]) {
+                state.players[1].x = save.player2X;
+                state.players[1].y = save.player2Y;
+            }
+            // Re-bind players to occupied vehicles after hydrate
+            state.players.forEach(p => {
+                if (!p || !p.inVehicle) return;
+                const vid = p.inVehicle.id;
+                const found = state.vehicles.find(v => v.id === vid);
+                if (found) {
+                    p.inVehicle = found;
+                    found.occupied = true;
+                    p.x = found.x;
+                    p.y = found.y;
+                    p.angle = found.angle;
+                } else {
+                    p.inVehicle = null;
+                }
+            });
         }
 
         function updateSavedWorldButton() {
@@ -5339,6 +5551,7 @@
             }
             if (Array.isArray(p.activeSecrets)) state.activeSecrets = p.activeSecrets;
             if (p.schoolGameMode != null) setSchoolGameMode(!!p.schoolGameMode);
+            state.pendingLobbySave = p;
             return true;
         }
 
@@ -5577,6 +5790,8 @@
         }
 
         async function joinRoom({ autosave, savedSeed } = {}) {
+            const mergedSave = autosave || state.pendingLobbySave;
+            state.pendingLobbySave = null;
             if (state.playMode === 'online') {
                 // MULTIPLAYER mode: user explicitly chose to play with others
                 state.isSoloAutoHost = false;
@@ -5704,8 +5919,13 @@
             document.getElementById('lobby-screen').style.display = 'none';
             state.isGameOver = false;
             state.gamePaused = false;
-            state.bestCarTier = -1;
+            if (!mergedSave) {
+                state.bestCarTier = -1;
+                state.nextVehicleId = 1;
+                state.dealerFriendGiftArmed = false;
+            }
             state.stamina = 100;
+            state.vehicles = [];
             hideWastedOverlay();
             const xb = document.getElementById('exit-to-lobby-btn');
             if (xb) xb.style.display = 'block';
@@ -5779,9 +5999,9 @@
             state.players.forEach(p => applyZombieStartingWeapon(p));
             updateLoadoutUI();
 
-            // If loading a saved world, restore money and world state from autosave
-            if (autosave) {
-                applyAutosaveToState(autosave);
+            // If loading a saved world, restore money, vehicles, positions, and inventory
+            if (mergedSave) {
+                applyAutosaveToState(mergedSave);
                 updateMoneyUI();
                 state.players.forEach(p => applyZombieStartingWeapon(p));
                 updateLoadoutUI();
@@ -6276,6 +6496,81 @@
             return gameBufCtx;
         }
 
+        /** Rounded-body car with headlights / tail lights (reads better than a plain rectangle). */
+        function drawCartoonCar(c, v) {
+            const body = (v.type && v.type.color) ? v.type.color : '#475569';
+            const W = 54;
+            const H = 30;
+            c.save();
+            c.translate(v.x, v.y);
+            c.rotate(v.angle);
+            c.fillStyle = 'rgba(0,0,0,0.22)';
+            c.beginPath();
+            c.ellipse(2, 5, W * 0.48, H * 0.35, 0, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = body;
+            c.strokeStyle = 'rgba(15,23,42,0.9)';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.moveTo(-W / 2 + 8, -H / 2);
+            c.lineTo(W / 2 - 6, -H / 2);
+            c.quadraticCurveTo(W / 2, -H / 2, W / 2, 0);
+            c.quadraticCurveTo(W / 2, H / 2, W / 2 - 6, H / 2);
+            c.lineTo(-W / 2 + 8, H / 2);
+            c.quadraticCurveTo(-W / 2, H / 2, -W / 2, 0);
+            c.quadraticCurveTo(-W / 2, -H / 2, -W / 2 + 8, -H / 2);
+            c.closePath();
+            c.fill();
+            c.stroke();
+            c.fillStyle = 'rgba(186, 230, 253, 0.45)';
+            c.strokeStyle = 'rgba(30,58,138,0.5)';
+            c.lineWidth = 1;
+            c.beginPath();
+            c.moveTo(-W / 2 + 14, -H / 2 + 5);
+            c.lineTo(-4, -H / 2 + 5);
+            c.lineTo(-4, H / 2 - 5);
+            c.lineTo(-W / 2 + 14, H / 2 - 5);
+            c.closePath();
+            c.fill();
+            c.stroke();
+            const hl = 0.75 + 0.25 * Math.sin(state.frameCount * 0.15);
+            c.fillStyle = `rgba(254, 252, 232, ${hl})`;
+            c.beginPath();
+            c.arc(W / 2 - 7, -H / 2 + 9, 3.2, 0, Math.PI * 2);
+            c.arc(W / 2 - 7, H / 2 - 9, 3.2, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = 'rgba(254, 240, 138, 0.9)';
+            c.beginPath();
+            c.arc(W / 2 - 7, -H / 2 + 9, 1.6, 0, Math.PI * 2);
+            c.arc(W / 2 - 7, H / 2 - 9, 1.6, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#fca5a5';
+            c.beginPath();
+            c.arc(-W / 2 + 8, -H / 2 + 8, 2.8, 0, Math.PI * 2);
+            c.arc(-W / 2 + 8, H / 2 - 8, 2.8, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#dc2626';
+            c.beginPath();
+            c.arc(-W / 2 + 8, -H / 2 + 8, 1.4, 0, Math.PI * 2);
+            c.arc(-W / 2 + 8, H / 2 - 8, 1.4, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#0f172a';
+            c.beginPath();
+            c.arc(14, H / 2 + 2, 5, 0, Math.PI * 2);
+            c.arc(-14, H / 2 + 2, 5, 0, Math.PI * 2);
+            c.arc(14, -H / 2 - 2, 5, 0, Math.PI * 2);
+            c.arc(-14, -H / 2 - 2, 5, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = 'rgba(148,163,184,0.9)';
+            c.beginPath();
+            c.arc(14, H / 2 + 2, 2, 0, Math.PI * 2);
+            c.arc(-14, H / 2 + 2, 2, 0, Math.PI * 2);
+            c.arc(14, -H / 2 - 2, 2, 0, Math.PI * 2);
+            c.arc(-14, -H / 2 - 2, 2, 0, Math.PI * 2);
+            c.fill();
+            c.restore();
+        }
+
         function renderScene(targetCtx, camera, clipX, clipY, clipW, clipH) {
             const c = targetCtx;
             const Z = CAMERA_ZOOM;
@@ -6430,8 +6725,8 @@
                 c.restore();
             });
 
-            state.vehicles.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = v.type.color; c.fillRect(-25, -15, 50, 30); c.restore(); });
-            state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#fff'; c.fillRect(-25, -15, 50, 30); c.fillStyle = (Math.floor(state.frameCount/5)%2===0)?'#f00':'#00f'; c.fillRect(0,-15,10,30); c.restore(); });
+            state.vehicles.forEach(v => { drawCartoonCar(c, v); });
+            state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#f8fafc'; c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.beginPath(); c.moveTo(-26, -14); c.lineTo(26, -14); c.quadraticCurveTo(30, 0, 26, 14); c.lineTo(-26, 14); c.quadraticCurveTo(-30, 0, -26, -14); c.closePath(); c.fill(); c.stroke(); const flash = Math.floor(state.frameCount / 5) % 2 === 0; c.fillStyle = flash ? '#ef4444' : '#2563eb'; c.fillRect(2, -12, 10, 24); c.fillStyle = 'rgba(254,252,232,0.95)'; c.beginPath(); c.arc(22, -8, 2.5, 0, Math.PI * 2); c.arc(22, 8, 2.5, 0, Math.PI * 2); c.fill(); c.fillStyle = '#fecaca'; c.beginPath(); c.arc(-22, -8, 2.2, 0, Math.PI * 2); c.arc(-22, 8, 2.2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#0f172a'; c.beginPath(); c.arc(12, 16, 5, 0, Math.PI * 2); c.arc(-12, 16, 5, 0, Math.PI * 2); c.arc(12, -16, 5, 0, Math.PI * 2); c.arc(-12, -16, 5, 0, Math.PI * 2); c.fill(); c.restore(); });
             // Draw a pixel-art avatar based on characterType ('boy', 'girl', 'circle')
             function drawPlayerAvatar(ctx, charType, color) {
                 const col = color || DEFAULT_PLAYER_COLOR;
@@ -6667,21 +6962,42 @@
             state.civilians.forEach(c => { ms.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR_MINI : '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
             state.players.forEach(p => { if (p) {
                 const rad = 4.5;
-                const pxM = p.dead ? (p.corpseX != null ? p.corpseX : p.x) : (p.downed ? (p.corpseX != null ? p.corpseX : p.x) : p.x);
-                const pyM = p.dead ? (p.corpseY != null ? p.corpseY : p.y) : (p.downed ? (p.corpseY != null ? p.corpseY : p.y) : p.y);
+                let pxM = p.dead ? (p.corpseX != null ? p.corpseX : p.x) : (p.downed ? (p.corpseX != null ? p.corpseX : p.x) : p.x);
+                let pyM = p.dead ? (p.corpseY != null ? p.corpseY : p.y) : (p.downed ? (p.corpseY != null ? p.corpseY : p.y) : p.y);
+                if (!p.dead && !p.downed && p.inVehicle) {
+                    pxM = p.x;
+                    pyM = p.y;
+                }
+                if (!p.dead && !p.downed && state.isJailed) {
+                    const jailB = state.buildings && state.buildings.find(b => b.type === 'jail');
+                    if (jailB) {
+                        pxM = jailB.x + jailB.w / 2;
+                        pyM = jailB.y + jailB.h / 2;
+                    }
+                }
                 ms.beginPath(); ms.arc(pxM * s, pyM * s, rad, 0, Math.PI * 2);
                 if (p.dead) { ms.fillStyle = '#7f1d1d'; ms.fill(); return; }
                 if (p.downed) { ms.fillStyle = '#b45309'; ms.fill(); return; }
                 ms.fillStyle = p.color || DEFAULT_PLAYER_COLOR; ms.fill();
                 ms.strokeStyle = 'rgba(15,23,42,0.95)'; ms.lineWidth = 1.5; ms.stroke();
+                if (!p.dead && !p.downed && p.inVehicle) {
+                    ms.strokeStyle = 'rgba(250,204,21,0.95)'; ms.lineWidth = 1.2; ms.beginPath(); ms.arc(pxM * s, pyM * s, rad + 2.5, 0, Math.PI * 2); ms.stroke();
+                }
             }});
             if (state.playMode === 'online') {
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
+                    const r = rp.inJail ? 4 : (rp.inVehicle ? 4.5 : 3);
                     ms.fillStyle = rp.dead ? '#7f1d1d' : (rp.downed ? '#b45309' : (rp.color || DEFAULT_PLAYER_COLOR));
                     ms.beginPath();
-                    ms.arc(rp.x * s, rp.y * s, 3, 0, Math.PI * 2);
+                    ms.arc(rp.x * s, rp.y * s, r, 0, Math.PI * 2);
                     ms.fill();
+                    if (rp.inVehicle) {
+                        ms.strokeStyle = 'rgba(250,204,21,0.9)'; ms.lineWidth = 1; ms.beginPath(); ms.arc(rp.x * s, rp.y * s, r + 2, 0, Math.PI * 2); ms.stroke();
+                    }
+                    if (rp.inJail) {
+                        ms.strokeStyle = 'rgba(148,163,184,0.95)'; ms.lineWidth = 1; ms.beginPath(); ms.arc(rp.x * s, rp.y * s, r + 2.5, 0, Math.PI * 2); ms.stroke();
+                    }
                 }
             }
             if (state.wantedLevel > 0 && state.policeDelay <= 0) {
@@ -7476,6 +7792,9 @@
             document.getElementById('hud-inventory-close')?.addEventListener('click', () => hudOverlayClose(hudInvEl));
             hudLoadoutEl?.addEventListener('click', e => { if (e.target === hudLoadoutEl) hudOverlayClose(hudLoadoutEl); });
             hudInvEl?.addEventListener('click', e => { if (e.target === hudInvEl) hudOverlayClose(hudInvEl); });
+
+            document.getElementById('dealer-buy-friend-0')?.addEventListener('click', () => onDealerBuyForFriendClick(0));
+            document.getElementById('dealer-buy-friend-1')?.addEventListener('click', () => onDealerBuyForFriendClick(1));
 
             const signInMsg = document.getElementById('sign-in-msg');
             const userInput = document.getElementById('auth-username-input');
