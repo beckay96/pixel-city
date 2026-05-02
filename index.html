@@ -415,9 +415,10 @@
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
             <div>
                 <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Device</h2>
-                <div class="flex gap-2">
-                    <button id="device-pc" class="bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">COMPUTER</button>
-                    <button id="device-phone" class="border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive">PHONE</button>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    <button type="button" id="device-pc" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive">COMPUTER</button>
+                    <button type="button" id="device-phone" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive">PHONE</button>
+                    <button type="button" id="device-xbox" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive">XBOX</button>
                 </div>
             </div>
 
@@ -1388,6 +1389,8 @@
             /** True when the user selected 1 PLAYER and we auto-hosted for realtime in the background.
              *  Realtime runs, but all multiplayer HUD/lobby UI is hidden (user sees solo UX). */
             isSoloAutoHost: false,
+            /** In MULTIPLAYER: true = hosting (publish session); false = joined a friend’s room (keep their world seed). */
+            multiplayerIntendsHost: true,
             /** Last Realtime session channel we successfully subscribed to (for skip-resubscribe). */
             onlineRealtimeSubscribedCode: null,
             remotePlayers: {},
@@ -3247,9 +3250,8 @@
                     j.className = 'text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg font-black interactive';
                     j.textContent = '▶ Join';
                     j.onclick = () => {
-                        state.playMode = 'online';
-                        state.playerMode = 1;
                         document.getElementById('mode-online')?.click();
+                        state.multiplayerIntendsHost = false;
                         const inp = document.getElementById('online-join-code-input');
                         if (inp) inp.value = sessionCode;
                         joinOnlineSession(sessionCode);
@@ -3375,6 +3377,7 @@
             state.onlineSessionCode = null;
             state.isOnlineHost = false;
             state.isSoloAutoHost = false;
+            state.multiplayerIntendsHost = true;
             const badge = document.getElementById('session-code-badge');
             if (badge) badge.classList.add('hidden');
             const invite = document.getElementById('online-invite-block');
@@ -3803,6 +3806,7 @@
             pendingJoinCodeFromUrl = null;
             state.playMode = 'online';
             state.playerMode = 1;
+            state.multiplayerIntendsHost = false;
             applyModeButtonStyles();
             updateLobbyHints();
             const inp = document.getElementById('online-join-code-input');
@@ -4109,6 +4113,7 @@
                     return;
                 }
                 pcDebug('info', 'join_online_session_ok', { code, isHost: state.isOnlineHost });
+                state.multiplayerIntendsHost = !!state.isOnlineHost;
                 setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
                 if (!state.isOnlineHost) {
                     const block = document.getElementById('online-invite-block');
@@ -4144,6 +4149,7 @@
         const modeDuoBtn = document.getElementById('mode-duo');
         const devicePcBtn = document.getElementById('device-pc');
         const devicePhoneBtn = document.getElementById('device-phone');
+        const deviceXboxBtn = document.getElementById('device-xbox');
         const payBailBtn = document.getElementById('pay-bail-btn');
         const hintContainer = document.getElementById('control-hint');
         const lobbyWinsDisplay = document.getElementById('lobby-wins-display');
@@ -4997,6 +5003,7 @@
             state.supabaseUserId = null;
             state.profileUsername = '';
             state.playerName = '';
+            state.multiplayerIntendsHost = true;
             stopPresenceLoop();
             recomputeIsAdmin();
             updateOwnerDashboardFabVisibility();
@@ -5210,26 +5217,48 @@
                     showMessage('Sign in first to join multiplayer.');
                     return;
                 }
-                // Guest already joined a friend's room — keep their session; hosts need a published row
-                if (!state.onlineSessionCode || state.isOnlineHost) {
-                    const syncRes = await syncMultiplayerLobbyHostRow();
-                    if (!syncRes.ok || !state.onlineSessionCode) {
-                        pcDebug('error', 'join_room_multiplayer_sync_failed', { errMsg: syncRes.errMsg });
-                        showMessage(syncRes.errMsg || 'Could not open your room online. Check your connection, stay on MULTIPLAYER, and try again.');
+                if (!state.isSoloAutoHost && !state.onlineSessionCode) {
+                    if (state.multiplayerIntendsHost === false) {
+                        setSessionMsg('👆 Paste your friend’s code and tap Join first — then press Start game.', false);
+                        showMessage('Paste your friend’s code, tap Join, then Start game.');
                         return;
                     }
                 }
-                const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
-                if (!sub.ok) {
-                    pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
-                    showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
-                    document.getElementById('lobby-screen').style.display = 'flex';
-                    setInGamePhoneVisible(false);
-                    const xb2 = document.getElementById('exit-to-lobby-btn');
-                    if (xb2) xb2.style.display = 'none';
-                    return;
+                // Guest who already tapped Join: same world as host — do not re-publish (would replace world_seed)
+                if (!state.isOnlineHost && state.onlineSessionCode) {
+                    const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
+                    if (!sub.ok) {
+                        pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
+                        showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
+                        document.getElementById('lobby-screen').style.display = 'flex';
+                        setInGamePhoneVisible(false);
+                        const xb2 = document.getElementById('exit-to-lobby-btn');
+                        if (xb2) xb2.style.display = 'none';
+                        return;
+                    }
+                    pcDebug(debugVerbose ? 'debug' : 'info', 'join_room_multiplayer_enter', { code: state.onlineSessionCode, guest: true });
+                } else {
+                    // Hosting: publish row if needed, then subscribe
+                    if (!state.onlineSessionCode || state.isOnlineHost) {
+                        const syncRes = await syncMultiplayerLobbyHostRow();
+                        if (!syncRes.ok || !state.onlineSessionCode) {
+                            pcDebug('error', 'join_room_multiplayer_sync_failed', { errMsg: syncRes.errMsg });
+                            showMessage(syncRes.errMsg || 'Could not open your room online. Check your connection, stay on MULTIPLAYER, and try again.');
+                            return;
+                        }
+                    }
+                    const sub = await subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
+                    if (!sub.ok) {
+                        pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
+                        showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
+                        document.getElementById('lobby-screen').style.display = 'flex';
+                        setInGamePhoneVisible(false);
+                        const xb2 = document.getElementById('exit-to-lobby-btn');
+                        if (xb2) xb2.style.display = 'none';
+                        return;
+                    }
+                    pcDebug(debugVerbose ? 'debug' : 'info', 'join_room_multiplayer_enter', { code: state.onlineSessionCode, guest: false });
                 }
-                pcDebug(debugVerbose ? 'debug' : 'info', 'join_room_multiplayer_enter', { code: state.onlineSessionCode });
             } else {
                 state.worldSeed = null;
                 state.isSoloAutoHost = false;
@@ -6255,6 +6284,17 @@
                 duo.className = inactiveBlue;
                 onl.className = inactiveCyan;
             }
+            updatePrimaryLobbyButtonLabel();
+        }
+
+        function updatePrimaryLobbyButtonLabel() {
+            const btn = document.getElementById('join-btn');
+            if (!btn) return;
+            if (state.playMode === 'online' && !state.isSoloAutoHost) {
+                btn.textContent = '▶ Start game';
+            } else {
+                btn.textContent = '🆕 Start New Game';
+            }
         }
 
         function getOrRefreshRunCode() {
@@ -6284,16 +6324,17 @@
                         else if (syncRes.ok) setSessionMsg('Friends can join with your code below.', true);
                     })();
                 }
-                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
+                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Share code · Join friend · Start game</p>";
             } else if (state.playerMode === 2) {
-                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
+                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
             } else {
-                if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>P1: WASD to Move, E to Interact</p>";
+                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD to Move, E to Interact</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Drag to Move, Tap to Interact</p>";
             }
             updateFriendsListUIAsync();
+            updatePrimaryLobbyButtonLabel();
         }
 
         function isPhoneGameViewOpen() {
@@ -7125,6 +7166,7 @@
 
             document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
             document.getElementById('online-join-btn').onclick = async () => {
+                state.multiplayerIntendsHost = false;
                 const v = document.getElementById('online-join-code-input');
                 await joinOnlineSession(v ? v.value : '');
             };
@@ -7318,40 +7360,60 @@
             resize();
             const setPC = () => {
                 state.deviceMode = 'computer';
-                document.getElementById('device-pc').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
-                document.getElementById('device-phone').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                updateDeviceButtonStyles();
                 updateLobbyHints();
             };
             const setPh = () => {
                 state.deviceMode = 'phone';
-                document.getElementById('device-phone').className = "bg-blue-500 border-2 border-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
-                document.getElementById('device-pc').className = "border-2 border-blue-500 text-blue-500 flex-1 py-2 rounded-lg font-bold text-xs interactive";
+                updateDeviceButtonStyles();
                 updateLobbyHints();
             };
+            const setXbox = () => {
+                state.deviceMode = 'xbox';
+                updateDeviceButtonStyles();
+                updateLobbyHints();
+            };
+            function updateDeviceButtonStyles() {
+                const active = 'bg-blue-500 border-2 border-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive';
+                const inactive = 'border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive';
+                const pc = document.getElementById('device-pc');
+                const ph = document.getElementById('device-phone');
+                const xb = document.getElementById('device-xbox');
+                if (!pc || !ph || !xb) return;
+                pc.className = state.deviceMode === 'computer' ? active : inactive;
+                ph.className = state.deviceMode === 'phone' ? active : inactive;
+                xb.className = state.deviceMode === 'xbox' ? active : inactive;
+            }
             
             document.getElementById('device-pc').onclick = setPC;
             document.getElementById('device-phone').onclick = setPh;
+            document.getElementById('device-xbox').onclick = setXbox;
             
             // Auto-detect phone
             if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
                 setPh();
+            } else {
+                updateDeviceButtonStyles();
             }
 
             document.getElementById('mode-solo').onclick = () => {
                 state.playMode = 'solo';
                 state.playerMode = 1;
+                state.multiplayerIntendsHost = true;
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
             document.getElementById('mode-duo').onclick = () => {
                 state.playMode = 'solo';
                 state.playerMode = 2;
+                state.multiplayerIntendsHost = true;
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
             document.getElementById('mode-online').onclick = () => {
                 state.playMode = 'online';
                 state.playerMode = 1;
+                state.multiplayerIntendsHost = true;
                 applyModeButtonStyles();
                 updateLobbyHints();
             };
