@@ -641,17 +641,41 @@
                 <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-tighter">Goal: $100k</div>
             </div>
             <div class="px-2 text-left text-[8px] text-cyan-200/90 max-w-[11rem] font-bold" id="loadout-hint-p0">
-                <span class="text-slate-500 block uppercase tracking-tighter">Loadout P1</span>
+                <div class="flex items-center gap-1 flex-wrap mb-0.5">
+                    <span class="text-slate-500 uppercase tracking-tighter">Loadout P1</span>
+                    <button type="button" id="hud-loadout-btn" class="text-[8px] bg-slate-700 hover:bg-slate-600 text-cyan-200 px-1.5 py-0.5 rounded interactive font-bold">Loadout</button>
+                    <button type="button" id="hud-inventory-btn" class="text-[8px] bg-slate-700 hover:bg-slate-600 text-amber-200 px-1.5 py-0.5 rounded interactive font-bold">Inventory</button>
+                </div>
                 <span id="loadout-weapon-0" class="text-rose-300">—</span>
                 <span id="loadout-tele-0" class="block text-violet-300">—</span>
             </div>
             <div id="loadout-wrap-1" class="hidden px-2 text-left text-[8px] text-emerald-200/90 max-w-[11rem] font-bold">
-                <span class="text-slate-500 block uppercase tracking-tighter">Loadout P2</span>
+                <div class="flex items-center gap-1 flex-wrap mb-0.5">
+                    <span class="text-slate-500 uppercase tracking-tighter">Loadout P2</span>
+                    <button type="button" id="hud-loadout-btn-p2" class="text-[8px] bg-slate-700 hover:bg-slate-600 text-emerald-200 px-1.5 py-0.5 rounded interactive font-bold">Loadout</button>
+                    <button type="button" id="hud-inventory-btn-p2" class="text-[8px] bg-slate-700 hover:bg-slate-600 text-amber-200 px-1.5 py-0.5 rounded interactive font-bold">Inventory</button>
+                </div>
                 <span id="loadout-weapon-1" class="text-rose-300">—</span>
                 <span id="loadout-tele-1" class="block text-violet-300">—</span>
             </div>
         </div>
         <p class="text-[8px] text-slate-500 text-center max-w-md mx-auto mt-1 pointer-events-none px-2">Gadget: <span class="text-cyan-300 font-bold">Q</span> · Weapon: <span class="text-rose-300 font-bold">F</span> · 2P: <span class="text-emerald-300 font-bold">E</span> revive · <span class="text-slate-300 font-bold">G</span> grab body · HOSP to heal or admit (cash)</p>
+
+        <div id="hud-loadout-overlay" class="fixed inset-0 z-[500] hidden items-center justify-center bg-black/70 p-4 interactive" role="dialog" aria-modal="true">
+            <div class="bg-slate-900 border-2 border-cyan-600 rounded-2xl p-4 max-w-sm w-full max-h-[80vh] overflow-y-auto text-white shadow-2xl">
+                <h2 id="hud-loadout-title" class="text-lg font-black text-cyan-300 text-center mb-2 uppercase">Loadout</h2>
+                <div id="hud-loadout-body" class="text-[11px] text-slate-200 space-y-2 mb-3"></div>
+                <button type="button" id="hud-loadout-close" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-bold text-sm">Close</button>
+            </div>
+        </div>
+        <div id="hud-inventory-overlay" class="fixed inset-0 z-[500] hidden items-center justify-center bg-black/70 p-4 interactive" role="dialog" aria-modal="true">
+            <div class="bg-slate-900 border-2 border-amber-600 rounded-2xl p-4 max-w-sm w-full max-h-[80vh] overflow-y-auto text-white shadow-2xl">
+                <h2 id="hud-inventory-title" class="text-lg font-black text-amber-300 text-center mb-2 uppercase">Inventory</h2>
+                <p class="text-[9px] text-slate-400 mb-2 text-center">Items bought this run — use Equip to move them into your active loadout (same shared cash for both players).</p>
+                <div id="hud-inventory-body" class="text-[11px] text-slate-200 space-y-2 mb-3"></div>
+                <button type="button" id="hud-inventory-close" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-bold text-sm">Close</button>
+            </div>
+        </div>
         <p id="spectate-hint" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] text-center text-sm font-bold text-white bg-black/70 px-4 py-2 rounded-lg pointer-events-none">Spectating</p>
         <div id="hospital-modal" class="modal text-center" style="display:none;">
             <h2 class="text-xl font-black text-emerald-400 mb-2 uppercase">Hospital</h2>
@@ -1239,6 +1263,7 @@
         const GADGET_ITEMS = [
             { id: 'ion_link', name: 'Ion link pad kit', price: 18000, blurb: '2 pads · Q to place · walk in = warp' },
             { id: 'landmine', name: 'Landmine', price: 8000, blurb: 'Q to place — invisible on the ground, explodes on contact' },
+            { id: 'tyre_trap', name: 'Tyre trap', price: 11000, blurb: 'Q to lay — ring of tracks; police in it stall ~10s' },
             { id: 'cam_ipad', name: 'Camera iPad', price: 14000, blurb: 'Pro tablet with camera — flex in selfies' },
             { id: 'cam_pocket', name: 'Pocket camera', price: 9500, blurb: 'Point-and-shoot, fits in a pocket' },
             { id: 'dash_cell', name: 'Dash cell pack', price: 22000, blurb: 'Sprint +10% 30s (flavor, see message)' },
@@ -1248,6 +1273,14 @@
         ];
         const LANDMINE_TRIGGER_R = 28;
         const LANDMINE_DMG = 60;
+        /** Landmine spawns this far in front of the player (not underfoot). */
+        const LANDMINE_PLACE_OFFSET = 48;
+        const TYRE_TRAP_RADIUS = 120;
+        const TYRE_TRAP_SEGMENTS = 20;
+        const TYRE_TRAP_STUN_SEC = 10;
+        const TYRE_TRAP_STUN_FRAMES = TYRE_TRAP_STUN_SEC * 60;
+        const TYRE_TRAP_TRIGGER_R = 42;
+        const TYRE_TRAP_ARM_DELAY_FRAMES = 45;
         const BEN_HOUSE_ENTRY_CODE = '4789';
         const WEAPON_ITEMS = [
             { id: 'stunner', name: 'Tactical stunner', price: 12000, kind: 'stun' },
@@ -1424,6 +1457,13 @@
             /** Pauses update loop (WASTED overlay, etc.) */
             gamePaused: false,
             landmines: [],
+            /** { id, cx, cy, segs: [{x,y}], placedFrame, ownerUid } — police crossing the ring get stalled */
+            tyreTraps: [],
+            /** Counts of shop purchases this run (for inventory screen) */
+            inventoryGadgetCounts: {},
+            inventoryWeaponCounts: {},
+            /** 0 | 1 — which player HUD loadout/inventory modals refer to */
+            hudModalPlayerIdx: 0,
             sessionSettings: { infiniteRevive: false, friendlyFire: false },
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
@@ -1685,7 +1725,9 @@
                 lastTelePadId: -1,
                 teleReenter: 0,
                 gadgetDashUntil: 0,
-                cameraGadget: null
+                cameraGadget: null,
+                landminesToPlace: 0,
+                tyreTrapsToPlace: 0
             };
         }
         function ensurePlayerLoadout(p) {
@@ -1721,11 +1763,183 @@
                         if (p.loadout.telePlaced >= 2) parts.push('Link pads on');
                         if (p.loadout.cameraGadget === 'cam_ipad') parts.push('iPad cam');
                         else if (p.loadout.cameraGadget === 'cam_pocket') parts.push('Pocket cam');
+                        const lm = p.loadout.landminesToPlace || 0;
+                        const tt = p.loadout.tyreTrapsToPlace || 0;
+                        if (lm > 0) parts.push(`Landmine×${lm}`);
+                        if (tt > 0) parts.push(`Tyre trap×${tt}`);
                         tEl.textContent = parts.length ? parts.join(' · ') : '—';
                     }
                 }
             }
+            const lo = document.getElementById('hud-loadout-overlay');
+            const inv = document.getElementById('hud-inventory-overlay');
+            if (lo && !lo.classList.contains('hidden')) renderHudLoadoutPanel();
+            if (inv && !inv.classList.contains('hidden')) renderHudInventoryPanel();
         }
+
+        function hudOverlayOpen(el) {
+            if (!el) return;
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+        function hudOverlayClose(el) {
+            if (!el) return;
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
+
+        function renderHudLoadoutPanel() {
+            const title = document.getElementById('hud-loadout-title');
+            const body = document.getElementById('hud-loadout-body');
+            if (!body) return;
+            const pIdx = state.hudModalPlayerIdx | 0;
+            const p = state.players[pIdx];
+            const label = pIdx === 0 ? 'P1' : 'P2';
+            if (title) title.textContent = `Loadout (${label})`;
+            if (!p) { body.innerHTML = '<p class="text-slate-400">No player.</p>'; return; }
+            ensurePlayerLoadout(p);
+            const lo = p.loadout;
+            const lines = [];
+            lines.push(`<div class="border border-slate-600 rounded-lg p-2"><span class="text-cyan-400 font-bold">Weapon</span> — ${lo.weapon ? (getWeaponDef(lo.weapon)?.name || lo.weapon) : '<span class="text-slate-500">none</span>'}</div>`);
+            const padLine = lo.telePadsToPlace > 0
+                ? `Pads to place: ${lo.telePadsToPlace} · pair progress ${lo.telePlaced}/2`
+                : (lo.telePlaced >= 2 ? 'Ion link: active' : 'Ion link: no pads queued');
+            lines.push(`<div class="border border-slate-600 rounded-lg p-2"><span class="text-violet-400 font-bold">Gadgets</span> — ${padLine}</div>`);
+            const extras = [];
+            if (lo.landminesToPlace > 0) extras.push(`Landmines ×${lo.landminesToPlace}`);
+            if (lo.tyreTrapsToPlace > 0) extras.push(`Tyre traps ×${lo.tyreTrapsToPlace}`);
+            if (lo.cameraGadget === 'cam_ipad') extras.push('Camera: iPad');
+            else if (lo.cameraGadget === 'cam_pocket') extras.push('Camera: pocket');
+            if (lo.gadgetDashUntil > state.frameCount) extras.push('Dash pack (active)');
+            lines.push(`<div class="border border-slate-600 rounded-lg p-2"><span class="text-amber-400 font-bold">Carry</span> — ${extras.length ? extras.join(' · ') : '<span class="text-slate-500">—</span>'}</div>`);
+            lines.push(`<p class="text-[9px] text-slate-500">Use <span class="text-cyan-300 font-bold">Inventory</span> to move stocked items into this loadout. Gadget row: <span class="text-cyan-300 font-bold">Q</span> places mines/traps/pads.</p>`);
+            body.innerHTML = lines.join('');
+        }
+
+        function renderHudInventoryPanel() {
+            const title = document.getElementById('hud-inventory-title');
+            const body = document.getElementById('hud-inventory-body');
+            if (!body) return;
+            const pIdx = state.hudModalPlayerIdx | 0;
+            const p = state.players[pIdx];
+            const label = pIdx === 0 ? 'P1' : 'P2';
+            if (title) title.textContent = `Inventory (${label})`;
+            if (!p) { body.innerHTML = '<p class="text-slate-400">No player.</p>'; return; }
+            ensurePlayerLoadout(p);
+            const gIds = Object.keys(state.inventoryGadgetCounts || {}).filter(id => (state.inventoryGadgetCounts[id] || 0) > 0);
+            const wIds = Object.keys(state.inventoryWeaponCounts || {}).filter(id => (state.inventoryWeaponCounts[id] || 0) > 0);
+            if (gIds.length === 0 && wIds.length === 0) {
+                body.innerHTML = '<p class="text-slate-400 text-center">Nothing in stock — buy gadgets or weapons at the shops.</p>';
+                return;
+            }
+            const rows = [];
+            for (const id of gIds.sort()) {
+                const n = state.inventoryGadgetCounts[id] | 0;
+                const def = getGadgetDef(id);
+                const name = def ? def.name : id;
+                const blurb = def && def.blurb ? `<span class="text-slate-500 block text-[9px] mt-0.5">${def.blurb}</span>` : '';
+                rows.push(`<div class="border border-slate-600 rounded-lg p-2 flex flex-col gap-1">
+                    <div class="flex justify-between items-start gap-2">
+                        <span class="text-violet-200 font-bold">${name} <span class="text-violet-400">×${n}</span></span>
+                        <button type="button" class="shrink-0 bg-violet-700 hover:bg-violet-600 text-white text-[10px] font-bold px-2 py-1 rounded interactive hud-inv-equip" data-kind="gadget" data-id="${id}">Equip</button>
+                    </div>${blurb}
+                </div>`);
+            }
+            for (const id of wIds.sort()) {
+                const n = state.inventoryWeaponCounts[id] | 0;
+                const def = getWeaponDef(id);
+                const name = def ? def.name : id;
+                rows.push(`<div class="border border-slate-600 rounded-lg p-2 flex justify-between items-center gap-2">
+                    <span class="text-rose-200 font-bold">${name} <span class="text-rose-400">×${n}</span></span>
+                    <button type="button" class="shrink-0 bg-rose-800 hover:bg-rose-700 text-white text-[10px] font-bold px-2 py-1 rounded interactive hud-inv-equip" data-kind="weapon" data-id="${id}">Equip</button>
+                </div>`);
+            }
+            body.innerHTML = rows.join('');
+            body.querySelectorAll('.hud-inv-equip').forEach(btn => {
+                btn.onclick = () => {
+                    const kind = btn.getAttribute('data-kind');
+                    const itemId = btn.getAttribute('data-id');
+                    if (kind === 'gadget') tryEquipGadgetFromInventory(pIdx, itemId);
+                    else if (kind === 'weapon') tryEquipWeaponFromInventory(pIdx, itemId);
+                    updateLoadoutUI();
+                };
+            });
+        }
+
+        function tryEquipWeaponFromInventory(pIdx, wId) {
+            const p = state.players[pIdx];
+            if (!p || !isInGame() || state.gamePaused) return;
+            const n = state.inventoryWeaponCounts[wId] | 0;
+            if (n <= 0) { showMessage('None left in inventory'); return; }
+            state.inventoryWeaponCounts[wId] = n - 1;
+            if (state.inventoryWeaponCounts[wId] <= 0) delete state.inventoryWeaponCounts[wId];
+            ensurePlayerLoadout(p);
+            p.loadout.weapon = wId;
+            const def = getWeaponDef(wId);
+            showMessage(def ? `${def.name} equipped — F to use` : 'Weapon equipped');
+        }
+
+        function tryEquipGadgetFromInventory(pIdx, gId) {
+            const p = state.players[pIdx];
+            if (!p || !isInGame() || state.gamePaused) return;
+            const n = state.inventoryGadgetCounts[gId] | 0;
+            if (n <= 0) { showMessage('None left in inventory'); return; }
+            const def = getGadgetDef(gId);
+            ensurePlayerLoadout(p);
+            const lo = p.loadout;
+
+            if (gId === 'ion_link') {
+                if (lo.telePadsToPlace > 0 || (lo.telePlaced > 0 && lo.telePlaced < 2)) {
+                    showMessage('Finish or place your current pad pair first');
+                    return;
+                }
+                state.inventoryGadgetCounts[gId] = n - 1;
+                if (state.inventoryGadgetCounts[gId] <= 0) delete state.inventoryGadgetCounts[gId];
+                lo.telePadsToPlace = (lo.telePadsToPlace || 0) + 2;
+                lo.telePlaced = 0;
+                lo.pendingFirstPadId = null;
+                showMessage('Ion link pads added — Q to place');
+                return;
+            }
+            if (gId === 'landmine') {
+                state.inventoryGadgetCounts[gId] = n - 1;
+                if (state.inventoryGadgetCounts[gId] <= 0) delete state.inventoryGadgetCounts[gId];
+                lo.landminesToPlace = (lo.landminesToPlace || 0) + 1;
+                showMessage('Landmine ready — Q to place');
+                return;
+            }
+            if (gId === 'tyre_trap') {
+                state.inventoryGadgetCounts[gId] = n - 1;
+                if (state.inventoryGadgetCounts[gId] <= 0) delete state.inventoryGadgetCounts[gId];
+                lo.tyreTrapsToPlace = (lo.tyreTrapsToPlace || 0) + 1;
+                showMessage('Tyre trap ready — Q to lay');
+                return;
+            }
+            if (gId === 'dash_cell') {
+                state.inventoryGadgetCounts[gId] = n - 1;
+                if (state.inventoryGadgetCounts[gId] <= 0) delete state.inventoryGadgetCounts[gId];
+                lo.gadgetDashUntil = state.frameCount + 30 * JAIL_FRAMES_PER_SEC;
+                showMessage('Dash pack online');
+                return;
+            }
+            if (gId === 'cam_ipad' || gId === 'cam_pocket') {
+                state.inventoryGadgetCounts[gId] = n - 1;
+                if (state.inventoryGadgetCounts[gId] <= 0) delete state.inventoryGadgetCounts[gId];
+                lo.cameraGadget = gId;
+                showMessage(gId === 'cam_ipad' ? 'iPad camera equipped' : 'Pocket camera equipped');
+                return;
+            }
+            // Flavor-only gadgets
+            state.inventoryGadgetCounts[gId] = n - 1;
+            if (state.inventoryGadgetCounts[gId] <= 0) delete state.inventoryGadgetCounts[gId];
+            showMessage(def ? `${def.name} — nice.` : 'Gadget used');
+        }
+        function getPlacePointInFrontOfPlayer(p) {
+            if (!p) return { x: 0, y: 0 };
+            const off = LANDMINE_PLACE_OFFSET + (p.inVehicle ? 12 : 0);
+            return { x: p.x + Math.cos(p.angle) * off, y: p.y + Math.sin(p.angle) * off };
+        }
+
         function placeLandmine(pIdx, x, y) {
             const p = state.players[pIdx];
             if (!p) return;
@@ -1738,6 +1952,66 @@
             updateLoadoutUI();
             if (state.playMode === 'online' && supabaseRealtimeChannel) {
                 try { supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'landmine_place', mine: { id: mine.id, x, y, ownerUid: mine.ownerUid } } }); } catch (_) {}
+            }
+        }
+
+        function placeTyreTrap(pIdx) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            ensurePlayerLoadout(p);
+            if ((p.loadout.tyreTrapsToPlace || 0) <= 0) return;
+            p.loadout.tyreTrapsToPlace--;
+            const pt = getPlacePointInFrontOfPlayer(p);
+            const cx = pt.x;
+            const cy = pt.y;
+            const segs = [];
+            for (let i = 0; i < TYRE_TRAP_SEGMENTS; i++) {
+                const a = (i / TYRE_TRAP_SEGMENTS) * Math.PI * 2;
+                segs.push({ x: cx + Math.cos(a) * TYRE_TRAP_RADIUS, y: cy + Math.sin(a) * TYRE_TRAP_RADIUS });
+            }
+            const trap = {
+                id: state.nextPadId++,
+                cx, cy,
+                segs,
+                placedFrame: state.frameCount,
+                ownerUid: state.supabaseUserId || null,
+                lastStunFrame: 0
+            };
+            state.tyreTraps.push(trap);
+            showMessage('🛞 Tyre trap laid — police get stuck in the ring!');
+            updateLoadoutUI();
+            if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                try {
+                    supabaseRealtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'pvp_fx',
+                        payload: { k: 'tyre_trap_place', trap: { id: trap.id, cx, cy, segs, placedFrame: trap.placedFrame, ownerUid: trap.ownerUid } }
+                    });
+                } catch (_) {}
+            }
+        }
+
+        function processTyreTrapsVsPolice() {
+            if (!state.tyreTraps.length || !state.police.length) return;
+            const now = state.frameCount;
+            for (const trap of state.tyreTraps) {
+                if (now < trap.placedFrame + TYRE_TRAP_ARM_DELAY_FRAMES) continue;
+                if (now - trap.lastStunFrame < TYRE_TRAP_STUN_FRAMES) continue;
+                let hit = false;
+                for (const v of state.police) {
+                    if (v.stunUntil > now) continue;
+                    const d = dist(v.x, v.y, trap.cx, trap.cy);
+                    if (Math.abs(d - TYRE_TRAP_RADIUS) <= TYRE_TRAP_TRIGGER_R) {
+                        hit = true;
+                        break;
+                    }
+                }
+                if (hit) {
+                    trap.lastStunFrame = now;
+                    const until = now + TYRE_TRAP_STUN_FRAMES;
+                    state.police.forEach(v => { v.stunUntil = until; });
+                    showMessage('🛞 Tyre trap — police stalled!');
+                }
             }
         }
 
@@ -3635,6 +3909,20 @@
                         state.landmines.push({ id: m.id, x: m.x, y: m.y, ownerUid: m.ownerUid, triggered: false });
                     }
                 }
+                if (payload.k === 'tyre_trap_place' && payload.trap) {
+                    const t = payload.trap;
+                    if (!state.tyreTraps.find(x => x.id === t.id)) {
+                        state.tyreTraps.push({
+                            id: t.id,
+                            cx: t.cx,
+                            cy: t.cy,
+                            segs: t.segs || [],
+                            placedFrame: t.placedFrame != null ? t.placedFrame : state.frameCount,
+                            ownerUid: t.ownerUid,
+                            lastStunFrame: 0
+                        });
+                    }
+                }
                 if (payload.k === 'landmine_boom') {
                     state.landmines = state.landmines.filter(l => l.id !== payload.id);
                     state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: 120, until: 18, hit: true });
@@ -4355,6 +4643,10 @@
             state.orbCollected = false;
             state.orb = null;
             state.remotePlayers = {};
+            state.landmines = [];
+            state.tyreTraps = [];
+            state.inventoryGadgetCounts = {};
+            state.inventoryWeaponCounts = {};
             if (state.playMode !== 'online') teardownOnlineRealtime();
             else if (state.onlineSessionCode) void subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
             hideOrbHuntIntro();
@@ -4639,23 +4931,8 @@
                 state.money -= g.price;
                 updateMoneyUI();
                 ensurePlayerLoadout(p);
-                if (g.id === 'ion_link') {
-                    p.loadout.telePadsToPlace = (p.loadout.telePadsToPlace || 0) + 2;
-                    p.loadout.telePlaced = 0;
-                    p.loadout.pendingFirstPadId = null;
-                } else if (g.id === 'landmine') {
-                    p.loadout.landminesToPlace = (p.loadout.landminesToPlace || 0) + 1;
-                    showMessage('Landmine ready — press Q to place (invisible!)');
-                } else if (g.id === 'dash_cell') {
-                    p.loadout.gadgetDashUntil = state.frameCount + 30 * JAIL_FRAMES_PER_SEC;
-                    showMessage('Dash pack online — a bit snappier for a while');
-                } else if (g.id === 'cam_ipad' || g.id === 'cam_pocket') {
-                    p.loadout.cameraGadget = g.id;
-                    const tag = g.id === 'cam_ipad' ? 'iPad' : 'pocket cam';
-                    showMessage(`Equipped ${tag} — you’re ready to “snap” pics!`);
-                } else {
-                    showMessage(`Gadget acquired: ${g.name}`);
-                }
+                state.inventoryGadgetCounts[g.id] = (state.inventoryGadgetCounts[g.id] || 0) + 1;
+                showMessage(`${g.name} — open Inventory to equip, or equip from there now.`);
                 document.getElementById(`gadget-modal-${pIdx}`).style.display = 'none';
                 p.menuType = null;
                 updateLoadoutUI();
@@ -4667,8 +4944,8 @@
                 state.money -= w.price;
                 updateMoneyUI();
                 ensurePlayerLoadout(p);
-                p.loadout.weapon = w.id;
-                showMessage(`${w.name} equipped — F to use`);
+                state.inventoryWeaponCounts[w.id] = (state.inventoryWeaponCounts[w.id] || 0) + 1;
+                showMessage(`${w.name} stocked — open Inventory (Equip) or equip there.`);
                 document.getElementById(`weapon-modal-${pIdx}`).style.display = 'none';
                 p.menuType = null;
                 updateLoadoutUI();
@@ -4894,6 +5171,9 @@
                 isPresident: state.isPresident,
                 playerX: p0 ? Math.round(p0.x) : null,
                 playerY: p0 ? Math.round(p0.y) : null,
+                inventoryGadgetCounts: { ...state.inventoryGadgetCounts },
+                inventoryWeaponCounts: { ...state.inventoryWeaponCounts },
+                loadout: p0 && p0.loadout ? JSON.parse(JSON.stringify(p0.loadout)) : null,
                 savedAt: Date.now()
             };
             try { localStorage.setItem(LS_AUTOSAVE, JSON.stringify(data)); } catch (_) {}
@@ -4926,6 +5206,16 @@
             if (save.isPresident) state.isPresident = true;
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
+            }
+            if (save.inventoryGadgetCounts && typeof save.inventoryGadgetCounts === 'object') {
+                state.inventoryGadgetCounts = { ...save.inventoryGadgetCounts };
+            }
+            if (save.inventoryWeaponCounts && typeof save.inventoryWeaponCounts === 'object') {
+                state.inventoryWeaponCounts = { ...save.inventoryWeaponCounts };
+            }
+            if (save.loadout && state.players[0]) {
+                ensurePlayerLoadout(state.players[0]);
+                Object.assign(state.players[0].loadout, save.loadout);
             }
             // Restore player position if saved
             if (typeof save.playerX === 'number' && typeof save.playerY === 'number' && state.players[0]) {
@@ -5441,6 +5731,18 @@
                 const t = e.target;
                 if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
                 if (e.code === 'Escape' && isInGame()) {
+                    const lo = document.getElementById('hud-loadout-overlay');
+                    const inv = document.getElementById('hud-inventory-overlay');
+                    if (lo && !lo.classList.contains('hidden')) {
+                        e.preventDefault();
+                        hudOverlayClose(lo);
+                        return;
+                    }
+                    if (inv && !inv.classList.contains('hidden')) {
+                        e.preventDefault();
+                        hudOverlayClose(inv);
+                        return;
+                    }
                     e.preventDefault();
                     exitToLobby();
                     return;
@@ -5469,9 +5771,13 @@
                     const p0 = state.players[0];
                     if (p0 && !p0.inVehicle) {
                         ensurePlayerLoadout(p0);
+                        const pt = getPlacePointInFrontOfPlayer(p0);
                         if (p0.loadout.landminesToPlace > 0) {
                             e.preventDefault();
-                            placeLandmine(0, p0.x, p0.y);
+                            placeLandmine(0, pt.x, pt.y);
+                        } else if (p0.loadout.tyreTrapsToPlace > 0) {
+                            e.preventDefault();
+                            placeTyreTrap(0);
                         } else if (p0.loadout.telePadsToPlace > 0) {
                             e.preventDefault();
                             addTeleporterPad(0, p0.x, p0.y);
@@ -5499,7 +5805,9 @@
                     const p1 = state.players[1];
                     if (p1 && !p1.inVehicle) {
                         ensurePlayerLoadout(p1);
-                        if (p1.loadout.landminesToPlace > 0) { e.preventDefault(); placeLandmine(1, p1.x, p1.y); }
+                        const pt = getPlacePointInFrontOfPlayer(p1);
+                        if (p1.loadout.landminesToPlace > 0) { e.preventDefault(); placeLandmine(1, pt.x, pt.y); }
+                        else if (p1.loadout.tyreTrapsToPlace > 0) { e.preventDefault(); placeTyreTrap(1); }
                         else if (p1.loadout.telePadsToPlace > 0) { e.preventDefault(); addTeleporterPad(1, p1.x, p1.y); }
                     }
                 }
@@ -5529,6 +5837,7 @@
             processPvpNukeVfx();
             processTeleporterPads();
             processLandmines();
+            processTyreTrapsVsPolice();
             updateGpsArrival();
             processBleedAndDowned();
             
@@ -5737,10 +6046,14 @@
                         // Spawn from police station (bottom-left corner) with slight spread
                         const stationX = 200, stationY = 3800;
                         for (let i = 0; i < 4; i++) {
-                            state.police.push({ x: stationX + (i%2)*60, y: stationY - Math.floor(i/2)*60, angle: 0, speed: 0, type: { topSpeed: 14 } });
+                            state.police.push({ x: stationX + (i%2)*60, y: stationY - Math.floor(i/2)*60, angle: 0, speed: 0, type: { topSpeed: 14 }, stunUntil: 0 });
                         }
                     }
                     state.police.forEach(v => {
+                        if (v.stunUntil > state.frameCount) {
+                            v.speed = 0;
+                            return;
+                        }
                         const alive = state.players.filter(p => p && !p.dead);
                         if (alive.length === 0) return;
                         const target = alive[Math.floor(Math.random() * alive.length)];
@@ -5928,6 +6241,29 @@
                 c.textAlign = 'center';
                 c.textBaseline = 'bottom';
                 c.fillText('LINK', 0, -24);
+                c.restore();
+            });
+            state.tyreTraps.forEach(trap => {
+                c.save();
+                c.strokeStyle = 'rgba(148, 163, 184, 0.75)';
+                c.lineWidth = 2;
+                c.setLineDash([4, 6]);
+                c.beginPath();
+                for (let i = 0; i < trap.segs.length; i++) {
+                    const s = trap.segs[i];
+                    if (i === 0) c.moveTo(s.x, s.y);
+                    else c.lineTo(s.x, s.y);
+                }
+                c.closePath();
+                c.stroke();
+                c.setLineDash([]);
+                const armed = state.frameCount >= trap.placedFrame + TYRE_TRAP_ARM_DELAY_FRAMES;
+                c.globalAlpha = armed ? 0.35 : 0.15;
+                c.fillStyle = 'rgba(71, 85, 105, 0.4)';
+                c.beginPath();
+                c.arc(trap.cx, trap.cy, TYRE_TRAP_RADIUS, 0, Math.PI * 2);
+                c.fill();
+                c.globalAlpha = 1;
                 c.restore();
             });
             state.pvpNukeBlasts.forEach(n => {
@@ -7017,6 +7353,31 @@
             await tryApplyPendingJoinFromUrl();
 
             console.info('[PixelCity] Console help: multiplayer errors/warnings always log here. Verbose: add ?debug=1 to the URL or run pixelCityEnableDebugLogs(). Export for support: await copyPixelCityDebugInfo()');
+
+            const hudLoadoutEl = document.getElementById('hud-loadout-overlay');
+            const hudInvEl = document.getElementById('hud-inventory-overlay');
+            const bindHudOverlay = (btnId, pIdx, which) => {
+                const btn = document.getElementById(btnId);
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    state.hudModalPlayerIdx = pIdx;
+                    if (which === 'loadout') {
+                        renderHudLoadoutPanel();
+                        hudOverlayOpen(hudLoadoutEl);
+                    } else {
+                        renderHudInventoryPanel();
+                        hudOverlayOpen(hudInvEl);
+                    }
+                });
+            };
+            bindHudOverlay('hud-loadout-btn', 0, 'loadout');
+            bindHudOverlay('hud-inventory-btn', 0, 'inventory');
+            bindHudOverlay('hud-loadout-btn-p2', 1, 'loadout');
+            bindHudOverlay('hud-inventory-btn-p2', 1, 'inventory');
+            document.getElementById('hud-loadout-close')?.addEventListener('click', () => hudOverlayClose(hudLoadoutEl));
+            document.getElementById('hud-inventory-close')?.addEventListener('click', () => hudOverlayClose(hudInvEl));
+            hudLoadoutEl?.addEventListener('click', e => { if (e.target === hudLoadoutEl) hudOverlayClose(hudLoadoutEl); });
+            hudInvEl?.addEventListener('click', e => { if (e.target === hudInvEl) hudOverlayClose(hudInvEl); });
 
             const signInMsg = document.getElementById('sign-in-msg');
             const userInput = document.getElementById('auth-username-input');
