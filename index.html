@@ -424,6 +424,7 @@
 
             <div>
                 <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Mode</h2>
+                <p id="mode-duo-xbox-hint" class="hidden text-[8px] text-amber-200/90 text-center mb-1 px-1">2 LOCAL is for couch co-op — select XBOX under Device first.</p>
                 <div class="flex gap-2 flex-wrap justify-center">
                     <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
                     <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
@@ -1479,8 +1480,8 @@
             sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
-            /** Monotonic id for world vehicles (save/load + multiplayer sync). */
-            nextVehicleId: 1,
+            /** When set, P1 is carrying a downed remote friend (online). */
+            carryingRemoteUid: null,
             /** Dealership: after two taps on "Buy for friend", next E/Shift purchase spawns an extra car for peers. */
             dealerBuyForFriendArmed: false,
             dealerFriendConfirmStep: 0,
@@ -2184,6 +2185,71 @@
             p.downed = false;
             p.bleedFrames = 0;
         }
+        /** Duo / online: bleed out with no teammate carry = lose shared cash + all inventory/loadouts. */
+        function applyDeathPenaltyNoRescueCarry(pIdx) {
+            if (state.sessionSettings.infiniteRevive) return;
+            const p = state.players[pIdx];
+            if (!p || !p.downed) return;
+            const duoOrOnline = (state.playerMode === 2 && state.playMode !== 'online') || state.playMode === 'online';
+            if (!duoOrOnline) return;
+            state.money = 0;
+            updateMoneyUI();
+            state.inventoryGadgetCounts = {};
+            state.inventoryWeaponCounts = {};
+            state.teleporterPads = [];
+            state.landmines = [];
+            state.tyreTraps = [];
+            state.players.forEach(pl => {
+                if (!pl) return;
+                pl.loadout = defaultLoadout();
+                applyZombieStartingWeapon(pl);
+            });
+            updateLoadoutUI();
+            showMessage('Nobody carried you to safety in time — you lost your cash and gear.');
+        }
+        function findHospitalBuilding() {
+            return state.buildings.find(b => b.type === 'hospital') || null;
+        }
+        function getHospitalRushPoint() {
+            const h = findHospitalBuilding();
+            if (!h) return { x: 2000, y: 520 };
+            return { x: h.x + h.w / 2, y: h.y + h.h + 60 };
+        }
+        function rushLocalCarryToHospital(helperIdx, victimIdx) {
+            const pt = getHospitalRushPoint();
+            const h = state.players[helperIdx];
+            if (!h) return;
+            h.x = pt.x - 40;
+            h.y = pt.y;
+            h.angle = Math.PI / 2;
+            if (victimIdx != null && state.players[victimIdx]) {
+                const t = state.players[victimIdx];
+                t.corpseX = pt.x + 35;
+                t.corpseY = pt.y;
+                t.x = t.corpseX;
+                t.y = t.corpseY;
+            }
+        }
+        function broadcastHospitalRushToFriend(targetUid, vx, vy) {
+            if (state.playMode !== 'online' || !supabaseRealtimeChannel || !state.supabaseUserId) return;
+            const pt = getHospitalRushPoint();
+            try {
+                supabaseRealtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'pvp_fx',
+                    payload: {
+                        k: 'hospital_rush',
+                        helperUid: state.supabaseUserId,
+                        targetUid,
+                        vx, vy,
+                        hx: pt.x - 35,
+                        hy: pt.y,
+                        rx: pt.x + 38,
+                        ry: pt.y
+                    }
+                });
+            } catch (_) {}
+        }
         function goSpectate(pIdx) {
             const p = state.players[pIdx];
             if (!p) return;
@@ -2216,6 +2282,10 @@
             p.carriedBy = null;
             p.inVehicle = null;
             p.draggingPlayerIdx = null;
+            state.players.forEach((pl) => {
+                if (pl && pl.draggingPlayerIdx === pIdx) pl.draggingPlayerIdx = null;
+            });
+            if (pIdx === 0) state.carryingRemoteUid = null;
             showMessage('You are out — body remains on the ground');
             if (pIdx === 0) state.soloHospModalShown = false;
             if (pIdx === 0) {
@@ -2360,16 +2430,16 @@
                 updateHealthBars();
             }
         }
-        function findHospitalBuilding() {
-            return state.buildings.find(b => b.type === 'hospital') || null;
-        }
         function processBleedAndDowned() {
             state.players.forEach((p, pIdx) => {
                 if (!p || p.dead) return;
                 // Tick bleed timer for downed players (online revive window)
                 if (p.downed && p.bleedFrames > 0) {
                     p.bleedFrames = Math.max(0, p.bleedFrames - 1);
-                    if (p.bleedFrames <= 0) goSpectate(pIdx);
+                    if (p.bleedFrames <= 0) {
+                        applyDeathPenaltyNoRescueCarry(pIdx);
+                        goSpectate(pIdx);
+                    }
                     return;
                 }
                 if (p.bleedFrames > 0 && p.hp <= 0 && !p.downed) {
@@ -2412,9 +2482,18 @@
             updateHealthBars();
         }
         function processCarryDrag(helperIdx) {
-            if (state.playerMode !== 2) return;
             const h = state.players[helperIdx];
-            if (!h || h.dead || h.downed || h.draggingPlayerIdx == null) return;
+            if (!h || h.dead || h.downed) return;
+            if (state.playMode === 'online' && helperIdx === 0 && state.carryingRemoteUid) {
+                const uid = state.carryingRemoteUid;
+                const rp = state.remotePlayers[uid];
+                if (!rp || rp.dead) { state.carryingRemoteUid = null; return; }
+                rp.x = h.x - Math.cos(h.angle) * CARRY_OFFSET;
+                rp.y = h.y - Math.sin(h.angle) * CARRY_OFFSET;
+                return;
+            }
+            if (state.playerMode !== 2) return;
+            if (h.draggingPlayerIdx == null) return;
             const drag = h.draggingPlayerIdx;
             const t = state.players[drag];
             if (!t || t.dead) { h.draggingPlayerIdx = null; return; }
@@ -2424,7 +2503,41 @@
             t.y = t.corpseY;
         }
         function toggleBodyDrag(helperIdx) {
-            if (state.players.length < 2) { showMessage('G — grab only works with 2 local players (2 LOCAL mode)'); return; }
+            if (state.playMode === 'online' && helperIdx === 0) {
+                const h = state.players[0];
+                if (!h || h.dead || h.downed) return;
+                if (state.carryingRemoteUid) {
+                    state.carryingRemoteUid = null;
+                    showMessage('Dropped friend');
+                    return;
+                }
+                let bestUid = null;
+                let bestD = 130;
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    if (!rp.downed || rp.dead) continue;
+                    const d = idist(h, rp);
+                    if (d < bestD) { bestD = d; bestUid = uid; }
+                }
+                if (bestUid) {
+                    state.carryingRemoteUid = bestUid;
+                    rushLocalCarryToHospital(0);
+                    const rp = state.remotePlayers[bestUid];
+                    if (rp) {
+                        broadcastHospitalRushToFriend(bestUid, rp.x, rp.y);
+                        rp.x = state.players[0].x - Math.cos(state.players[0].angle) * CARRY_OFFSET;
+                        rp.y = state.players[0].y - Math.sin(state.players[0].angle) * CARRY_OFFSET;
+                    }
+                    showMessage('Rushing to hospital with friend — G to drop, E to revive');
+                    return;
+                }
+                showMessage('No downed friend in range to carry');
+                return;
+            }
+            if (state.playerMode !== 2 || state.playMode === 'online') {
+                if (state.playMode !== 'online') showMessage('G — grab needs 2 LOCAL on XBOX (couch co-op)');
+                return;
+            }
             const h = state.players[helperIdx];
             if (!h || h.dead || h.downed) return;
             if (h.draggingPlayerIdx != null) {
@@ -2437,7 +2550,8 @@
             if (t && t.downed && !t.dead) {
                 if (idist(h, t) < 110) {
                     h.draggingPlayerIdx = tIdx;
-                    showMessage('Carrying body — HOSP, then E to admit ($)');
+                    rushLocalCarryToHospital(helperIdx, tIdx);
+                    showMessage('At hospital — E / Shift: admit ($) or revive');
                 } else {
                     showMessage('Get closer to grab');
                 }
@@ -4069,6 +4183,26 @@
                         });
                     }
                 }
+                if (payload.k === 'hospital_rush' && payload.targetUid === state.supabaseUserId) {
+                    const myP = state.players[0];
+                    if (!myP || myP.dead) return;
+                    const hx = Number(payload.hx);
+                    const hy = Number(payload.hy);
+                    const rx = Number(payload.rx);
+                    const ry = Number(payload.ry);
+                    if (Number.isFinite(hx) && Number.isFinite(hy)) {
+                        myP.x = hx;
+                        myP.y = hy;
+                        myP.angle = Math.PI / 2;
+                    }
+                    if (myP.downed && Number.isFinite(rx) && Number.isFinite(ry)) {
+                        myP.corpseX = rx;
+                        myP.corpseY = ry;
+                        myP.x = rx;
+                        myP.y = ry;
+                    }
+                    showMessage('🚑 Friend is bringing you to the hospital!');
+                }
                 if (payload.k === 'vehicle_spawn' && payload.v) {
                     const row = payload.v;
                     if (!state.vehicles.find(v => v.id === row.id)) {
@@ -4822,6 +4956,7 @@
             state.orbCollected = false;
             state.orb = null;
             state.remotePlayers = {};
+            state.carryingRemoteUid = null;
             state.landmines = [];
             state.tyreTraps = [];
             state.inventoryGadgetCounts = {};
@@ -5253,16 +5388,20 @@
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
             // Online revive: check if any downed remote player is nearby
             if (state.playMode === 'online' && supabaseRealtimeChannel && state.supabaseUserId) {
-                for (const uid in state.remotePlayers) {
+                const prefer = state.carryingRemoteUid;
+                const uids = prefer && state.remotePlayers[prefer] ? [prefer] : Object.keys(state.remotePlayers);
+                for (const uid of uids) {
                     const rp = state.remotePlayers[uid];
-                    if (rp.downed && !rp.dead && dist(p.x, p.y, rp.x, rp.y) < REVIVE_RANGE) {
+                    if (!rp || !rp.downed || rp.dead) continue;
+                    if (dist(p.x, p.y, rp.x, rp.y) < REVIVE_RANGE) {
                         try {
                             supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: {
                                 k: 'revive', targetUid: uid,
                                 reviverName: state.profileUsername || state.playerName || 'Friend'
                             }});
                         } catch (_) {}
-                        delete state.remotePlayers[uid].downed; // optimistic clear
+                        delete state.remotePlayers[uid].downed;
+                        if (state.carryingRemoteUid === uid) state.carryingRemoteUid = null;
                         showMessage(`💚 Revived ${rp.username || 'friend'}!`);
                         return;
                     }
@@ -7077,7 +7216,8 @@
                 if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Share code · Join friend · Start game</p>";
             } else if (state.playerMode === 2) {
-                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
+                if (state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E+G | P2: Arrows+SHIFT+G · G grabs → hospital</p>";
+                else if (state.deviceMode === 'computer') hintContainer.innerHTML = "<p class='text-white'>2 LOCAL requires XBOX device — switch above, then pick 2 LOCAL</p>";
                 else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
             } else {
                 if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD to Move, E to Interact</p>";
@@ -7085,6 +7225,8 @@
             }
             updateFriendsListUIAsync();
             updatePrimaryLobbyButtonLabel();
+            const duoHint = document.getElementById('mode-duo-xbox-hint');
+            if (duoHint) duoHint.classList.toggle('hidden', state.deviceMode === 'xbox' || state.playerMode !== 2);
         }
 
         function isPhoneGameViewOpen() {
@@ -8138,11 +8280,19 @@
             resize();
             const setPC = () => {
                 state.deviceMode = 'computer';
+                if (state.playerMode === 2) {
+                    state.playerMode = 1;
+                    applyModeButtonStyles();
+                }
                 updateDeviceButtonStyles();
                 updateLobbyHints();
             };
             const setPh = () => {
                 state.deviceMode = 'phone';
+                if (state.playerMode === 2) {
+                    state.playerMode = 1;
+                    applyModeButtonStyles();
+                }
                 updateDeviceButtonStyles();
                 updateLobbyHints();
             };
@@ -8182,6 +8332,10 @@
                 updateLobbyHints();
             };
             document.getElementById('mode-duo').onclick = () => {
+                if (state.deviceMode !== 'xbox') {
+                    showMessage('2 LOCAL is for couch co-op — select XBOX under Device first.');
+                    return;
+                }
                 state.playMode = 'solo';
                 state.playerMode = 2;
                 state.multiplayerIntendsHost = true;
