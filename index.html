@@ -3471,6 +3471,35 @@
             applyZombieModeToBuildings();
         }
 
+        function findDealershipBuilding() {
+            return state.buildings.find(b => b.type === 'dealership') || null;
+        }
+
+        /** Place a purchased car just south of the dealership lot (on the road), spread for 2P bonus spawns. */
+        function spawnVehicleAtDealership(carType, slotIndex) {
+            const b = findDealershipBuilding();
+            const spread = 72;
+            const off = (slotIndex - 0.5) * spread;
+            let x;
+            let y;
+            if (b) {
+                x = b.x + b.w / 2 + off;
+                y = b.y + b.h + 55;
+            } else {
+                x = 3750 + off;
+                y = 555;
+            }
+            x = Math.max(25, Math.min(WORLD_SIZE - 25, Math.round(x)));
+            y = Math.max(25, Math.min(WORLD_SIZE - 25, Math.round(y)));
+            return {
+                x, y,
+                angle: Math.PI / 2,
+                speed: 0,
+                type: JSON.parse(JSON.stringify(carType)),
+                occupied: false
+            };
+        }
+
         async function fetchCloudFriendnames() {
             if (!supabase || !state.supabaseUserId) return [];
             const { data: rows, error } = await supabase.from('friends').select('friend_id').eq('user_id', state.supabaseUserId);
@@ -5020,10 +5049,10 @@
                 if (state.money >= car.price) {
                     state.money -= car.price;
                     updateMoneyUI();
-                    
-                    state.vehicles.push({ x: 2000, y: 2100, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(car)), occupied: false });
+
+                    state.vehicles.push(spawnVehicleAtDealership(car, 0));
                     if (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) {
-                        state.vehicles.push({ x: 2100, y: 2100, angle: 0, speed: 0, type: JSON.parse(JSON.stringify(car)), occupied: false });
+                        state.vehicles.push(spawnVehicleAtDealership(car, 1));
                     }
                     // Track best car for store earnings boost
                     if (car.tier > state.bestCarTier) {
