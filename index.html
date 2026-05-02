@@ -592,7 +592,7 @@
                         <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
                     </button>
                 </label>
-                <p class="text-[8px] text-slate-500 -mt-1">When ON — nobody can damage teammates.</p>
+                <p class="text-[8px] text-slate-500 -mt-1">When ON — friends cannot hurt each other with weapons (PvP off).</p>
             </div>
 
             <!-- Delete progress (triple confirm) -->
@@ -1197,7 +1197,9 @@
         const LS_SUPABASE_KEY_OVERRIDE = 'pixelCitySupabaseKey';
         const LS_LOBBY_STATS_UNLOCKED = 'pixelCityLobbyStatsUnlocked';
         const ONLINE_BROADCAST_MS = 120;
-        const ONLINE_REALTIME_SUB_TIMEOUT_MS = 15000;
+        /** Realtime WebSocket can be slow on cold start / strict networks — avoid false "failed" timeouts. */
+        const ONLINE_REALTIME_SUB_TIMEOUT_MS = 60000;
+        const REALTIME_RECONNECT_MAX_ATTEMPTS = 8;
         const SESSION_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         /** Invite links use this origin — matches <link rel="canonical"> in index.html */
         const PUBLIC_GAME_ORIGIN = 'https://pixelcity.quest';
@@ -1464,7 +1466,8 @@
             inventoryWeaponCounts: {},
             /** 0 | 1 — which player HUD loadout/inventory modals refer to */
             hudModalPlayerIdx: 0,
-            sessionSettings: { infiniteRevive: false, friendlyFire: false },
+            /** friendlyFireOff: when true, PvP weapon hits do not damage remote players (host toggles in menu). */
+            sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
             /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
@@ -2731,6 +2734,42 @@
         let lastOnlineBroadcast = 0;
         let pendingJoinCodeFromUrl = null;
         let onlineRealtimeReady = false;
+        /** Exponential backoff reconnect when Realtime drops (tab sleep, network blip). */
+        let realtimeReconnectTimer = null;
+        let realtimeReconnectAttempt = 0;
+
+        function clearRealtimeReconnectSchedule() {
+            if (realtimeReconnectTimer) {
+                clearTimeout(realtimeReconnectTimer);
+                realtimeReconnectTimer = null;
+            }
+            realtimeReconnectAttempt = 0;
+        }
+
+        function scheduleRealtimeReconnect(reason) {
+            if (!supabase || state.playMode !== 'online' || !state.onlineSessionCode) return;
+            if (realtimeReconnectAttempt >= REALTIME_RECONNECT_MAX_ATTEMPTS) {
+                pcDebug('error', 'realtime_reconnect_gave_up', { attempts: realtimeReconnectAttempt, reason: reason || null });
+                showMessage('Could not restore multiplayer connection. Return to the lobby and join again.');
+                return;
+            }
+            realtimeReconnectAttempt++;
+            const delayMs = Math.min(30000, 800 * Math.pow(2, realtimeReconnectAttempt - 1));
+            pcDebug('warn', 'realtime_reconnect_scheduled', { attempt: realtimeReconnectAttempt, delayMs, reason: reason || null });
+            if (realtimeReconnectTimer) clearTimeout(realtimeReconnectTimer);
+            realtimeReconnectTimer = setTimeout(async () => {
+                realtimeReconnectTimer = null;
+                const code = state.onlineSessionCode;
+                if (!code || state.playMode !== 'online') { clearRealtimeReconnectSchedule(); return; }
+                const sub = await subscribeToSessionChannelAsync(code, { skipIfSame: false });
+                if (sub.ok) {
+                    clearRealtimeReconnectSchedule();
+                    showMessage('Multiplayer reconnected.');
+                } else {
+                    scheduleRealtimeReconnect(sub.reason || 'retry_failed');
+                }
+            }, delayMs);
+        }
 
         const ORB_PICKUP_RADIUS = 38;
         const ORB_VISUAL_RADIUS = 22;
@@ -3632,6 +3671,7 @@
             const hadCode = state.onlineSessionCode;
             const skipDel = !!o.skipDelete;
             pcDebug('debug', 'realtime_teardown_start', { skipDelete: skipDel, hadCode: hadCode || null, wasHost: !!state.isOnlineHost });
+            clearRealtimeReconnectSchedule();
             if (onlineRealtimeReady && supabaseRealtimeChannel && state.supabaseUserId) {
                 try {
                     supabaseRealtimeChannel.send({ type: 'broadcast', event: 'leave', payload: { uid: state.supabaseUserId } });
@@ -3662,6 +3702,7 @@
         function disconnectRealtimeOnly() {
             onlineRealtimeReady = false;
             state.onlineRealtimeSubscribedCode = null;
+            clearRealtimeReconnectSchedule();
             if (supabaseRealtimeChannel && supabase) {
                 supabase.removeChannel(supabaseRealtimeChannel);
                 supabaseRealtimeChannel = null;
@@ -3893,7 +3934,7 @@
                     }
                 }
                 if (payload.k === 'shot' && payload.kind !== 'nuke' && payload.targetUid === state.supabaseUserId) {
-                    if (!state.sessionSettings.friendlyFire) {
+                    if (!state.sessionSettings.friendlyFireOff) {
                         const myP = state.players[0];
                         if (myP && !myP.dead && !myP.downed && isInGame()) {
                             const dmg = payload.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN;
@@ -3982,13 +4023,17 @@
                 if (payload.kind === 'session_settings' && payload.settings) {
                     const s = payload.settings;
                     if (typeof s.infiniteRevive === 'boolean') state.sessionSettings.infiniteRevive = s.infiniteRevive;
-                    if (typeof s.friendlyFire === 'boolean') state.sessionSettings.friendlyFire = s.friendlyFire;
+                    if (typeof s.friendlyFireOff === 'boolean') {
+                        state.sessionSettings.friendlyFireOff = s.friendlyFireOff;
+                    } else if (typeof s.friendlyFire === 'boolean') {
+                        // Legacy: old clients inverted the flag — migrate so PvP works when host meant "FF off".
+                        state.sessionSettings.friendlyFireOff = s.friendlyFire;
+                    }
                     updateSessionSettingsUI();
                     const labels = [];
-                    if (s.infiniteRevive) labels.push('Infinite revive ON');
-                    if (!s.friendlyFire) labels.push('Friendly fire OFF');
-                    if (s.friendlyFire) labels.push('Friendly fire ON');
-                    showMessage(`Host updated settings: ${labels.join(', ')}`);
+                    labels.push(state.sessionSettings.infiniteRevive ? 'Infinite revive ON' : 'Infinite revive OFF');
+                    labels.push(state.sessionSettings.friendlyFireOff ? 'Friendly fire off (PvP weapons disabled)' : 'PvP weapons enabled');
+                    showMessage(`Host updated settings: ${labels.join(' · ')}`);
                 }
             });
             supabaseRealtimeChannel = ch;
@@ -4000,6 +4045,7 @@
                     if (ok) {
                         onlineRealtimeReady = true;
                         state.onlineRealtimeSubscribedCode = code;
+                        clearRealtimeReconnectSchedule();
                         pcDebug('info', 'realtime_subscribed', { topic });
                     } else {
                         onlineRealtimeReady = false;
@@ -4008,6 +4054,13 @@
                         if (supabaseRealtimeChannel === ch && supabase) {
                             supabase.removeChannel(ch);
                             supabaseRealtimeChannel = null;
+                        }
+                        if (state.playMode === 'online' && state.onlineSessionCode) {
+                            const msg = reason === 'timeout'
+                                ? 'Multiplayer slow to connect — retrying…'
+                                : 'Connection issue — retrying…';
+                            showMessage(msg);
+                            scheduleRealtimeReconnect(reason || 'subscribe_failed');
                         }
                     }
                     resolve({ ok, reason });
@@ -4018,17 +4071,12 @@
                     pcDebug(debugVerbose ? 'debug' : 'info', 'realtime_channel_status', { topic, status, err: err ? String(err) : null });
                     if (status === 'SUBSCRIBED') {
                         clearTimeout(t);
-                        wasEverSubscribed = true;
                         finish(true);
                         return;
                     }
                     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
                         clearTimeout(t);
                         finish(false, err ? String(err) : status);
-                        if (wasEverSubscribed && supabaseRealtimeChannel === ch) {
-                            onlineRealtimeReady = false;
-                            showMessage('Connection lost — use /connect in PixelPhone to reconnect.');
-                        }
                     }
                 });
             });
@@ -7656,7 +7704,7 @@
                     if (revBtn) revBtn.disabled = !isHost;
                     if (ffBtn) ffBtn.disabled = !isHost;
                     applySettingsToggleUI('menu-toggle-revive', state.sessionSettings.infiniteRevive);
-                    applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFire);
+                    applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFireOff);
                 }
             };
 
@@ -7669,8 +7717,8 @@
 
             document.getElementById('menu-toggle-ff')?.addEventListener('click', async () => {
                 if (!state.isOnlineHost) return;
-                state.sessionSettings.friendlyFire = !state.sessionSettings.friendlyFire;
-                applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFire);
+                state.sessionSettings.friendlyFireOff = !state.sessionSettings.friendlyFireOff;
+                applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFireOff);
                 await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
             });
 
