@@ -738,6 +738,10 @@
                 <label id="lobby-settings-beta3d-quality-label" for="lobby-beta3d-quality" class="block text-[9px] text-slate-500 uppercase font-bold">Beta 3D quality</label>
                 <input type="range" id="lobby-beta3d-quality" min="0" max="100" value="70" class="w-full interactive accent-sky-500 h-2">
                 <p id="lobby-beta3d-quality-readout" class="text-[9px] text-slate-400 font-mono">70% · ~2877 rays</p>
+                <div id="lobby-beta3d-quality-preview-wrap" class="rounded-lg border border-slate-600 overflow-hidden bg-black mb-1">
+                    <p id="lobby-beta3d-quality-preview-caption" class="text-[8px] text-slate-400 px-2 py-1 bg-slate-950 border-b border-slate-700"></p>
+                    <canvas id="lobby-beta3d-quality-preview" width="280" height="120" class="w-full block h-[120px]"></canvas>
+                </div>
                 <p id="lobby-settings-beta3d-quality-hint" class="text-[8px] text-slate-500 leading-snug">Higher = sharper columns on wide screens; lower if the game stutters in first-person.</p>
             </div>
             <label class="flex items-center justify-between gap-3 cursor-pointer interactive mb-2">
@@ -5103,6 +5107,7 @@
                 beta3dHint: 'Native-res raycast (sharp). Solo 1P. Hold Ctrl and left-click the canvas to look; WASD strafes relative to view. Esc unlocks mouse, Esc again exits.',
                 beta3dQualityLabel: 'Beta 3D quality',
                 beta3dQualityHint: 'Higher = more ray columns (sharper on wide screens). Lower if first-person stutters.',
+                beta3dQualityPreviewCaption: 'Preview — same ray count as in-game',
                 debugLabel: 'Verbose debug logs',
                 debugHint: 'Same as ?debug=1. Errors always log.',
                 deviceComputer: 'Computer',
@@ -5126,6 +5131,7 @@
                 beta3dHint: 'Raycast nativo (nítido). Solo 1 jugador. Ctrl + clic izquierdo en el canvas para mirar; WASD según la vista. Esc libera el ratón; Esc otra vez sale.',
                 beta3dQualityLabel: 'Calidad Beta 3D',
                 beta3dQualityHint: 'Más alto = más rayos (más nítido). Más bajo si va a tirones en primera persona.',
+                beta3dQualityPreviewCaption: 'Vista previa — mismos rayos que en juego',
                 debugLabel: 'Registros detallados',
                 debugHint: 'Igual que ?debug=1. Los errores siempre se registran.',
                 deviceComputer: 'Ordenador',
@@ -5149,6 +5155,7 @@
                 beta3dHint: 'ネイティブ解像度レイキャスト。1人用ソロ。Ctrl+左クリックで視点ロック、WASDは視線基準。Escでマウス解放、もう一度Escでロビーへ。',
                 beta3dQualityLabel: 'ベータ3D品質',
                 beta3dQualityHint: '高いほどレイ数増（高精細）。一人称でカクつく場合は下げる。',
+                beta3dQualityPreviewCaption: 'プレビュー — ゲーム内と同じレイ数',
                 debugLabel: '詳細デバッグログ',
                 debugHint: '?debug=1 と同じ。エラーは常に出力。',
                 deviceComputer: 'PC',
@@ -5213,6 +5220,8 @@
             if (qLab) qLab.textContent = getUiLabel('beta3dQualityLabel');
             const qHint = document.getElementById('lobby-settings-beta3d-quality-hint');
             if (qHint) qHint.textContent = getUiLabel('beta3dQualityHint');
+            const prevCap = document.getElementById('lobby-beta3d-quality-preview-caption');
+            if (prevCap) prevCap.textContent = getUiLabel('beta3dQualityPreviewCaption');
             const sel = document.getElementById('lobby-settings-lang');
             if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
             updateBeta3dQualityReadout();
@@ -5319,8 +5328,7 @@
         const BETA3D_RAY_COLS_MAX = 4096;
 
         function getBeta3dMaxRayColumns() {
-            const p = Math.max(0, Math.min(100, Number(state.beta3dQualityPercent) || 0));
-            return Math.round(BETA3D_RAY_COLS_MIN + (p / 100) * (BETA3D_RAY_COLS_MAX - BETA3D_RAY_COLS_MIN));
+            return getBeta3dMaxRayColumnsForPercent(state.beta3dQualityPercent);
         }
 
         function setBeta3dQualityPercent(p) {
@@ -5336,6 +5344,7 @@
             if (slider) slider.value = String(v);
             const rays = getBeta3dMaxRayColumns();
             if (el) el.textContent = `${v}% · ~${rays} rays`;
+            paintLobbyBeta3dQualityPreview();
         }
         /** Horizontal FOV (radians). */
         const BETA3D_FOV = 1.05;
@@ -5380,11 +5389,12 @@
             return { t: tmin, side, hitX, hitY, bx, by, bw, bh };
         }
 
-        function rayBeta3dNearestBuilding(ox, oy, rdx, rdy) {
+        function rayBeta3dNearestBuildingFrom(ox, oy, rdx, rdy, buildingList) {
             let best = null;
             let bestT = Infinity;
-            for (let i = 0; i < state.buildings.length; i++) {
-                const b = state.buildings[i];
+            const list = buildingList || state.buildings;
+            for (let i = 0; i < list.length; i++) {
+                const b = list[i];
                 if (!b || b.type === 'invisible') continue;
                 const hit = intersectRayAabb2d(ox, oy, rdx, rdy, b.x, b.y, b.w, b.h);
                 if (!hit || hit.t >= bestT) continue;
@@ -5394,21 +5404,36 @@
             return best;
         }
 
-        function renderBeta3dScene(targetCtx, clipX, clipY, clipW, clipH) {
-            const c = targetCtx;
-            const p0 = state.players && state.players[0];
-            if (!p0) return;
-            const ox = p0.x;
-            const oy = p0.y;
-            const yaw = state.beta3dYaw;
-            const pitch = Math.max(-0.42, Math.min(0.42, state.beta3dPitch || 0));
+        function rayBeta3dNearestBuilding(ox, oy, rdx, rdy) {
+            return rayBeta3dNearestBuildingFrom(ox, oy, rdx, rdy, state.buildings);
+        }
+
+        /** Static mini-city for the lobby quality preview (world coords around origin). */
+        const LOBBY_BETA3D_PREVIEW_BUILDINGS = [
+            { x: 320, y: -140, w: 70, h: 280, type: 'preview', color: '#2563eb' },
+            { x: 160, y: -100, w: 90, h: 200, type: 'preview', color: '#10b981' },
+            { x: 240, y: 120, w: 110, h: 90, type: 'preview', color: '#f59e0b' },
+            { x: 520, y: -50, w: 180, h: 100, type: 'preview', color: '#64748b' },
+            { x: 380, y: -220, w: 200, h: 55, type: 'preview', color: '#a855f7' }
+        ];
+
+        function getBeta3dMaxRayColumnsForPercent(pct) {
+            const p = Math.max(0, Math.min(100, Number(pct) || 0));
+            return Math.round(BETA3D_RAY_COLS_MIN + (p / 100) * (BETA3D_RAY_COLS_MAX - BETA3D_RAY_COLS_MIN));
+        }
+
+        /**
+         * Core raycast stripes (sky, floor, walls) — shared by in-game Beta 3D and lobby quality preview.
+         * @param {Array<{x:number,y:number,w:number,h:number,color?:string,type?:string}>} buildingList
+         */
+        function renderBeta3dRaycastStripes(c, clipX, clipY, clipW, clipH, ox, oy, yaw, pitch, rayCols, buildingList) {
             const dirX = Math.cos(yaw);
             const dirY = Math.sin(yaw);
             const planeScale = Math.tan(BETA3D_FOV * 0.5);
             const planeX = -dirY * planeScale;
             const planeY = dirX * planeScale;
             const horizon = clipH * (0.5 + pitch * 1.15);
-            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns());
+            const cols = Math.min(clipW, Math.max(8, rayCols | 0));
             c.save();
             c.beginPath();
             c.rect(clipX, clipY, clipW, clipH);
@@ -5425,23 +5450,21 @@
             floorGrad.addColorStop(1, '#052e16');
             c.fillStyle = floorGrad;
             c.fillRect(clipX, horizon, clipW, Math.max(0, clipY + clipH - horizon));
-            for (let col = 0; col < rayCols; col++) {
-                const u = (col + 0.5) / rayCols;
+            for (let col = 0; col < cols; col++) {
+                const u = (col + 0.5) / cols;
                 const cameraX = 2 * u - 1;
                 let rdx = dirX + planeX * cameraX;
                 let rdy = dirY + planeY * cameraX;
                 const rlen = Math.hypot(rdx, rdy) || 1;
                 rdx /= rlen;
                 rdy /= rlen;
-                const hit = rayBeta3dNearestBuilding(ox, oy, rdx, rdy);
+                const hit = rayBeta3dNearestBuildingFrom(ox, oy, rdx, rdy, buildingList);
                 const cosRay = rdx * dirX + rdy * dirY;
                 const perpDist = hit ? hit.t * cosRay : BETA3D_MAX_DIST;
                 const lineH = Math.min(clipH * 1.5, (BETA3D_WALL_HEIGHT / (perpDist + 0.0001)) * (clipH / 480) * 140);
                 const wallTop = horizon - lineH / 2;
                 const wallBot = horizon + lineH / 2;
-                if (!hit) {
-                    continue;
-                }
+                if (!hit) continue;
                 const base = hit.b.color || '#64748b';
                 let norm = base;
                 if (norm[0] === '#') {
@@ -5465,7 +5488,7 @@
                 const db = Math.floor(bch * 0.4);
                 const botRgb = `rgb(${dr},${dg},${db})`;
                 const x0 = clipX + (u * clipW - 0.5);
-                const sliceW = Math.max(1, (clipW / rayCols) + 1);
+                const sliceW = Math.max(1, (clipW / cols) + 1);
                 if (wallTop > clipY) {
                     c.fillStyle = '#38bdf8';
                     c.fillRect(x0, clipY, sliceW, wallTop - clipY);
@@ -5481,6 +5504,48 @@
                 c.fillStyle = gwall;
                 c.fillRect(x0, wallTop, sliceW, Math.max(1, wallBot - wallTop));
             }
+            c.restore();
+        }
+
+        function paintLobbyBeta3dQualityPreview() {
+            const cv = document.getElementById('lobby-beta3d-quality-preview');
+            if (!cv) return;
+            const cssW = cv.clientWidth || 280;
+            const cssH = 120;
+            const dpr = Math.min(2, window.devicePixelRatio || 1);
+            const nw = Math.max(200, Math.floor(cssW * dpr));
+            const nh = Math.floor(cssH * dpr);
+            if (cv.width !== nw || cv.height !== nh) {
+                cv.width = nw;
+                cv.height = nh;
+            }
+            const ctx = cv.getContext('2d');
+            if (!ctx) return;
+            ctx.imageSmoothingEnabled = false;
+            const pct = state.beta3dQualityPercent;
+            const maxRays = getBeta3dMaxRayColumnsForPercent(pct);
+            const rayCols = Math.min(nw, maxRays);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, nw, nh);
+            const demoYaw = 0.38;
+            const demoPitch = 0.07;
+            renderBeta3dRaycastStripes(ctx, 0, 0, nw, nh, 0, 0, demoYaw, demoPitch, rayCols, LOBBY_BETA3D_PREVIEW_BUILDINGS);
+        }
+
+        function renderBeta3dScene(targetCtx, clipX, clipY, clipW, clipH) {
+            const c = targetCtx;
+            const p0 = state.players && state.players[0];
+            if (!p0) return;
+            const ox = p0.x;
+            const oy = p0.y;
+            const yaw = state.beta3dYaw;
+            const pitch = Math.max(-0.42, Math.min(0.42, state.beta3dPitch || 0));
+            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns());
+            renderBeta3dRaycastStripes(c, clipX, clipY, clipW, clipH, ox, oy, yaw, pitch, rayCols, state.buildings);
+            c.save();
+            c.beginPath();
+            c.rect(clipX, clipY, clipW, clipH);
+            c.clip();
             c.fillStyle = 'rgba(15,23,42,0.45)';
             c.fillRect(clipX, clipY + clipH - 30, clipW, 30);
             c.fillStyle = '#e2e8f0';
@@ -5551,6 +5616,7 @@
 
         function resize() {
             syncMobileViewport();
+            paintLobbyBeta3dQualityPreview();
         }
 
         /** True for phones/small touch layouts — wider world view + capped DPR so the city does not feel “zoomed in”. */
