@@ -145,9 +145,10 @@
             display: none;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             color: white;
             padding: 20px;
+            padding-bottom: 8px;
             overflow-y: auto;
         }
 
@@ -210,12 +211,13 @@
 
         #tutorial-buddy-dock {
             position: fixed;
-            bottom: 84px;
-            left: 12px;
+            bottom: 18px;
+            right: 12px;
+            left: auto;
             z-index: 340;
             display: none;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: flex-end;
             gap: 8px;
             pointer-events: none;
         }
@@ -327,6 +329,75 @@
             background: rgba(0,0,0,0.75); padding: 16px; pointer-events: auto;
         }
         #lobby-stats-overlay.open { display: flex; }
+
+        #lobby-settings-overlay {
+            position: fixed; inset: 0; z-index: 1180; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.82); padding: 16px; pointer-events: auto;
+        }
+        #lobby-settings-overlay.open { display: flex; }
+
+        #lobby-bottom-bar {
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 30;
+            width: 100%;
+            max-width: 28rem;
+            margin-top: auto;
+            padding: 12px 8px calc(12px + env(safe-area-inset-bottom, 0px));
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: stretch;
+            flex-shrink: 0;
+            pointer-events: auto;
+            background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.92) 25%);
+        }
+        #lobby-bottom-bar button {
+            flex: 1;
+            min-height: 52px;
+            border-radius: 14px;
+            font-weight: 900;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border: 3px solid rgba(148, 163, 184, 0.45);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+            cursor: pointer;
+            transition: transform 0.08s ease, filter 0.12s ease;
+        }
+        #lobby-bottom-bar button:active { transform: scale(0.97); }
+        #lobby-character-btn {
+            background: linear-gradient(180deg, #38bdf8, #0284c7);
+            color: #f8fafc;
+            border-color: rgba(125, 211, 252, 0.85);
+        }
+        #lobby-settings-open-btn {
+            background: linear-gradient(180deg, #475569, #1e293b);
+            color: #e2e8f0;
+            border-color: rgba(148, 163, 184, 0.75);
+        }
+
+        #beta-3d-banner {
+            display: none;
+            position: fixed;
+            top: max(8px, env(safe-area-inset-top, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 355;
+            pointer-events: none;
+            font: 800 10px system-ui, "Segoe UI", sans-serif;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #fef08a;
+            background: rgba(30, 27, 75, 0.92);
+            border: 2px solid rgba(167, 139, 250, 0.65);
+            border-radius: 10px;
+            padding: 6px 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+        }
+        #beta-3d-banner.visible { display: block; }
 
         #owner-dashboard-fab {
             position: fixed;
@@ -532,6 +603,7 @@
                 </div>
             </div>
 
+            <p id="lobby-mode-summary" class="text-[10px] font-black text-sky-300/95 uppercase tracking-widest text-center mb-2 min-h-[1.25rem]">Device: Computer · Mode: 1 Player</p>
             <div>
                 <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Mode</h2>
                 <div class="flex gap-2 flex-wrap justify-center">
@@ -634,9 +706,44 @@
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/explode</span> <span class="font-mono text-amber-400/90">/destroy</span> · <span class="font-mono text-amber-400/90">/kill</span> · <span class="font-mono text-amber-400/90">/teleport all</span></p>
             </div>
         </div>
+
+        <div id="lobby-bottom-bar">
+            <button type="button" id="lobby-character-btn" class="interactive">Character</button>
+            <button type="button" id="lobby-settings-open-btn" class="interactive">⚙ Settings</button>
+        </div>
     </div>
 
     <button type="button" id="lobby-stats-fab" class="interactive" title="Server stats" aria-label="Open online player stats">📡</button>
+    <div id="lobby-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-settings-title">
+        <div class="bg-slate-900 border-2 border-sky-500/50 rounded-2xl p-5 max-w-sm w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start gap-2 mb-4">
+                <h2 id="lobby-settings-title" class="text-sky-300 font-black text-base uppercase tracking-widest">Lobby settings</h2>
+                <button type="button" id="lobby-settings-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
+            </div>
+            <p id="lobby-settings-body" class="text-[10px] text-slate-500 mb-4 leading-snug">Language, experimental view, and debug logs apply on this device.</p>
+            <label id="lobby-settings-lang-label" for="lobby-settings-lang" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Language</label>
+            <select id="lobby-settings-lang" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-4 interactive">
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="ja">日本語</option>
+            </select>
+            <label class="flex items-center justify-between gap-3 cursor-pointer interactive mb-2">
+                <span id="lobby-settings-beta-label" class="text-[11px] text-slate-200 font-bold">Beta 3D (1 player)</span>
+                <button type="button" id="lobby-toggle-beta3d" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                    <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                </button>
+            </label>
+            <p id="lobby-settings-beta-hint" class="text-[8px] text-slate-500 mb-4">Experimental first-person ray view. Only works in 1-player mode before you start.</p>
+            <label class="flex items-center justify-between gap-3 cursor-pointer interactive mb-2">
+                <span id="lobby-settings-debug-label" class="text-[11px] text-slate-200 font-bold">Verbose debug logs</span>
+                <button type="button" id="lobby-toggle-debug-verbose" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                    <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                </button>
+            </label>
+            <p id="lobby-settings-debug-hint" class="text-[8px] text-slate-500">Adds ?debug=1 style logs or turn off. Errors always log.</p>
+        </div>
+    </div>
+
     <div id="lobby-stats-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-stats-title">
         <div class="bg-slate-900 border border-teal-500/60 rounded-2xl p-4 max-w-sm w-full shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-start gap-2 mb-3">
@@ -656,6 +763,7 @@
     </div>
 
     <canvas id="gameCanvas"></canvas>
+    <div id="beta-3d-banner" aria-hidden="true">Beta 3D · experimental</div>
     <div id="nuke-flash"></div>
     <div id="jackpot-flash">
         <h1 class="text-7xl md:text-9xl font-black text-yellow-400 animate-pulse" style="text-shadow: 0 10px 30px rgba(0,0,0,0.8);">JACKPOT!</h1>
@@ -1452,6 +1560,9 @@
 
         /** Verbose console + ring buffer for support. Enable: ?debug=1 or localStorage pixelCityDebugVerbose=1 */
         const LS_DEBUG_VERBOSE = 'pixelCityDebugVerbose';
+        const LS_LANG = 'pixelCityUiLang';
+        const LS_BETA_3D = 'pixelCityBeta3d';
+        const LS_DEVICE_MODE = 'pixelCityDeviceMode';
         const LS_TUTORIAL_COMPLETED_RUN = 'pixelCityTutorialCompletedRun';
         const LS_TUTORIAL_DECLINED_FOREVER = 'pixelCityTutorialDeclinedForever';
         const DEBUG_RING_MAX = 100;
@@ -1473,53 +1584,66 @@
         }
         initPixelCityDebug();
 
-        /** Guide bot — pre-programmed FAQ for new players */
+        function loadStoredDeviceMode() {
+            try {
+                const v = localStorage.getItem(LS_DEVICE_MODE);
+                if (v === 'phone' || v === 'xbox' || v === 'computer') return v;
+            } catch (_) { /* */ }
+            return 'computer';
+        }
+
+        /** Guide bot — 50 pre-programmed FAQ entries */
         const TUTORIAL_BUDDY_TOPICS = [
-            {
-                id: 'welcome',
-                label: 'What do I do first?',
-                answer: (ctx) => `Walk around with ${ctx.moveKeys}. ${ctx.interactHint} Green buildings are shops — earn cash at the store. Save often from the 🌍 menu!`
-            },
-            {
-                id: 'goal',
-                label: 'What is the goal?',
-                answer: () => 'Grow your wallet — $100k is the headline goal on the HUD. Buy better cars to earn more per tap at the store. Secret modes change the rules — try “Secret Modes” in the lobby.'
-            },
-            {
-                id: 'money',
-                label: 'How do I make money?',
-                answer: () => 'Work at the Store building (green), rob houses (spin wheel — cops may chase), or loot in special modes. Sell cars at the dealership for half what you paid.'
-            },
-            {
-                id: 'police',
-                label: 'Police & wanted stars?',
-                answer: () => 'Robberies can alert police — stars show on screen. Lose them by reaching your safe house (home lot) or outrunning cops. Vault jobs pay more but cops are tougher.'
-            },
-            {
-                id: 'cars',
-                label: 'Cars & driving?',
-                answer: () => 'Buy at the blue dealership — cars spawn at the lot. Walk up and press your interact key to enter. Hold movement keys — cars only drive while keys are held.'
-            },
-            {
-                id: 'multi',
-                label: 'Playing with friends?',
-                answer: () => 'In the lobby pick MULTIPLAYER: host shares a code, friend pastes it and taps Join, then both tap Start game. Your friend appears as a dot on the map.'
-            },
-            {
-                id: 'save',
-                label: 'Saving progress?',
-                answer: () => 'Tap 🌍 in-game → Save progress (autosave also runs periodically). Use Save & leave to return to the lobby. Load from the lobby when you come back.'
-            },
-            {
-                id: 'phone',
-                label: 'What is the phone icon?',
-                answer: () => 'Bottom-left smartphone — GPS, mini-games, and messages. Open it when you need a route or a break.'
-            },
-            {
-                id: 'health',
-                label: 'Health & hospital?',
-                answer: () => 'Watch your green HP bar. Downed teammates can be revived in co-op; hospital helps when you are hurt — keep cash for fees.'
-            }
+            { id: 'welcome', label: 'What do I do first?', answer: (ctx) => `Walk with ${ctx.moveKeys}. ${ctx.interactHint} Green buildings are shops. Save from the 🌍 menu.` },
+            { id: 'goal', label: 'What is the goal?', answer: () => 'Grow your wallet — $100k on the HUD is the headline goal. Better cars earn more per tap at the store.' },
+            { id: 'money', label: 'How do I make money?', answer: () => 'Work at the Store, rob houses (wheel spin — cops may chase), or special modes. Sell cars at the dealership for half purchase price.' },
+            { id: 'police', label: 'Police & wanted stars?', answer: () => 'Robberies raise heat — stars show on screen. Shake cops by reaching home or outrunning them. Vault jobs pay more but police are faster.' },
+            { id: 'cars', label: 'Cars & driving?', answer: () => 'Buy at the dealership — cars spawn at the lot. Interact to enter. Hold movement keys; vehicles only accelerate while keys are held.' },
+            { id: 'multi', label: 'Playing with friends?', answer: () => 'Lobby → MULTIPLAYER: share code or Join a friend, then Start game. Friends appear on the minimap.' },
+            { id: 'save', label: 'Saving progress?', answer: () => '🌍 → Save progress (autosave runs too). Save & leave returns here; use Load when you return.' },
+            { id: 'phone', label: 'What is the phone icon?', answer: () => 'Bottom-left PixelPhone: GPS routes, mini-games, chat commands like /help.' },
+            { id: 'health', label: 'Health & hospital?', answer: () => 'Green HP bar. Hospital heals for cash. Downed players can be helped by teammates in co-op or online.' },
+            { id: 'vault', label: 'Bank vault robbery?', answer: () => 'Vault pays $10,000 but police chase much faster than house jobs. If caught you lose the loot and may pay a fine, wait, or go bankrupt.' },
+            { id: 'house_rob', label: 'House robbery basics?', answer: () => 'Enter houses on the map, spin the wheel for loot. Easier police response than the vault — good for practice.' },
+            { id: 'tyre', label: 'What is a tyre trap?', answer: () => 'Gadget shop item — drops a ring that stuns police ~10s when they cross it. Place like other gadgets from your loadout.' },
+            { id: 'landmine', label: 'Landmine placement?', answer: () => 'Drops slightly in front of you so you do not blow yourself up. Damages actors that enter the blast radius.' },
+            { id: 'inventory', label: 'Inventory vs loadout?', answer: () => 'Inventory lists everything you bought this run. Loadout is what you carry — open Inventory to equip gadgets/weapons you own.' },
+            { id: 'loadout', label: 'How do I change loadout?', answer: () => 'Use the loadout strip on the HUD or open Inventory and tap equip on an owned item.' },
+            { id: 'sprint', label: 'Sprint & stamina?', answer: () => 'Hold sprint on keyboard layouts that support it — stamina drains then refills when you walk (solo P1).' },
+            { id: 'home', label: 'What is my safe house?', answer: () => 'Your HOME lot clears wanted level when you stand there — perfect after a chase.' },
+            { id: 'deal_buy', label: 'Buying cars?', answer: () => 'Dealership on the map — interact to browse. Purchased vehicles spawn at the lot.' },
+            { id: 'deal_sell', label: 'Selling cars?', answer: () => 'At the dealership toggle sell mode — you get half of what you paid for each car you offload.' },
+            { id: 'gift_car', label: 'Buy for a friend?', answer: () => 'Dealership button must be tapped twice to arm gifting — next purchase spawns an extra car your multiplayer buddy can see.' },
+            { id: 'pvp', label: 'Why does PvP not hurt my friend?', answer: () => 'Host can toggle Friendly fire off in 🌍 session settings — weapons then skip damage between players.' },
+            { id: 'session_settings', label: 'Session settings (host)?', answer: () => '🌍 menu shows Infinite revive and Friendly fire off when you host multiplayer — guests see read-only hints.' },
+            { id: 'body_drag', label: 'Grabbing downed players (G)?', answer: () => 'In online or 2-local, press G near a downed teammate to rush them toward hospital — saves their inventory if you are fast.' },
+            { id: 'death_pen', label: 'What if nobody grabs me?', answer: () => 'Bleed out without a rescue and you lose cash/items — teammates should grab with G.' },
+            { id: 'two_local', label: 'Why is 2 LOCAL locked?', answer: () => 'Two players on one screen is limited to Xbox controller layout — pick XBOX device first.' },
+            { id: 'devices', label: 'Computer vs Phone vs Xbox?', answer: () => 'Computer uses WASD + mouse look for Beta 3D. Phone uses touch zones. Xbox maps to controller-friendly prompts.' },
+            { id: 'codes', label: 'Friend codes & invites?', answer: () => 'MULTIPLAYER shows Your code — Copy or New code if hosting. Friends paste into Join then everyone taps Start game.' },
+            { id: 'solo_online', label: 'Why does 1 PLAYER still sync?', answer: () => 'Signed-in solo quietly hosts Realtime so friends can join your city later — UI stays on 1 PLAYER until you choose MULTIPLAYER.' },
+            { id: 'settings_btn', label: 'Where are lobby settings?', answer: () => 'Big ⚙ Settings button at the bottom of the lobby next to Character — language, Beta 3D, verbose logs.' },
+            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Experimental first-person strips — solo only. Move mouse to look; pointer-lock on canvas helps. Turn off if dizzy.' },
+            { id: 'lang', label: 'Changing language?', answer: () => 'Lobby settings → Language updates buttons like Character / Settings immediately (more translations arrive over time).' },
+            { id: 'debug_logs', label: 'Extra debug for bugs?', answer: () => 'Add ?debug=1 to the URL or flip Verbose logs in lobby settings. Run copyPixelCityDebugInfo() in the console to export a bundle.' },
+            { id: 'minimap', label: 'Minimap dots?', answer: () => 'Shows buildings, cars, players — including icons while you drive or sit in jail so friends still see you.' },
+            { id: 'gps', label: 'GPS routes?', answer: () => 'Open PixelPhone → GPS, pick a landmark — cyan line draws after you close the phone.' },
+            { id: 'jobs', label: 'Store / school jobs?', answer: () => 'School Edition swaps jobs for classroom tasks. Normal mode uses store shifts for steady cash.' },
+            { id: 'jail', label: 'How do I leave jail?', answer: () => 'Wait the timer, pay bail, or finish school-mode lessons — vault arrests add extra choices like bankruptcy.' },
+            { id: 'secrets', label: 'Secret modes?', answer: () => 'Lobby Secret Modes box — SONIC, RICH, GHOST, ZOMBIE, GODLY, etc. Host syncs active cheats online.' },
+            { id: 'zombie', label: 'ZOMBIE mode summary?', answer: () => 'Ruined city, pea shooter, shoot green infected with F, different loot rules — read the banner when active.' },
+            { id: 'orb', label: 'Golden orb hunt?', answer: () => 'Special objective — grab the orb for a huge reward; you can keep playing afterward instead of ending instantly.' },
+            { id: 'win_continue', label: 'God Lambo / win screen?', answer: () => 'After winning you can Keep playing or Nuke the city — endless sandbox until you choose.' },
+            { id: 'nuke_city', label: 'What does Nuke the city do?', answer: () => 'Ends the run dramatically — only pick it when you really want to reset the session.' },
+            { id: 'admin', label: 'Admin / owner tools?', answer: () => 'Lobby admin PIN unlocks cheat sheet; owner accounts get dashboards + optional global glitch events for everyone online.' },
+            { id: 'glitch_event', label: 'Glitch storm event?', answer: () => 'Owner-triggered mode — screen shakes, slow glitch mobs spawn. Survive until the timer ends.' },
+            { id: 'telepads', label: 'Teleporter pads?', answer: () => 'Gadget pair — drop two pads and walk through to warp between them for quick escapes.' },
+            { id: 'weapons', label: 'Weapon basics?', answer: () => 'Weapon shop sells stunners, rockets, micro nukes for PvP — aim with face direction and respect friendly-fire rules.' },
+            { id: 'wanted_drop', label: 'How do I lose stars fast?', answer: () => 'Stop committing crimes, hide at HOME, or put distance between you and cruisers until the meter cools.' },
+            { id: 'autosave', label: 'Autosave timing?', answer: () => 'World autosaves on an interval while you play — still manual-save before risky vault runs.' },
+            { id: 'disconnect', label: 'Multiplayer disconnections?', answer: () => 'Game retries Realtime with backoff — check Wi‑Fi, stay signed in, and avoid refreshing mid-session.' },
+            { id: 'character', label: 'Character appearance?', answer: () => 'Everyone plays as the neon dot — use Character in the lobby to recolor your trail.' },
+            { id: 'coupe', label: 'Sports coupe tier?', answer: () => 'Mid-luxury dealership step between Porsche tier and the Lambo — pricey but huge speed jump.' }
         ];
 
         function getTutorialBuddyContext() {
@@ -1577,7 +1701,9 @@
         function updateTutorialBuddyDockVisibility() {
             const dock = document.getElementById('tutorial-buddy-dock');
             if (!dock) return;
-            const show = isInGame() && !state.gamePaused && !state.isGameOver;
+            const tw = document.getElementById('tutorial-welcome-overlay');
+            const tutorialBlocking = tw && tw.classList.contains('open');
+            const show = isInGame() && !tutorialBlocking;
             dock.classList.toggle('visible', show);
             if (!show) closeTutorialBuddyPanel();
         }
@@ -1588,6 +1714,7 @@
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
             state.gamePaused = true;
+            updateTutorialBuddyDockVisibility();
         }
 
         function closeTutorialWelcomeOverlay() {
@@ -1596,6 +1723,7 @@
             o.classList.remove('open');
             o.setAttribute('aria-hidden', 'true');
             state.gamePaused = false;
+            updateTutorialBuddyDockVisibility();
         }
 
         function maybeOfferTutorialAfterNewGame(mergedSave) {
@@ -1684,6 +1812,14 @@
 
         let savedWins = parseInt(localStorage.getItem('pixelCityWins') || '0');
 
+        let initialBeta3d = false;
+        try { initialBeta3d = localStorage.getItem(LS_BETA_3D) === '1'; } catch (_) { /* */ }
+        let initialUiLang = 'en';
+        try {
+            const L = localStorage.getItem(LS_LANG);
+            if (L === 'es' || L === 'ja' || L === 'en') initialUiLang = L;
+        } catch (_) { /* */ }
+
         const state = {
             money: 0, 
             bailPrice: 100,
@@ -1698,7 +1834,7 @@
             /** Same PIN can unlock live server stats (separate from lobbyAdminUnlocked; see startApp). */
             lobbyStatsUnlocked: false,
             playerMode: 1, 
-            deviceMode: 'computer',
+            deviceMode: loadStoredDeviceMode(),
             /** When true, stricter / kid-friendly rules can be applied (see applySchoolSafeGameRules). */
             schoolSafe: false,
             players: [],
@@ -1780,7 +1916,13 @@
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
             stamina: 100,
             /** Lobby "Load progress" stores full save here until joinRoom creates players. */
-            pendingLobbySave: null
+            pendingLobbySave: null,
+            /** Experimental Beta 3D view (solo 1P only); persisted in LS_BETA_3D */
+            beta3dMode: initialBeta3d,
+            /** First-person yaw (radians), mouse-driven in Beta 3D */
+            beta3dYaw: 0,
+            /** UI language code for lobby chrome */
+            uiLang: initialUiLang
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -3255,7 +3397,11 @@
             updateSavedWorldButton();
             applyModeButtonStyles();
             updateLobbyHints();
+            syncLobbyBarLabels();
+            updateLobbyModeSummary();
+            applyLobbyCharacterDuoLock();
             updateTutorialBuddyDockVisibility();
+            enforceBeta3dInvariants();
         }
 
         function isSignInScreenVisible() {
@@ -3319,7 +3465,11 @@
             applyModeButtonStyles();
             updateLobbyHints();
             updateSavedWorldButton();
+            syncLobbyBarLabels();
+            updateLobbyModeSummary();
+            applyLobbyCharacterDuoLock();
             updateTutorialBuddyDockVisibility();
+            enforceBeta3dInvariants();
         }
 
         function getSupabaseConfig() {
@@ -4880,6 +5030,9 @@
                 pcDebug('info', 'join_online_session_ok', { code, isHost: state.isOnlineHost });
                 state.multiplayerIntendsHost = !!state.isOnlineHost;
                 setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
+                applyModeButtonStyles();
+                updateLobbyModeSummary();
+                enforceBeta3dInvariants();
                 if (!state.isOnlineHost) {
                     const block = document.getElementById('online-invite-block');
                     if (block) block.classList.add('hidden');
@@ -4918,6 +5071,299 @@
         const payBailBtn = document.getElementById('pay-bail-btn');
         const hintContainer = document.getElementById('control-hint');
         const lobbyWinsDisplay = document.getElementById('lobby-wins-display');
+
+        const LOBBY_I18N = {
+            en: {
+                character: 'Character',
+                settings: 'Settings',
+                lobbySettingsTitle: 'Lobby settings',
+                lobbySettingsBody: 'Language, experimental view, and debug logs apply on this device.',
+                langLabel: 'Language',
+                beta3dLabel: 'Beta 3D (1 player)',
+                beta3dHint: 'Experimental first-person view. Solo 1-player only. Click the game to capture the mouse.',
+                debugLabel: 'Verbose debug logs',
+                debugHint: 'Same as ?debug=1. Errors always log.',
+                deviceComputer: 'Computer',
+                devicePhone: 'Phone',
+                deviceXbox: 'Xbox',
+                mode1p: '1 Player',
+                mode2local: '2 Local',
+                modeMulti: 'Multiplayer',
+                summaryPrefix: 'Device',
+                summaryMid: 'Mode',
+                duoLockedTitle: '2 Local — Xbox only',
+                duoLockedHint: 'Pick XBOX under Select device to unlock couch co-op.'
+            },
+            es: {
+                character: 'Personaje',
+                settings: 'Ajustes',
+                lobbySettingsTitle: 'Ajustes del lobby',
+                lobbySettingsBody: 'Idioma, vista experimental y registros de depuración en este dispositivo.',
+                langLabel: 'Idioma',
+                beta3dLabel: 'Beta 3D (1 jugador)',
+                beta3dHint: 'Vista en primera persona experimental. Solo 1 jugador. Haz clic en el juego para capturar el ratón.',
+                debugLabel: 'Registros detallados',
+                debugHint: 'Igual que ?debug=1. Los errores siempre se registran.',
+                deviceComputer: 'Ordenador',
+                devicePhone: 'Teléfono',
+                deviceXbox: 'Xbox',
+                mode1p: '1 jugador',
+                mode2local: '2 local',
+                modeMulti: 'Multijugador',
+                summaryPrefix: 'Dispositivo',
+                summaryMid: 'Modo',
+                duoLockedTitle: '2 local — solo Xbox',
+                duoLockedHint: 'Elige XBOX en Dispositivo para desbloquear dos jugadores en una pantalla.'
+            },
+            ja: {
+                character: 'キャラ',
+                settings: '設定',
+                lobbySettingsTitle: 'ロビー設定',
+                lobbySettingsBody: '言語・実験ビュー・詳細ログはこの端末に保存されます。',
+                langLabel: '言語',
+                beta3dLabel: 'ベータ3D（1人用）',
+                beta3dHint: '実験的な一人称ビュー。1人用ソロのみ。ゲーム画面をクリックしてマウスをロック。',
+                debugLabel: '詳細デバッグログ',
+                debugHint: '?debug=1 と同じ。エラーは常に出力。',
+                deviceComputer: 'PC',
+                devicePhone: 'スマホ',
+                deviceXbox: 'Xbox',
+                mode1p: '1人プレイ',
+                mode2local: '2人ローカル',
+                modeMulti: 'マルチ',
+                summaryPrefix: '端末',
+                summaryMid: 'モード',
+                duoLockedTitle: '2人ローカルは Xbox のみ',
+                duoLockedHint: 'デバイスで XBOX を選ぶと同画面2人が使えます。'
+            }
+        };
+
+        function getUiLabel(key) {
+            const pack = LOBBY_I18N[state.uiLang] || LOBBY_I18N.en;
+            const v = pack[key];
+            return typeof v === 'string' ? v : (LOBBY_I18N.en[key] || key);
+        }
+
+        function deviceLabelForSummary() {
+            if (state.deviceMode === 'phone') return getUiLabel('devicePhone');
+            if (state.deviceMode === 'xbox') return getUiLabel('deviceXbox');
+            return getUiLabel('deviceComputer');
+        }
+
+        function modeLabelForSummary() {
+            if (state.playMode === 'online' && !state.isSoloAutoHost) return getUiLabel('modeMulti');
+            if (state.playerMode === 2) return getUiLabel('mode2local');
+            return getUiLabel('mode1p');
+        }
+
+        function updateLobbyModeSummary() {
+            const el = document.getElementById('lobby-mode-summary');
+            if (!el) return;
+            const d = deviceLabelForSummary();
+            const m = modeLabelForSummary();
+            el.textContent = `${getUiLabel('summaryPrefix')}: ${d} · ${getUiLabel('summaryMid')}: ${m}`;
+        }
+
+        function syncLobbyBarLabels() {
+            const c = document.getElementById('lobby-character-btn');
+            const s = document.getElementById('lobby-settings-open-btn');
+            if (c) c.textContent = getUiLabel('character');
+            if (s) s.textContent = `⚙ ${getUiLabel('settings')}`;
+            const t = document.getElementById('lobby-settings-title');
+            if (t) t.textContent = getUiLabel('lobbySettingsTitle');
+            const bodyP = document.getElementById('lobby-settings-body');
+            if (bodyP) bodyP.textContent = getUiLabel('lobbySettingsBody');
+            const langL = document.getElementById('lobby-settings-lang-label');
+            if (langL) langL.textContent = getUiLabel('langLabel');
+            const betaL = document.getElementById('lobby-settings-beta-label');
+            if (betaL) betaL.textContent = getUiLabel('beta3dLabel');
+            const betaH = document.getElementById('lobby-settings-beta-hint');
+            if (betaH) betaH.textContent = getUiLabel('beta3dHint');
+            const dbgL = document.getElementById('lobby-settings-debug-label');
+            if (dbgL) dbgL.textContent = getUiLabel('debugLabel');
+            const dbgH = document.getElementById('lobby-settings-debug-hint');
+            if (dbgH) dbgH.textContent = getUiLabel('debugHint');
+            const sel = document.getElementById('lobby-settings-lang');
+            if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
+        }
+
+        function applyLobbyCharacterDuoLock() {
+            if (!modeDuoBtn) return;
+            const locked = state.deviceMode !== 'xbox';
+            modeDuoBtn.disabled = locked;
+            modeDuoBtn.classList.toggle('opacity-40', locked);
+            modeDuoBtn.classList.toggle('cursor-not-allowed', locked);
+            modeDuoBtn.title = locked ? getUiLabel('duoLockedTitle') : '';
+            if (locked && state.playerMode === 2) {
+                modeSoloBtn?.click();
+                showMessage(getUiLabel('duoLockedHint'));
+            }
+        }
+
+        function updateBeta3dBanner() {
+            const b = document.getElementById('beta-3d-banner');
+            if (!b) return;
+            const on = state.beta3dMode && isInGame() && state.playerMode === 1 && !state.isGameOver;
+            b.classList.toggle('visible', on);
+            b.setAttribute('aria-hidden', on ? 'false' : 'true');
+        }
+
+        function enforceBeta3dInvariants() {
+            if (state.beta3dMode && (state.playerMode !== 1 || state.playMode === 'online' && !state.isSoloAutoHost)) {
+                setBeta3dMode(false, { silent: true });
+            }
+            updateBeta3dBanner();
+        }
+
+        function setBeta3dMode(on, opts) {
+            const silent = opts && opts.silent;
+            state.beta3dMode = !!on;
+            try { localStorage.setItem(LS_BETA_3D, state.beta3dMode ? '1' : '0'); } catch (_) { /* */ }
+            const btn = document.getElementById('lobby-toggle-beta3d');
+            if (btn) {
+                btn.setAttribute('aria-checked', state.beta3dMode ? 'true' : 'false');
+                btn.classList.toggle('bg-emerald-600', state.beta3dMode);
+                btn.classList.toggle('border-emerald-400', state.beta3dMode);
+                const knob = btn.querySelector('span');
+                if (knob) knob.style.transform = state.beta3dMode ? 'translateX(1.5rem)' : '';
+            }
+            if (document.pointerLockElement === canvas) {
+                try { document.exitPointerLock(); } catch (_) { /* */ }
+            }
+            if (!silent && !state.beta3dMode) showMessage('Beta 3D off');
+            else if (!silent && state.beta3dMode) showMessage('Beta 3D on — click the game to look around');
+            updateBeta3dBanner();
+        }
+
+        function applyLobbyDebugToggleUI() {
+            const dbgBtn = document.getElementById('lobby-toggle-debug-verbose');
+            if (!dbgBtn) return;
+            dbgBtn.setAttribute('aria-checked', debugVerbose ? 'true' : 'false');
+            dbgBtn.classList.toggle('bg-emerald-600', debugVerbose);
+            dbgBtn.classList.toggle('border-emerald-400', debugVerbose);
+            const k = dbgBtn.querySelector('span');
+            if (k) k.style.transform = debugVerbose ? 'translateX(1.5rem)' : '';
+        }
+
+        function openLobbySettingsOverlay() {
+            const o = document.getElementById('lobby-settings-overlay');
+            if (!o) return;
+            const sel = document.getElementById('lobby-settings-lang');
+            if (sel) sel.value = state.uiLang;
+            applyLobbyDebugToggleUI();
+            const b3 = document.getElementById('lobby-toggle-beta3d');
+            if (b3) {
+                b3.setAttribute('aria-checked', state.beta3dMode ? 'true' : 'false');
+                b3.classList.toggle('bg-emerald-600', state.beta3dMode);
+                b3.classList.toggle('border-emerald-400', state.beta3dMode);
+                const k2 = b3.querySelector('span');
+                if (k2) k2.style.transform = state.beta3dMode ? 'translateX(1.5rem)' : '';
+            }
+            syncLobbyBarLabels();
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeLobbySettingsOverlay() {
+            const o = document.getElementById('lobby-settings-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
+        }
+
+        function setUiLanguage(code) {
+            const c = code === 'es' || code === 'ja' ? code : 'en';
+            state.uiLang = c;
+            try { localStorage.setItem(LS_LANG, c); } catch (_) { /* */ }
+            syncLobbyBarLabels();
+            updateLobbyModeSummary();
+            applyLobbyCharacterDuoLock();
+        }
+
+        function rayBeta3dHit(ox, oy, dx, dy) {
+            let bestT = Infinity;
+            let best = null;
+            const eps = 1e-6;
+            for (let i = 0; i < state.buildings.length; i++) {
+                const b = state.buildings[i];
+                if (!b || b.type === 'invisible') continue;
+                let tmin = -Infinity;
+                let tmax = Infinity;
+                if (Math.abs(dx) < eps) {
+                    if (ox < b.x || ox > b.x + b.w) continue;
+                } else {
+                    const tx1 = (b.x - ox) / dx;
+                    const tx2 = (b.x + b.w - ox) / dx;
+                    tmin = Math.max(tmin, Math.min(tx1, tx2));
+                    tmax = Math.min(tmax, Math.max(tx1, tx2));
+                }
+                if (Math.abs(dy) < eps) {
+                    if (oy < b.y || oy > b.y + b.h) continue;
+                } else {
+                    const ty1 = (b.y - oy) / dy;
+                    const ty2 = (b.y + b.h - oy) / dy;
+                    tmin = Math.max(tmin, Math.min(ty1, ty2));
+                    tmax = Math.min(tmax, Math.max(ty1, ty2));
+                }
+                if (tmax < 0 || tmin > tmax) continue;
+                const tHit = tmin >= 0 ? tmin : (tmax > 0 ? tmax : -1);
+                if (tHit < 0 || tHit >= bestT) continue;
+                bestT = tHit;
+                best = b;
+            }
+            return bestT < Infinity ? { t: bestT, b: best } : null;
+        }
+
+        function renderBeta3dScene(targetCtx, clipX, clipY, clipW, clipH) {
+            const c = targetCtx;
+            const p0 = state.players && state.players[0];
+            if (!p0) return;
+            const ox = p0.x;
+            const oy = p0.y;
+            const yaw = state.beta3dYaw;
+            const cos = Math.cos(yaw);
+            const sin = Math.sin(yaw);
+            const fov = 0.55;
+            const cols = Math.min(clipW, 120);
+            const colW = clipW / cols;
+            c.save();
+            c.beginPath();
+            c.rect(clipX, clipY, clipW, clipH);
+            c.clip();
+            for (let col = 0; col < cols; col++) {
+                const ndc = (col + 0.5) / cols * 2 - 1;
+                const rdx = cos + ndc * fov * -sin;
+                const rdy = sin + ndc * fov * cos;
+                const hit = rayBeta3dHit(ox, oy, rdx, rdy);
+                let h = 0.35;
+                let colorTop = '#0ea5e9';
+                let colorBot = '#0f172a';
+                if (hit && hit.b) {
+                    const d = Math.min(1, hit.t / 900);
+                    h = 0.2 + (1 - d) * 0.65;
+                    colorTop = hit.b.color || '#64748b';
+                    colorBot = '#020617';
+                }
+                const wallTop = clipY + clipH * (0.5 - h / 2);
+                const wallH = clipH * h;
+                const g = c.createLinearGradient(clipX + col * colW, wallTop, clipX + col * colW, wallTop + wallH);
+                g.addColorStop(0, colorTop);
+                g.addColorStop(1, colorBot);
+                c.fillStyle = g;
+                c.fillRect(clipX + col * colW, wallTop, colW + 0.6, wallH);
+                c.fillStyle = '#14532d';
+                c.fillRect(clipX + col * colW, wallTop + wallH, colW + 0.6, clipY + clipH - (wallTop + wallH));
+                c.fillStyle = '#38bdf8';
+                c.fillRect(clipX + col * colW, clipY, colW + 0.6, wallTop);
+            }
+            c.fillStyle = 'rgba(15,23,42,0.5)';
+            c.fillRect(clipX, clipY + clipH - 28, clipW, 28);
+            c.fillStyle = '#e2e8f0';
+            c.font = 'bold 11px system-ui,sans-serif';
+            c.textAlign = 'center';
+            c.fillText('Beta 3D · move mouse · Esc exits game to lobby', clipX + clipW / 2, clipY + clipH - 10);
+            c.restore();
+        }
         
         const activeTouches = {};
 
@@ -5233,6 +5679,7 @@
             if (hm) hm.style.display = 'none';
             updateIngameSchoolGameBadge();
             updateTutorialBuddyDockVisibility();
+            enforceBeta3dInvariants();
         };
 
         window.closePlayerModal = (pIdx) => {
@@ -6286,6 +6733,8 @@
             state.pvpNukeBlasts = [];
             const baseP = (id, c) => ({ id, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: c, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0, hp: PLAYER_MAX_HP, dead: false, downed: false, bleedFrames: 0, draggingPlayerIdx: null, corpseX: null, corpseY: null });
             state.players = [baseP(0, skin0)];
+            const p0join = state.players[0];
+            if (p0join) state.beta3dYaw = p0join.angle || 0;
             state.spectatePIdx = 0;
             state.soloHospModalShown = false;
             const sh = document.getElementById('spectate-hint');
@@ -6778,7 +7227,8 @@
             const CAM_LERP = 0.12;
             const Z = cameraZoom;
             const { bw, bh } = getViewBufferSize();
-            if (state.playerMode === 1 && state.players[0]) {
+            const beta3dOn = state.beta3dMode && state.playerMode === 1 && !(state.playMode === 'online' && !state.isSoloAutoHost);
+            if (state.playerMode === 1 && state.players[0] && !beta3dOn) {
                 const f = state.players[state.spectatePIdx] && !state.players[state.spectatePIdx].dead ? state.players[state.spectatePIdx] : state.players[0];
                 if (f) {
                     const tx = f.x - (bw / Z) / 2;
@@ -7236,7 +7686,12 @@
             bc.fillRect(0, 0, bw, bh);
 
             if (state.playerMode === 1) {
-                renderScene(bc, state.camera, 0, 0, bw, bh);
+                const beta3dOn = state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
+                if (beta3dOn) {
+                    renderBeta3dScene(bc, 0, 0, bw, bh);
+                } else {
+                    renderScene(bc, state.camera, 0, 0, bw, bh);
+                }
             } else {
                 const half = Math.floor(bw / 2);
                 renderScene(bc, state.cameras[0], 0, 0, half, bh);
@@ -7357,6 +7812,7 @@
             if (!state.gamePaused) update();
             draw();
             updateTutorialBuddyDockVisibility();
+            updateBeta3dBanner();
             requestAnimationFrame(gameLoop);
         }
 
@@ -7383,6 +7839,8 @@
                 onl.className = inactiveCyan;
             }
             updatePrimaryLobbyButtonLabel();
+            updateLobbyModeSummary();
+            enforceBeta3dInvariants();
         }
 
         function updatePrimaryLobbyButtonLabel() {
@@ -7433,6 +7891,8 @@
             }
             updateFriendsListUIAsync();
             updatePrimaryLobbyButtonLabel();
+            updateLobbyModeSummary();
+            enforceBeta3dInvariants();
         }
 
         function isPhoneGameViewOpen() {
@@ -8291,6 +8751,31 @@
                 if (e.target && e.target.id === 'lobby-stats-overlay') closeLobbyStatsOverlay();
             });
 
+            document.getElementById('lobby-settings-open-btn')?.addEventListener('click', () => openLobbySettingsOverlay());
+            document.getElementById('lobby-settings-close')?.addEventListener('click', () => closeLobbySettingsOverlay());
+            document.getElementById('lobby-settings-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'lobby-settings-overlay') closeLobbySettingsOverlay();
+            });
+            document.getElementById('lobby-settings-lang')?.addEventListener('change', (e) => {
+                const v = e.target && e.target.value;
+                setUiLanguage(v || 'en');
+            });
+            document.getElementById('lobby-toggle-beta3d')?.addEventListener('click', () => {
+                setBeta3dMode(!state.beta3dMode, { silent: false });
+            });
+            document.getElementById('lobby-toggle-debug-verbose')?.addEventListener('click', () => {
+                debugVerbose = !debugVerbose;
+                try {
+                    if (debugVerbose) localStorage.setItem(LS_DEBUG_VERBOSE, '1');
+                    else localStorage.removeItem(LS_DEBUG_VERBOSE);
+                } catch (_) { /* */ }
+                applyLobbyDebugToggleUI();
+                pcDebug('info', debugVerbose ? 'verbose_enabled_lobby' : 'verbose_disabled_lobby', null);
+            });
+            document.getElementById('lobby-character-btn')?.addEventListener('click', () => {
+                openAdminSkinModal();
+            });
+
             document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
             document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
             document.getElementById('owner-dashboard-refresh')?.addEventListener('click', () => { void refreshOwnerDashboardAnalytics(); });
@@ -8517,22 +9002,50 @@
             window.visualViewport?.addEventListener('resize', resize);
             window.visualViewport?.addEventListener('scroll', resize);
             resize();
+
+            function onBeta3dMouseMove(e) {
+                if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
+                if (document.pointerLockElement !== canvas) return;
+                const sens = 0.0022;
+                state.beta3dYaw += (e.movementX || 0) * sens;
+            }
+            canvas.addEventListener('click', () => {
+                if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
+                if (state.playMode === 'online' && !state.isSoloAutoHost) return;
+                canvas.requestPointerLock?.();
+            });
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement !== canvas && state.beta3dMode && isInGame()) {
+                    /* user exited lock — ok */
+                }
+            });
+            document.addEventListener('mousemove', onBeta3dMouseMove);
+
             const setPC = () => {
                 state.deviceMode = 'computer';
+                try { localStorage.setItem(LS_DEVICE_MODE, 'computer'); } catch (_) { /* */ }
                 updateDeviceButtonStyles();
                 updateLobbyHints();
+                updateLobbyModeSummary();
+                applyLobbyCharacterDuoLock();
                 resize();
             };
             const setPh = () => {
                 state.deviceMode = 'phone';
+                try { localStorage.setItem(LS_DEVICE_MODE, 'phone'); } catch (_) { /* */ }
                 updateDeviceButtonStyles();
                 updateLobbyHints();
+                updateLobbyModeSummary();
+                applyLobbyCharacterDuoLock();
                 resize();
             };
             const setXbox = () => {
                 state.deviceMode = 'xbox';
+                try { localStorage.setItem(LS_DEVICE_MODE, 'xbox'); } catch (_) { /* */ }
                 updateDeviceButtonStyles();
                 updateLobbyHints();
+                updateLobbyModeSummary();
+                applyLobbyCharacterDuoLock();
                 resize();
             };
             function updateDeviceButtonStyles() {
@@ -8551,12 +9064,13 @@
             document.getElementById('device-phone').onclick = setPh;
             document.getElementById('device-xbox').onclick = setXbox;
             
-            // Auto-detect phone
-            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-                setPh();
-            } else {
-                updateDeviceButtonStyles();
-            }
+            // Device mode: prefer saved choice, else auto-detect phones
+            try {
+                if (!localStorage.getItem(LS_DEVICE_MODE) && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                    state.deviceMode = 'phone';
+                }
+            } catch (_) { /* */ }
+            updateDeviceButtonStyles();
 
             document.getElementById('mode-solo').onclick = () => {
                 state.playMode = 'solo';
@@ -8564,13 +9078,21 @@
                 state.multiplayerIntendsHost = true;
                 applyModeButtonStyles();
                 updateLobbyHints();
+                updateLobbyModeSummary();
+                enforceBeta3dInvariants();
             };
             document.getElementById('mode-duo').onclick = () => {
+                if (state.deviceMode !== 'xbox') {
+                    showMessage(getUiLabel('duoLockedHint'));
+                    return;
+                }
                 state.playMode = 'solo';
                 state.playerMode = 2;
                 state.multiplayerIntendsHost = true;
                 applyModeButtonStyles();
                 updateLobbyHints();
+                updateLobbyModeSummary();
+                enforceBeta3dInvariants();
             };
             document.getElementById('mode-online').onclick = () => {
                 state.playMode = 'online';
@@ -8578,6 +9100,8 @@
                 state.multiplayerIntendsHost = true;
                 applyModeButtonStyles();
                 updateLobbyHints();
+                updateLobbyModeSummary();
+                enforceBeta3dInvariants();
             };
 
             document.getElementById('solo-copy-code-btn')?.addEventListener('click', async () => {
@@ -8588,6 +9112,9 @@
             document.getElementById('solo-new-code-btn')?.addEventListener('click', () => { void regenerateMultiplayerInviteCode(); });
             applyModeButtonStyles();
             updateLobbyHints();
+            syncLobbyBarLabels();
+            updateLobbyModeSummary();
+            applyLobbyCharacterDuoLock();
             
             // Player Cheat Codes
             document.getElementById('secret-toggle-btn').onclick = () => { document.getElementById('secret-input-area').classList.toggle('hidden'); };
