@@ -358,25 +358,65 @@
             padding: 0.35em 0.75em;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
         }
+        #lobby-settings-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 250;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.92);
+            pointer-events: auto;
+        }
+        #lobby-settings-overlay.flex-show { display: flex; }
+        #beta-3d-banner {
+            display: none;
+            position: fixed;
+            bottom: 5.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 340;
+            pointer-events: none;
+            font: 700 10px system-ui, "Segoe UI", sans-serif;
+            letter-spacing: 0.06em;
+            color: #fde68a;
+            background: rgba(30, 27, 75, 0.92);
+            border: 1px solid rgba(167, 139, 250, 0.55);
+            border-radius: 10px;
+            padding: 0.35rem 0.75rem;
+            max-width: min(92vw, 28rem);
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+        }
+        #beta-3d-banner.show { display: block; }
     </style>
     <!-- School builds: set window.__PIXELCITY_SCHOOL_SAFE__ = true in a script before the module, or use ?schoolSafe=1 -->
 </head>
 <body>
 
     <div id="sign-in-screen">
-        <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
-        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Sign in or create a free account</p>
-        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2">Pick any username and password — new accounts are created automatically. Choose <span class="text-white font-bold">MULTIPLAYER</span> after signing in, or <span class="text-white font-bold">Play offline</span> for solo / two players on one screen.</p>
+        <h1 class="text-2xl md:text-4xl font-black text-blue-500 mb-2 italic text-center leading-tight" data-i18n="signInTitle">PIXEL CITY EVOLUTION 1</h1>
+        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2" data-i18n="signInSubtitle">Sign in or create a free account</p>
+        <p class="text-slate-600 text-[9px] text-center max-w-xs mb-3 px-2" data-i18n="signInBlurb">Pick any username and password — new accounts are created automatically. Choose MULTIPLAYER after signing in, or Play offline for solo / two players on one screen.</p>
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-3">
+            <div class="flex items-center gap-2 mb-1">
+                <label for="sign-in-lang-select" class="text-[9px] font-bold text-slate-400 uppercase tracking-widest shrink-0" data-i18n="languageLabel">Language</label>
+                <select id="sign-in-lang-select" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="ja">日本語</option>
+                </select>
+            </div>
             <p id="supabase-config-hint" class="text-[10px] text-amber-400 text-center leading-snug hidden max-w-sm mx-auto">Online sign-in isn’t wired up for this build (missing server config). <span class="text-white font-bold">Play offline</span> still works. Try another network if you see a connection error.</p>
             <div>
-                <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username</label>
-                <input type="text" id="auth-username-input" autocomplete="username" placeholder="Your username" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+                <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1" data-i18n="usernameLabel">Username</label>
+                <input type="text" id="auth-username-input" autocomplete="username" data-i18n-placeholder="usernamePh" placeholder="Your username" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
             </div>
             <div>
-                <label for="auth-password-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Password</label>
+                <label for="auth-password-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1" data-i18n="passwordLabel">Password</label>
                 <div class="relative">
-                    <input type="password" id="auth-password-input" autocomplete="current-password" placeholder="••••••••" class="bg-slate-900 border border-slate-600 p-3 pr-11 rounded-lg text-white text-base w-full interactive">
+                    <input type="password" id="auth-password-input" autocomplete="current-password" data-i18n-placeholder="passwordPh" placeholder="••••••••" class="bg-slate-900 border border-slate-600 p-3 pr-11 rounded-lg text-white text-base w-full interactive">
                     <button type="button" id="auth-password-toggle" aria-label="Show password" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-white interactive" tabindex="-1">
                         <svg id="eye-icon-show" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         <svg id="eye-icon-hide" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -384,9 +424,9 @@
                 </div>
             </div>
             <p id="sign-in-msg" class="text-xs text-amber-400 min-h-[1.25rem]"></p>
-            <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive text-sm">Play online</button>
-            <p class="text-[8px] text-slate-500 text-center -mt-1">New username? An account is created for you automatically.</p>
-            <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive">Play offline (no account)</button>
+            <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive text-sm" data-i18n="playOnlineBtn">Play online</button>
+            <p class="text-[8px] text-slate-500 text-center -mt-1" data-i18n="newAccountHint">New username? An account is created for you automatically.</p>
+            <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive" data-i18n="playOfflineBtn">Play offline (no account)</button>
         </div>
     </div>
 
@@ -394,17 +434,20 @@
         <h1 class="text-3xl md:text-5xl font-black text-blue-500 mb-2 italic text-center leading-tight">PIXEL CITY EVOLUTION 1</h1>
         <p class="text-blue-300 mb-2 text-[10px] md:text-xs font-bold text-center italic px-2">you didn't think Thomas could make this did ya</p>
         <p id="lobby-school-safe-hint" class="hidden text-emerald-400/90 text-[10px] font-bold uppercase tracking-widest mb-2">School-safe mode (scaffold — policy TBD)</p>
+        <div class="flex flex-wrap items-center justify-center gap-2 mb-2 w-full max-w-sm">
+            <button type="button" id="lobby-settings-open-btn" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg interactive" data-i18n="lobbySettingsBtn">⚙️ Settings</button>
+        </div>
         <div class="flex items-center gap-3 mb-2">
             <p id="lobby-wins-display" class="text-yellow-400 font-black text-sm">🏆 Wins: 0</p>
             <p id="lobby-signed-in-as" class="text-slate-500 text-[9px] hidden"></p>
-            <button type="button" id="lobby-signout-btn" class="hidden text-[9px] text-slate-500 hover:text-red-400 font-bold interactive border border-slate-700 hover:border-red-500/50 px-2 py-0.5 rounded transition-colors">Sign out</button>
+            <button type="button" id="lobby-signout-btn" class="hidden text-[9px] text-slate-500 hover:text-red-400 font-bold interactive border border-slate-700 hover:border-red-500/50 px-2 py-0.5 rounded transition-colors" data-i18n="signOutBtn">Sign out</button>
         </div>
         <!-- Saved progress banner -->
         <div id="lobby-saved-progress-banner" class="hidden w-full max-w-sm mb-2 bg-emerald-950/70 border border-emerald-600/60 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
-            <p class="text-[10px] text-emerald-300 font-bold">💾 Saved progress found!</p>
+            <p id="lobby-saved-banner-title" class="text-[10px] text-emerald-300 font-bold" data-i18n="savedProgressFound">💾 Saved progress found!</p>
             <div class="flex gap-2 shrink-0">
-                <button type="button" id="lobby-load-progress-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-lg interactive">Load</button>
-                <button type="button" id="lobby-discard-progress-btn" class="text-slate-400 hover:text-white text-[10px] font-bold interactive">Ignore</button>
+                <button type="button" id="lobby-load-progress-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-lg interactive" data-i18n="loadBtn">Load</button>
+                <button type="button" id="lobby-discard-progress-btn" class="text-slate-400 hover:text-white text-[10px] font-bold interactive" data-i18n="ignoreBtn">Ignore</button>
             </div>
         </div>
         <div class="w-full max-w-sm mb-4 space-y-2">
@@ -414,40 +457,40 @@
         
         <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm text-center space-y-4 relative z-10">
             <div>
-                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Device</h2>
+                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest" data-i18n="selectDevice">Select Device</h2>
                 <div class="flex flex-wrap gap-2 justify-center">
-                    <button type="button" id="device-pc" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive">COMPUTER</button>
-                    <button type="button" id="device-phone" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive">PHONE</button>
-                    <button type="button" id="device-xbox" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive">XBOX</button>
+                    <button type="button" id="device-pc" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive" data-i18n="deviceComputer">COMPUTER</button>
+                    <button type="button" id="device-phone" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive" data-i18n="devicePhone">PHONE</button>
+                    <button type="button" id="device-xbox" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive" data-i18n="deviceXbox">XBOX</button>
                 </div>
             </div>
 
             <div>
-                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest">Select Mode</h2>
+                <h2 class="text-[10px] font-bold mb-2 text-slate-400 uppercase tracking-widest" data-i18n="selectMode">Select Mode</h2>
                 <div class="flex gap-2 flex-wrap justify-center">
-                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">1 PLAYER</button>
-                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">2 LOCAL</button>
-                    <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive">MULTIPLAYER</button>
+                    <button id="mode-solo" class="bg-blue-500 border-2 border-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive" data-i18n="mode1p">1 PLAYER</button>
+                    <button id="mode-duo" class="border-2 border-blue-500 text-blue-500 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive" data-i18n="mode2local">2 LOCAL</button>
+                    <button id="mode-online" class="border-2 border-cyan-500 text-cyan-400 flex-1 min-w-[88px] py-2 rounded-lg font-bold text-xs interactive" data-i18n="modeMulti">MULTIPLAYER</button>
                 </div>
                 <!-- MULTIPLAYER panel: share your code + join a friend's code -->
                 <div id="online-lobby-panel" class="hidden mt-3 text-left space-y-3">
                     <!-- Your code to share -->
                     <div id="solo-share-block" class="bg-slate-900/60 border border-slate-600/40 rounded-xl p-3 space-y-1">
-                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">📤 Your code</p>
-                        <p class="text-[9px] text-slate-400 leading-snug">Share this with friends so they can join your game.</p>
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest" data-i18n="yourCodeTitle">📤 Your code</p>
+                        <p class="text-[9px] text-slate-400 leading-snug" data-i18n="yourCodeHint">Share this with friends so they can join your game.</p>
                         <p id="solo-share-code" class="text-2xl font-black text-white tracking-[0.3em] text-center py-1">—</p>
                         <div class="flex gap-2">
-                            <button type="button" id="solo-copy-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy code</button>
-                            <button type="button" id="solo-new-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">🔄 New code</button>
+                            <button type="button" id="solo-copy-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive" data-i18n="copyCodeBtn">📋 Copy code</button>
+                            <button type="button" id="solo-new-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive" data-i18n="newCodeBtn">🔄 New code</button>
                         </div>
                     </div>
                     <!-- Join a friend's code -->
                     <div class="bg-slate-900/60 border border-slate-600/40 rounded-xl p-3">
-                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">🔗 Join a friend</p>
-                        <p class="text-[9px] text-slate-400 mb-2 leading-snug">Type your friend's code to join their game:</p>
+                        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1" data-i18n="joinFriendTitle">🔗 Join a friend</p>
+                        <p class="text-[9px] text-slate-400 mb-2 leading-snug" data-i18n="joinFriendHint">Type your friend's code to join their game:</p>
                         <div class="flex gap-2">
-                            <input type="text" id="online-join-code-input" placeholder="Friend's code" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
-                            <button type="button" id="online-join-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0">✅ Join</button>
+                            <input type="text" id="online-join-code-input" data-i18n-placeholder="friendCodePh" placeholder="Friend's code" maxlength="8" class="bg-slate-800 border border-slate-500 p-2 rounded-lg text-white text-base flex-1 uppercase tracking-widest interactive font-mono">
+                            <button type="button" id="online-join-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 rounded-lg font-black text-sm interactive shrink-0" data-i18n="joinBtnMulti">✅ Join</button>
                         </div>
                     </div>
                     <p id="online-session-msg" class="text-[11px] font-bold min-h-[1.25rem] text-center px-1 leading-snug"></p>
@@ -464,29 +507,29 @@
             </div>
 
             <div class="pt-2 border-t border-slate-700 text-left">
-                <h2 class="text-[10px] font-bold mb-1 text-slate-400 uppercase tracking-widest text-center">👫 Friends</h2>
-                <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Type a friend's <span class="text-white font-bold">username</span> to add them. When they're playing you can join them with one tap!</p>
-                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in to sync friends across devices.</p>
+                <h2 class="text-[10px] font-bold mb-1 text-slate-400 uppercase tracking-widest text-center" data-i18n="friendsTitle">👫 Friends</h2>
+                <p id="friends-intro-p" class="text-[8px] text-slate-500 text-center mb-2 leading-snug"></p>
+                <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden" data-i18n="friendsNetworkHint">Sign in to sync friends across devices.</p>
                 <div class="flex gap-2 mb-1">
-                    <input type="text" id="friend-add-input" placeholder="Their username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive" autocomplete="off" autocapitalize="none">
-                    <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0">➕ Add</button>
+                    <input type="text" id="friend-add-input" data-i18n-placeholder="theirUsernamePh" placeholder="Their username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive" autocomplete="off" autocapitalize="none">
+                    <button type="button" id="friend-add-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded font-bold text-xs interactive shrink-0" data-i18n="friendAddBtn">➕ Add</button>
                 </div>
                 <p id="friend-add-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem]"></p>
                 <ul id="friends-list-ul" class="max-h-48 overflow-y-auto space-y-1.5 text-xs"></ul>
             </div>
 
             <div class="flex gap-2 mt-2">
-                <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow">🆕 Start New Game</button>
-                <button id="load-world-btn" class="bg-slate-700 border border-slate-600 text-slate-500 flex-1 py-3 rounded-xl font-bold text-sm uppercase tracking-wider interactive" disabled>💾 No save found</button>
+                <button id="join-btn" class="bg-green-500 hover:bg-green-600 text-white flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider ring-2 ring-green-400/30 hover:ring-green-300/50 transition-shadow" data-i18n="startNewGameBtn">🆕 Start New Game</button>
+                <button id="load-world-btn" class="bg-slate-700 border border-slate-600 text-slate-500 flex-1 py-3 rounded-xl font-bold text-sm uppercase tracking-wider interactive" disabled data-i18n="noSaveBtn">💾 No save found</button>
             </div>
             <p id="autosave-hint" class="text-[8px] text-slate-500 text-center mt-1 hidden"></p>
             
             <div class="pt-2 border-t border-slate-700">
-                <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300">Secret Modes</button>
+                <button id="secret-toggle-btn" class="text-[10px] text-purple-400 font-bold uppercase interactive tracking-widest hover:text-purple-300" data-i18n="secretModesBtn">Secret Modes</button>
                 <div id="secret-input-area" class="hidden flex gap-2 mt-2">
                     <!-- Changed from text-xs to text-base (16px) to prevent mobile zooming -->
-                    <input type="text" id="secret-code-input" placeholder="ENTER CODE" class="bg-slate-900 border border-slate-700 p-2 rounded text-white text-base w-full uppercase interactive">
-                    <button id="secret-apply-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded font-bold text-xs interactive">APPLY</button>
+                    <input type="text" id="secret-code-input" data-i18n-placeholder="enterCodePh" placeholder="ENTER CODE" class="bg-slate-900 border border-slate-700 p-2 rounded text-white text-base w-full uppercase interactive">
+                    <button id="secret-apply-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 rounded font-bold text-xs interactive" data-i18n="applyBtn">APPLY</button>
                 </div>
                 <div id="secret-applied-msg" class="text-[10px] text-purple-400 font-bold mt-1 h-3"></div>
             </div>
@@ -526,6 +569,33 @@
         </div>
     </div>
 
+    <div id="lobby-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-settings-title">
+        <div class="bg-slate-900 border border-slate-600 rounded-2xl p-5 w-full max-w-sm text-white shadow-2xl space-y-4">
+            <div class="flex justify-between items-start gap-2">
+                <h2 id="lobby-settings-title" class="text-lg font-black text-white uppercase tracking-widest" data-i18n="settingsTitle">⚙️ Settings</h2>
+                <button type="button" id="lobby-settings-close-btn" class="text-slate-400 hover:text-white text-2xl leading-none interactive" aria-label="Close">×</button>
+            </div>
+            <div>
+                <label for="lobby-settings-lang" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1" data-i18n="languageLabel">Language</label>
+                <select id="lobby-settings-lang" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="ja">日本語</option>
+                </select>
+            </div>
+            <div class="border border-violet-700/50 bg-violet-950/40 rounded-xl p-3 space-y-2">
+                <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest" data-i18n="beta3dLabel">Beta · First-person 3D view</p>
+                <p class="text-[9px] text-slate-400 leading-snug" data-i18n="beta3dBlurb">Experimental raycast world (WASD + mouse look). 1 PLAYER only. Performance varies.</p>
+                <label class="flex items-center justify-between gap-3 cursor-pointer interactive">
+                    <span class="text-[11px] text-violet-100 font-bold" data-i18n="beta3dToggle">Beta 3D mode</span>
+                    <button type="button" id="lobby-beta3d-toggle" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                    </button>
+                </label>
+            </div>
+        </div>
+    </div>
+
     <button type="button" id="lobby-stats-fab" class="interactive" title="Server stats" aria-label="Open online player stats">📡</button>
     <div id="lobby-stats-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-stats-title">
         <div class="bg-slate-900 border border-teal-500/60 rounded-2xl p-4 max-w-sm w-full shadow-xl max-h-[90vh] overflow-y-auto">
@@ -546,6 +616,7 @@
     </div>
 
     <canvas id="gameCanvas"></canvas>
+    <div id="beta-3d-banner" role="status"></div>
     <div id="nuke-flash"></div>
     <div id="jackpot-flash">
         <h1 class="text-7xl md:text-9xl font-black text-yellow-400 animate-pulse" style="text-shadow: 0 10px 30px rgba(0,0,0,0.8);">JACKPOT!</h1>
@@ -1228,6 +1299,417 @@
             { id: 'yellow', label: 'Yellow', color: '#facc15' },
             { id: 'white', label: 'White', color: '#e2e8f0' }
         ];
+        const LS_LANG = 'pixelCityLang';
+        const LS_BETA_3D = 'pixelCityBeta3d';
+
+        /** UI strings only (sign-in + lobby); gameplay messages stay English for now. */
+        const I18N = {
+            en: {
+                signInTitle: 'PIXEL CITY EVOLUTION 1',
+                signInSubtitle: 'Sign in or create a free account',
+                signInBlurb: 'Pick any username and password — new accounts are created automatically. Choose MULTIPLAYER after signing in, or Play offline for solo / two players on one screen.',
+                languageLabel: 'Language',
+                usernameLabel: 'Username',
+                usernamePh: 'Your username',
+                passwordLabel: 'Password',
+                passwordPh: '••••••••',
+                playOnlineBtn: 'Play online',
+                playOnlineSigning: 'Signing in…',
+                playOnlineCreating: 'Creating account…',
+                newAccountHint: 'New username? An account is created for you automatically.',
+                playOfflineBtn: 'Play offline (no account)',
+                configHintHtml: 'Online sign-in isn’t wired up for this build (missing server config). <span class="text-white font-bold">Play offline</span> still works. Try another network if you see a connection error.',
+                authShortUser: 'Username must be at least 3 characters.',
+                authShortPass: 'Password must be at least 6 characters.',
+                lobbyTitle: 'PIXEL CITY EVOLUTION 1',
+                lobbyTagline: 'you didn\'t think Thomas could make this did ya',
+                lobbySettingsBtn: '⚙️ Settings',
+                settingsTitle: '⚙️ Settings',
+                signOutBtn: 'Sign out',
+                savedProgressFound: '💾 Saved progress found!',
+                loadBtn: 'Load',
+                ignoreBtn: 'Ignore',
+                schoolEditionOn: '🏫 School Edition: On',
+                schoolEditionOff: '🏫 School Edition: Off',
+                schoolEditionHint: 'School Edition: school jobs replace shops. Jail = type lines + math problem. Fun classroom mode! Tap again to turn off.',
+                selectDevice: 'Select Device',
+                selectMode: 'Select Mode',
+                deviceComputer: 'COMPUTER',
+                devicePhone: 'PHONE',
+                deviceXbox: 'XBOX',
+                mode1p: '1 PLAYER',
+                mode2local: '2 LOCAL',
+                modeMulti: 'MULTIPLAYER',
+                yourCodeTitle: '📤 Your code',
+                yourCodeHint: 'Share this with friends so they can join your game.',
+                copyCodeBtn: '📋 Copy code',
+                newCodeBtn: '🔄 New code',
+                joinFriendTitle: '🔗 Join a friend',
+                joinFriendHint: 'Type your friend\'s code to join their game:',
+                friendCodePh: 'Friend\'s code',
+                joinBtnMulti: '✅ Join',
+                friendsTitle: '👫 Friends',
+                friendsIntroHtml: 'Type a friend\'s <span class="text-white font-bold">username</span> to add them. When they\'re playing you can join them with one tap!',
+                friendsNetworkHint: 'Sign in to sync friends across devices.',
+                theirUsernamePh: 'Their username',
+                friendAddBtn: '➕ Add',
+                startGameBtn: '▶ Start game',
+                startNewGameBtn: '🆕 Start New Game',
+                loadSavedGameBtn: '💾 Load Saved Game',
+                noSaveBtn: '💾 No save found',
+                secretModesBtn: 'Secret Modes',
+                enterCodePh: 'ENTER CODE',
+                applyBtn: 'APPLY',
+                beta3dLabel: 'Beta · First-person 3D view',
+                beta3dBlurb: 'Experimental raycast world (WASD + mouse look). 1 PLAYER only. Performance varies.',
+                beta3dToggle: 'Beta 3D mode',
+                beta3dBanner: 'BETA · 3D mode — click the game to capture the mouse. ESC frees the cursor.',
+                sessionFriendsCode: 'Friends can join with your code below.',
+                hintMultiDesktop: 'MULTIPLAYER: share your code or join a friend\'s',
+                hintMultiTouch: 'Share code · Join friend · Start game',
+                hint2pDesktop: 'P1: WASD+E | P2: Arrows+SHIFT',
+                hint2pTouch: 'Drag sides to move, tap to interact',
+                hint1pDesktop: 'P1: WASD to move, E to interact',
+                hint1pTouch: 'Drag to move, tap to interact',
+                winsLabel: 'Wins'
+            },
+            es: {
+                signInTitle: 'PIXEL CITY EVOLUTION 1',
+                signInSubtitle: 'Inicia sesión o crea una cuenta gratis',
+                signInBlurb: 'Elige un nombre de usuario y contraseña: las cuentas nuevas se crean solas. Después elige MULTIJUGADOR, o Jugar sin cuenta para uno o dos jugadores en la misma pantalla.',
+                languageLabel: 'Idioma',
+                usernameLabel: 'Usuario',
+                usernamePh: 'Tu usuario',
+                passwordLabel: 'Contraseña',
+                passwordPh: '••••••••',
+                playOnlineBtn: 'Jugar en línea',
+                playOnlineSigning: 'Entrando…',
+                playOnlineCreating: 'Creando cuenta…',
+                newAccountHint: '¿Usuario nuevo? Te creamos la cuenta automáticamente.',
+                playOfflineBtn: 'Jugar sin cuenta',
+                configHintHtml: 'El inicio en línea no está disponible en esta compilación (falta configuración del servidor). <span class="text-white font-bold">Jugar sin cuenta</span> sigue funcionando. Prueba otra red si ves un error de conexión.',
+                authShortUser: 'El usuario debe tener al menos 3 caracteres.',
+                authShortPass: 'La contraseña debe tener al menos 6 caracteres.',
+                lobbyTitle: 'PIXEL CITY EVOLUTION 1',
+                lobbyTagline: 'no pensabas que Thomas podía hacer esto ¿eh?',
+                lobbySettingsBtn: '⚙️ Ajustes',
+                settingsTitle: '⚙️ Ajustes',
+                signOutBtn: 'Salir',
+                savedProgressFound: '💾 ¡Partida guardada encontrada!',
+                loadBtn: 'Cargar',
+                ignoreBtn: 'Ignorar',
+                schoolEditionOn: '🏫 Edición escuela: Sí',
+                schoolEditionOff: '🏫 Edición escuela: No',
+                schoolEditionHint: 'Edición escuela: trabajos escolares en lugar de tiendas. Cárcel = escribir líneas + problema de mates. ¡Modo clase! Toca otra vez para apagar.',
+                selectDevice: 'Dispositivo',
+                selectMode: 'Modo',
+                deviceComputer: 'PC',
+                devicePhone: 'MÓVIL',
+                deviceXbox: 'XBOX',
+                mode1p: '1 JUGADOR',
+                mode2local: '2 LOCAL',
+                modeMulti: 'MULTIJUGADOR',
+                yourCodeTitle: '📤 Tu código',
+                yourCodeHint: 'Compártelo para que tus amigos entren a tu partida.',
+                copyCodeBtn: '📋 Copiar código',
+                newCodeBtn: '🔄 Código nuevo',
+                joinFriendTitle: '🔗 Unirse a un amigo',
+                joinFriendHint: 'Escribe el código de tu amigo:',
+                friendCodePh: 'Código',
+                joinBtnMulti: '✅ Unirse',
+                friendsTitle: '👫 Amigos',
+                friendsIntroHtml: 'Escribe el <span class="text-white font-bold">usuario</span> de un amigo para añadirlo. ¡Si está jugando puedes unirte con un toque!',
+                friendsNetworkHint: 'Inicia sesión para sincronizar amigos.',
+                theirUsernamePh: 'Su usuario',
+                friendAddBtn: '➕ Añadir',
+                startGameBtn: '▶ Jugar',
+                startNewGameBtn: '🆕 Partida nueva',
+                loadSavedGameBtn: '💾 Cargar partida',
+                noSaveBtn: '💾 Sin guardado',
+                secretModesBtn: 'Modos secretos',
+                enterCodePh: 'CÓDIGO',
+                applyBtn: 'APLICAR',
+                beta3dLabel: 'Beta · Vista 3D en primera persona',
+                beta3dBlurb: 'Mundo experimental (WASD + mirar con el ratón). Solo 1 JUGADOR. El rendimiento puede variar.',
+                beta3dToggle: 'Modo 3D beta',
+                beta3dBanner: 'BETA · Modo 3D — haz clic en el juego para capturar el ratón. ESC libera el cursor.',
+                sessionFriendsCode: 'Tus amigos pueden entrar con el código de abajo.',
+                hintMultiDesktop: 'MULTIJUGADOR: comparte tu código o únete a un amigo',
+                hintMultiTouch: 'Código · Unirse · Jugar',
+                hint2pDesktop: 'J1: WASD+E | J2: Flechas+SHIFT',
+                hint2pTouch: 'Arrastra para mover, toca para interactuar',
+                hint1pDesktop: 'J1: WASD mover, E interactuar',
+                hint1pTouch: 'Arrastra para mover, toca para interactuar',
+                winsLabel: 'Victorias'
+            },
+            ja: {
+                signInTitle: 'PIXEL CITY EVOLUTION 1',
+                signInSubtitle: 'ログインまたは無料アカウント作成',
+                signInBlurb: 'ユーザー名とパスワードを入力してください。新規は自動で作成されます。ログイン後はマルチプレイを選ぶか、オフラインで1〜2人プレイできます。',
+                languageLabel: '言語',
+                usernameLabel: 'ユーザー名',
+                usernamePh: 'ユーザー名',
+                passwordLabel: 'パスワード',
+                passwordPh: '••••••••',
+                playOnlineBtn: 'オンラインでプレイ',
+                playOnlineSigning: 'ログイン中…',
+                playOnlineCreating: 'アカウント作成中…',
+                newAccountHint: '新しいユーザー名なら自動でアカウントが作られます。',
+                playOfflineBtn: 'オフライン（アカウントなし）',
+                configHintHtml: 'このビルドではオンライン設定がありません。<span class="text-white font-bold">オフライン</span>は利用できます。通信エラー時は別のネットワークを試してください。',
+                authShortUser: 'ユーザー名は3文字以上にしてください。',
+                authShortPass: 'パスワードは6文字以上にしてください。',
+                lobbyTitle: 'PIXEL CITY EVOLUTION 1',
+                lobbyTagline: 'Thomas がこれを作れるなんて思わなかったでしょ',
+                lobbySettingsBtn: '⚙️ 設定',
+                settingsTitle: '⚙️ 設定',
+                signOutBtn: 'ログアウト',
+                savedProgressFound: '💾 セーブがあります！',
+                loadBtn: '読込',
+                ignoreBtn: '無視',
+                schoolEditionOn: '🏫 スクール版: オン',
+                schoolEditionOff: '🏫 スクール版: オフ',
+                schoolEditionHint: 'スクール版: お店の代わりに学校の仕事。牢屋は行入力と計算。もう一度タップでオフ。',
+                selectDevice: 'デバイス',
+                selectMode: 'モード',
+                deviceComputer: 'PC',
+                devicePhone: 'スマホ',
+                deviceXbox: 'XBOX',
+                mode1p: '1人用',
+                mode2local: '2人ローカル',
+                modeMulti: 'マルチ',
+                yourCodeTitle: '📤 あなたのコード',
+                yourCodeHint: '友だちに共有して同じ街に入ってもらおう。',
+                copyCodeBtn: '📋 コピー',
+                newCodeBtn: '🔄 新コード',
+                joinFriendTitle: '🔗 友だちに参加',
+                joinFriendHint: '友だちのコードを入力:',
+                friendCodePh: 'コード',
+                joinBtnMulti: '✅ 参加',
+                friendsTitle: '👫 フレンド',
+                friendsIntroHtml: '友だちの<span class="text-white font-bold">ユーザー名</span>を入力して追加。プレイ中ならワンタップで参加できます。',
+                friendsNetworkHint: 'ログインするとフレンドが同期されます。',
+                theirUsernamePh: '相手のユーザー名',
+                friendAddBtn: '➕ 追加',
+                startGameBtn: '▶ ゲーム開始',
+                startNewGameBtn: '🆕 新しいゲーム',
+                loadSavedGameBtn: '💾 セーブを読込',
+                noSaveBtn: '💾 セーブなし',
+                secretModesBtn: 'シークレット',
+                enterCodePh: 'コード入力',
+                applyBtn: '適用',
+                beta3dLabel: 'ベータ · 一人称3D表示',
+                beta3dBlurb: '実験的レイキャスト（WASD + マウス視点）。1人用のみ。動作は端末によります。',
+                beta3dToggle: 'ベータ3Dモード',
+                beta3dBanner: 'ベータ · 3Dモード — ゲーム画面をクリックでマウス固定。ESCで解除。',
+                sessionFriendsCode: '下のコードで友だちが参加できます。',
+                hintMultiDesktop: 'マルチ: コード共有または友だちのコードで参加',
+                hintMultiTouch: 'コード · 参加 · 開始',
+                hint2pDesktop: 'P1: WASD+E | P2: 矢印+SHIFT',
+                hint2pTouch: 'ドラッグで移動、タップで操作',
+                hint1pDesktop: 'P1: WASD移動、Eで操作',
+                hint1pTouch: 'ドラッグで移動、タップで操作',
+                winsLabel: '勝利'
+            }
+        };
+
+        let uiLang = 'en';
+        let beta3dYaw = 0;
+        let beta3dPitch = 0;
+
+        function getUiString(key) {
+            const pack = I18N[uiLang] || I18N.en;
+            return pack[key] != null ? pack[key] : (I18N.en[key] != null ? I18N.en[key] : key);
+        }
+
+        function applyI18nToDom(root) {
+            const scope = root && root.querySelectorAll ? root : document;
+            scope.querySelectorAll('[data-i18n]').forEach(el => {
+                const k = el.getAttribute('data-i18n');
+                if (!k) return;
+                const v = getUiString(k);
+                if (el.tagName === 'INPUT' && el.type === 'button') el.value = v;
+                else el.textContent = v;
+            });
+            scope.querySelectorAll('[data-i18n-html]').forEach(el => {
+                const k = el.getAttribute('data-i18n-html');
+                if (!k) return;
+                el.innerHTML = getUiString(k);
+            });
+            scope.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const k = el.getAttribute('data-i18n-placeholder');
+                if (!k) return;
+                el.setAttribute('placeholder', getUiString(k));
+            });
+            const friendsIntro = document.getElementById('friends-intro-p');
+            if (friendsIntro && (!root || root === document || root.contains(friendsIntro))) {
+                friendsIntro.innerHTML = getUiString('friendsIntroHtml');
+            }
+            const cfgHint = document.getElementById('supabase-config-hint');
+            if (cfgHint && (!root || root === document || root.contains(cfgHint))) {
+                cfgHint.innerHTML = getUiString('configHintHtml');
+            }
+            const lobbyH1 = document.querySelector('#lobby-screen > h1');
+            if (lobbyH1 && (!root || root === document)) lobbyH1.textContent = getUiString('lobbyTitle');
+            const lobbyTag = document.querySelector('#lobby-screen > p.text-blue-300');
+            if (lobbyTag && (!root || root === document)) lobbyTag.textContent = getUiString('lobbyTagline');
+            syncLangSelects();
+            updateSchoolGameMode(state.schoolGameMode);
+            updateSavedWorldButton();
+            applyModeButtonStyles();
+            updateLobbyHints();
+            updateBeta3dBanner();
+        }
+
+        function syncLangSelects() {
+            const a = document.getElementById('sign-in-lang-select');
+            const b = document.getElementById('lobby-settings-lang');
+            [a, b].forEach(sel => {
+                if (!sel) return;
+                if (sel.value !== uiLang) sel.value = uiLang;
+            });
+        }
+
+        function setUiLanguage(lang) {
+            const next = (lang === 'es' || lang === 'ja') ? lang : 'en';
+            uiLang = next;
+            try { localStorage.setItem(LS_LANG, uiLang); } catch (_) {}
+            document.documentElement.lang = uiLang === 'ja' ? 'ja' : uiLang === 'es' ? 'es' : 'en';
+            applyI18nToDom(document);
+        }
+
+        function loadStoredLanguage() {
+            try {
+                const raw = localStorage.getItem(LS_LANG);
+                if (raw === 'es' || raw === 'ja') uiLang = raw;
+                else uiLang = 'en';
+            } catch (_) {
+                uiLang = 'en';
+            }
+            document.documentElement.lang = uiLang === 'ja' ? 'ja' : uiLang === 'es' ? 'es' : 'en';
+        }
+
+        function setBeta3dMode(on) {
+            state.beta3dMode = !!on;
+            try { localStorage.setItem(LS_BETA_3D, state.beta3dMode ? '1' : '0'); } catch (_) {}
+            applyBeta3dToggleUI();
+            updateBeta3dBanner();
+            const p0 = state.players && state.players[0];
+            if (p0 && state.playerMode === 1) beta3dYaw = p0.angle || 0;
+        }
+
+        function applyBeta3dToggleUI() {
+            const btn = document.getElementById('lobby-beta3d-toggle');
+            if (!btn) return;
+            const on = !!state.beta3dMode;
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+            btn.classList.toggle('bg-emerald-600', on);
+            btn.classList.toggle('border-emerald-400', on);
+            btn.classList.toggle('bg-slate-700', !on);
+            btn.classList.toggle('border-slate-500', !on);
+            const dot = btn.querySelector('span');
+            if (dot) {
+                dot.style.transform = on ? 'translateX(1.5rem)' : 'translateX(0)';
+                dot.style.background = on ? '#fff' : '#94a3b8';
+            }
+        }
+
+        function updateBeta3dBanner() {
+            const b = document.getElementById('beta-3d-banner');
+            if (!b) return;
+            const show = isInGame() && state.beta3dMode && state.playerMode === 1;
+            b.classList.toggle('show', show);
+            b.textContent = show ? getUiString('beta3dBanner') : '';
+        }
+
+        function rayAabb2d(ox, oy, dx, dy, bx, by, bw, bh) {
+            let tmin = -Infinity;
+            let tmax = Infinity;
+            const eps = 1e-9;
+            if (Math.abs(dx) < eps) {
+                if (ox < bx || ox > bx + bw) return null;
+            } else {
+                let tx1 = (bx - ox) / dx;
+                let tx2 = (bx + bw - ox) / dx;
+                if (tx1 > tx2) { const s = tx1; tx1 = tx2; tx2 = s; }
+                tmin = Math.max(tmin, tx1);
+                tmax = Math.min(tmax, tx2);
+            }
+            if (Math.abs(dy) < eps) {
+                if (oy < by || oy > by + bh) return null;
+            } else {
+                let ty1 = (by - oy) / dy;
+                let ty2 = (by + bh - oy) / dy;
+                if (ty1 > ty2) { const s = ty1; ty1 = ty2; ty2 = s; }
+                tmin = Math.max(tmin, ty1);
+                tmax = Math.min(tmax, ty2);
+            }
+            if (tmax < Math.max(0, tmin)) return null;
+            const tHit = tmin >= 0 ? tmin : (tmax >= 0 ? tmax : null);
+            return tHit;
+        }
+
+        function beta3dRaycastColumn(px, py, rayAng, maxDist) {
+            const dx = Math.cos(rayAng);
+            const dy = Math.sin(rayAng);
+            let best = maxDist;
+            let color = '#64748b';
+            for (let i = 0; i < state.buildings.length; i++) {
+                const b = state.buildings[i];
+                if (!b || b.type === 'invisible') continue;
+                const t = rayAabb2d(px, py, dx, dy, b.x, b.y, b.w, b.h);
+                if (t != null && t > 0.02 && t < best) {
+                    best = t;
+                    color = b.color || '#475569';
+                }
+            }
+            return { dist: best, color };
+        }
+
+        function renderBeta3dScene(targetCtx, cw, ch) {
+            const p = state.players[0];
+            if (!p) return;
+            const px = p.x;
+            const py = p.y;
+            const yaw = beta3dYaw;
+            const fov = Math.PI / 3;
+            const maxD = 1400;
+            const halfH = ch / 2;
+            const gTop = targetCtx.createLinearGradient(0, 0, 0, halfH);
+            gTop.addColorStop(0, '#0f172a');
+            gTop.addColorStop(1, '#1e3a5f');
+            targetCtx.fillStyle = gTop;
+            targetCtx.fillRect(0, 0, cw, halfH);
+            const gBot = targetCtx.createLinearGradient(0, halfH, 0, ch);
+            gBot.addColorStop(0, '#14532d');
+            gBot.addColorStop(1, '#052e16');
+            targetCtx.fillStyle = gBot;
+            targetCtx.fillRect(0, halfH, cw, ch - halfH);
+            const cols = Math.min(240, Math.max(80, Math.floor(cw / 4)));
+            const colW = cw / cols;
+            const pitchShift = Math.max(-halfH * 0.35, Math.min(halfH * 0.35, beta3dPitch * 400));
+            for (let col = 0; col < cols; col++) {
+                const t = col / (cols - 1);
+                const rayAng = yaw - fov / 2 + t * fov;
+                const { dist, color } = beta3dRaycastColumn(px, py, rayAng, maxD);
+                const z = dist * Math.cos(rayAng - yaw);
+                const wallH = Math.min(ch * 1.25, (ch * 320) / Math.max(12, z));
+                const top = halfH - wallH / 2 + pitchShift;
+                targetCtx.fillStyle = color;
+                targetCtx.fillRect(col * colW, top, Math.ceil(colW) + 1, wallH);
+                targetCtx.fillStyle = 'rgba(0,0,0,' + Math.min(0.65, dist / maxD * 0.55) + ')';
+                targetCtx.fillRect(col * colW, top, Math.ceil(colW) + 1, wallH);
+            }
+            targetCtx.fillStyle = 'rgba(15,23,42,0.25)';
+            targetCtx.fillRect(0, 0, cw, ch);
+            targetCtx.strokeStyle = 'rgba(148,163,184,0.35)';
+            targetCtx.lineWidth = 2;
+            targetCtx.beginPath();
+            targetCtx.moveTo(cw / 2 - 14, ch / 2); targetCtx.lineTo(cw / 2 + 14, ch / 2);
+            targetCtx.moveTo(cw / 2, ch / 2 - 14); targetCtx.lineTo(cw / 2, ch / 2 + 14);
+            targetCtx.stroke();
+        }
+
         /** < 1 = zoomed out (see more world). 0.8 ≈ 25% more visible area. */
         const CAMERA_ZOOM = 0.82;
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
@@ -1489,8 +1971,13 @@
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
             stamina: 100,
             /** Lobby "Load progress" stores full save here until joinRoom creates players. */
-            pendingLobbySave: null
+            pendingLobbySave: null,
+            /** Experimental first-person raycast view (1 PLAYER only); persisted in LS_BETA_3D. */
+            beta3dMode: false
         };
+        try {
+            if (localStorage.getItem(LS_BETA_3D) === '1') state.beta3dMode = true;
+        } catch (_) { /* */ }
 
         function getSchoolSafeParamFromUrl() {
             const p = new URLSearchParams(window.location.search);
@@ -1538,10 +2025,12 @@
             } catch (_) { /* */ }
             const btn = document.getElementById('lobby-school-mode-btn');
             if (btn) {
-                btn.textContent = state.schoolGameMode ? 'School mode: On' : 'School mode: Off';
+                btn.textContent = state.schoolGameMode ? getUiString('schoolEditionOn') : getUiString('schoolEditionOff');
                 btn.classList.toggle('ring-2', state.schoolGameMode);
                 btn.classList.toggle('ring-amber-300', state.schoolGameMode);
             }
+            const hintEl = document.getElementById('lobby-school-mode-hint');
+            if (hintEl) hintEl.textContent = getUiString('schoolEditionHint');
             updateIngameSchoolGameBadge();
         }
 
@@ -3014,6 +3503,7 @@
             }
             state.players = [];
             document.getElementById('lobby-screen').style.display = 'flex';
+            document.getElementById('lobby-settings-overlay')?.classList.remove('flex-show');
             const xbOut = document.getElementById('exit-to-lobby-btn');
             if (xbOut) xbOut.style.display = 'none';
             setInGamePhoneVisible(false);
@@ -3021,6 +3511,9 @@
             applyModeButtonStyles();
             updateLobbyHints();
             updateSavedWorldButton();
+            updateBeta3dBanner();
+            try { document.exitPointerLock(); } catch (_) {}
+            beta3dPointerActive = false;
         }
 
         function getSupabaseConfig() {
@@ -4619,8 +5112,14 @@
         const payBailBtn = document.getElementById('pay-bail-btn');
         const hintContainer = document.getElementById('control-hint');
         const lobbyWinsDisplay = document.getElementById('lobby-wins-display');
-        
+
+        function updateLobbyWinsDisplay() {
+            if (!lobbyWinsDisplay) return;
+            lobbyWinsDisplay.textContent = `🏆 ${getUiString('winsLabel')}: ${state.winCount}`;
+        }
+
         const activeTouches = {};
+        let beta3dPointerActive = false;
 
         const VIDKING_VIDEOS = [
             { id: 'v1', title: 'NASA: Our Solar System (kids)', src: 'https://www.youtube-nocookie.com/embed/libKVRa01L8?rel=0&modestbranding=1' },
@@ -4665,7 +5164,8 @@
             state.isPresident = true;
             state.winCount++;
             localStorage.setItem('pixelCityWins', state.winCount);
-            
+            updateLobbyWinsDisplay();
+
             if (state.winCount >= 10) {
                 document.getElementById('murder-code-reveal').classList.remove('hidden');
             }
@@ -5457,7 +5957,7 @@
             if (typeof save.winCount === 'number') {
                 state.winCount = save.winCount;
                 localStorage.setItem('pixelCityWins', state.winCount);
-                if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+                updateLobbyWinsDisplay();
             }
             if (save.worldSeed != null) state.worldSeed = save.worldSeed;
             if (Array.isArray(save.activeSecrets)) state.activeSecrets = save.activeSecrets;
@@ -5521,7 +6021,7 @@
                 if (btn) {
                     btn.disabled = false;
                     btn.className = 'bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-200 flex-1 py-3 rounded-xl font-bold interactive text-sm uppercase tracking-wider';
-                    btn.textContent = '💾 Load Saved Game';
+                    btn.textContent = getUiString('loadSavedGameBtn');
                 }
                 if (hint) {
                     const mins = Math.round((Date.now() - save.savedAt) / 60000);
@@ -5534,7 +6034,7 @@
                 if (btn) {
                     btn.disabled = true;
                     btn.className = 'bg-slate-700 border border-slate-600 text-slate-500 flex-1 py-3 rounded-xl font-bold text-sm uppercase tracking-wider interactive';
-                    btn.textContent = '💾 No save found';
+                    btn.textContent = getUiString('noSaveBtn');
                 }
                 if (hint) hint.classList.add('hidden');
             }
@@ -5547,7 +6047,7 @@
             if (typeof p.winCount === 'number') {
                 state.winCount = p.winCount;
                 localStorage.setItem('pixelCityWins', state.winCount);
-                if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+                updateLobbyWinsDisplay();
             }
             if (Array.isArray(p.activeSecrets)) state.activeSecrets = p.activeSecrets;
             if (p.schoolGameMode != null) setSchoolGameMode(!!p.schoolGameMode);
@@ -5682,7 +6182,7 @@
             const netMsg = document.getElementById('friends-network-msg');
             const c = getSupabaseConfig();
             if (netMsg) netMsg.classList.toggle('hidden', c.ok && !!state.supabaseUserId);
-            if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+            updateLobbyWinsDisplay();
             updateOwnerDashboardFabVisibility();
             if (supabase) ensureGlobalServerNoticeSubscribed();
         }
@@ -6014,6 +6514,13 @@
                 } catch (_) { /* best-effort */ }
             }
 
+            const pStart = state.players[0];
+            if (pStart && state.playerMode === 1) {
+                beta3dYaw = pStart.angle || 0;
+                beta3dPitch = 0;
+            }
+            updateBeta3dBanner();
+
             initGameLoop();
         }
 
@@ -6054,6 +6561,12 @@
                     if (inv && !inv.classList.contains('hidden')) {
                         e.preventDefault();
                         hudOverlayClose(inv);
+                        return;
+                    }
+                    if (state.beta3dMode && state.playerMode === 1 && document.pointerLockElement === canvas) {
+                        e.preventDefault();
+                        try { document.exitPointerLock(); } catch (_) {}
+                        beta3dPointerActive = false;
                         return;
                     }
                     e.preventDefault();
@@ -6131,6 +6644,29 @@
             if (!window.__pixelCityBlurBound) {
                 window.__pixelCityBlurBound = true;
                 window.addEventListener('blur', clearMovementKeysForBlur);
+            }
+            if (!window.__pixelCityBeta3dPointerBound) {
+                window.__pixelCityBeta3dPointerBound = true;
+                canvas.addEventListener('click', () => {
+                    if (!isInGame() || !state.beta3dMode || state.playerMode !== 1) return;
+                    const p0 = state.players[0];
+                    if (!p0 || p0.dead || p0.downed || p0.inVehicle) return;
+                    if (canvas.requestPointerLock) canvas.requestPointerLock();
+                });
+                document.addEventListener('pointerlockchange', () => {
+                    beta3dPointerActive = document.pointerLockElement === canvas;
+                    updateBeta3dBanner();
+                });
+                document.addEventListener('mousemove', (e) => {
+                    if (!isInGame() || !state.beta3dMode || state.playerMode !== 1) return;
+                    if (document.pointerLockElement !== canvas) return;
+                    const sens = 0.0022;
+                    beta3dYaw += e.movementX * sens;
+                    beta3dPitch += e.movementY * sens;
+                    beta3dPitch = Math.max(-0.55, Math.min(0.55, beta3dPitch));
+                    const p0 = state.players[0];
+                    if (p0 && !p0.dead && !p0.downed && !p0.inVehicle) p0.angle = beta3dYaw;
+                });
             }
             requestAnimationFrame(gameLoop);
         }
@@ -6303,11 +6839,27 @@
                     }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
                 } else if (!stunLock) {
-                    let mx=0, my=0; 
-                    if(state.keys[controls.u]) my-=spd; 
-                    if(state.keys[controls.d]) my+=spd; 
-                    if(state.keys[controls.l]) mx-=spd; 
-                    if(state.keys[controls.r]) mx+=spd;
+                    let mx=0, my=0;
+                    const betaFp = state.beta3dMode && state.playerMode === 1 && idx === 0 && !p.inVehicle;
+                    if (betaFp) {
+                        if (state.keys[controls.u]) my -= spd;
+                        if (state.keys[controls.d]) my += spd;
+                        const strafe = 0.72 * spd;
+                        if (state.keys[controls.l]) {
+                            mx -= Math.cos(p.angle + Math.PI / 2) * strafe;
+                            my -= Math.sin(p.angle + Math.PI / 2) * strafe;
+                        }
+                        if (state.keys[controls.r]) {
+                            mx += Math.cos(p.angle + Math.PI / 2) * strafe;
+                            my += Math.sin(p.angle + Math.PI / 2) * strafe;
+                        }
+                        p.angle = beta3dYaw;
+                    } else {
+                        if(state.keys[controls.u]) my-=spd; 
+                        if(state.keys[controls.d]) my+=spd; 
+                        if(state.keys[controls.l]) mx-=spd; 
+                        if(state.keys[controls.r]) mx+=spd;
+                    }
                     
                     const nx = p.x + mx, ny = p.y + my; 
                     
@@ -6317,7 +6869,7 @@
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
                     p.x = Math.max(20, Math.min(3980, Math.round(p.x)));
                     p.y = Math.max(20, Math.min(3980, Math.round(p.y)));
-                    if(mx!==0 || my!==0) p.angle = Math.atan2(my, mx);
+                    if (!betaFp && (mx!==0 || my!==0)) p.angle = Math.atan2(my, mx);
                 }
                 const pr = document.getElementById(`prompt-${idx}`); if (pr) {
                     const subEl = document.getElementById(`prompt-sub-${idx}`);
@@ -6432,8 +6984,17 @@
             if (state.playerMode === 1 && state.players[0]) {
                 const f = state.players[state.spectatePIdx] && !state.players[state.spectatePIdx].dead ? state.players[state.spectatePIdx] : state.players[0];
                 if (f) {
-                    const tx = f.x - (bw / Z) / 2;
-                    const ty = f.y - (bh / Z) / 2;
+                    let tx = f.x - (bw / Z) / 2;
+                    let ty = f.y - (bh / Z) / 2;
+                    const p0cam = state.players[0];
+                    if (state.beta3dMode && p0cam && f === p0cam && !p0cam.dead && !p0cam.downed && !p0cam.inVehicle) {
+                        const hx = Math.cos(beta3dYaw);
+                        const hy = Math.sin(beta3dYaw);
+                        const eyeX = p0cam.x + hx * 24;
+                        const eyeY = p0cam.y + hy * 24;
+                        tx = eyeX - (bw / Z) / 2 - hx * (bw / Z) * 0.06;
+                        ty = eyeY - (bh / Z) / 2 - hy * (bh / Z) * 0.06;
+                    }
                     state.camera.x += (tx - state.camera.x) * CAM_LERP;
                     state.camera.y += (ty - state.camera.y) * CAM_LERP;
                     state.camera.x = Math.round(state.camera.x);
@@ -6902,9 +7463,14 @@
             ctx.clearRect(0, 0, cw, ch);
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
-            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
+            const beta3dOn = isInGame() && state.beta3dMode && state.playerMode === 1 && state.players[0] && !state.players[0].dead && !state.players[0].downed && !state.players[0].inVehicle;
+            if (beta3dOn) {
+                renderBeta3dScene(ctx, cw, ch);
+            } else {
+                ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
+            }
             const mmCont = document.getElementById('minimap-container');
-            if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
+            if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive() || beta3dOn);
             if (isZombieSecretActive()) {
                 if (ctxM) ctxM.clearRect(0, 0, MINIMAP_PX, MINIMAP_PX);
             } else {
@@ -7034,6 +7600,9 @@
                 duo.className = inactiveBlue;
                 onl.className = inactiveCyan;
             }
+            if (solo) solo.textContent = getUiString('mode1p');
+            if (duo) duo.textContent = getUiString('mode2local');
+            if (onl) onl.textContent = getUiString('modeMulti');
             updatePrimaryLobbyButtonLabel();
         }
 
@@ -7041,9 +7610,9 @@
             const btn = document.getElementById('join-btn');
             if (!btn) return;
             if (state.playMode === 'online' && !state.isSoloAutoHost) {
-                btn.textContent = '▶ Start game';
+                btn.textContent = getUiString('startGameBtn');
             } else {
-                btn.textContent = '🆕 Start New Game';
+                btn.textContent = getUiString('startNewGameBtn');
             }
         }
 
@@ -7071,17 +7640,17 @@
                     void (async () => {
                         const syncRes = await syncMultiplayerLobbyHostRow();
                         if (syncRes.errMsg) setSessionMsg(syncRes.errMsg, false);
-                        else if (syncRes.ok) setSessionMsg('Friends can join with your code below.', true);
+                        else if (syncRes.ok) setSessionMsg(getUiString('sessionFriendsCode'), true);
                     })();
                 }
-                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>MULTIPLAYER: share your code or join a friend's</p>";
-                else hintContainer.innerHTML = "<p class='text-white'>Share code · Join friend · Start game</p>";
+                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = `<p class='text-white'>${getUiString('hintMultiDesktop')}</p>`;
+                else hintContainer.innerHTML = `<p class='text-white'>${getUiString('hintMultiTouch')}</p>`;
             } else if (state.playerMode === 2) {
-                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD+E | P2: Arrows+SHIFT</p>";
-                else hintContainer.innerHTML = "<p class='text-white'>Drag Sides to Move, Tap to Interact</p>";
+                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = `<p class='text-white'>${getUiString('hint2pDesktop')}</p>`;
+                else hintContainer.innerHTML = `<p class='text-white'>${getUiString('hint2pTouch')}</p>`;
             } else {
-                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = "<p class='text-white'>P1: WASD to Move, E to Interact</p>";
-                else hintContainer.innerHTML = "<p class='text-white'>Drag to Move, Tap to Interact</p>";
+                if (state.deviceMode === 'computer' || state.deviceMode === 'xbox') hintContainer.innerHTML = `<p class='text-white'>${getUiString('hint1pDesktop')}</p>`;
+                else hintContainer.innerHTML = `<p class='text-white'>${getUiString('hint1pTouch')}</p>`;
             }
             updateFriendsListUIAsync();
             updatePrimaryLobbyButtonLabel();
@@ -7755,6 +8324,10 @@
 
         async function startApp() {
             state.lobbyStatsUnlocked = getLobbyStatsUnlockedFromStorage();
+            loadStoredLanguage();
+            applyBeta3dToggleUI();
+            applyI18nToDom(document);
+            updateLobbyWinsDisplay();
             initSchoolSafeMode();
             applySchoolSafeGameRules();
             applySchoolSafeUI();
@@ -7840,16 +8413,16 @@
             document.getElementById('auth-signin-btn').onclick = async () => {
                 const username = normalizeUsername(userInput && userInput.value);
                 const password = passInput ? passInput.value : '';
-                if (!username || username.length < 3) { if (signInMsg) signInMsg.textContent = 'Username must be at least 3 characters.'; return; }
-                if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be at least 6 characters.'; return; }
+                if (!username || username.length < 3) { if (signInMsg) signInMsg.textContent = getUiString('authShortUser'); return; }
+                if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = getUiString('authShortPass'); return; }
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
                 const btn = document.getElementById('auth-signin-btn');
-                if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+                if (btn) { btn.disabled = true; btn.textContent = getUiString('playOnlineSigning'); }
                 try {
                     let r = await supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password });
                     if (r.error) { pcDebug('error', 'auth_signin_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
                     if (!r.data.ok && r.data.error === 'User not found') {
-                        if (btn) btn.textContent = 'Creating account…';
+                        if (btn) btn.textContent = getUiString('playOnlineCreating');
                         r = await supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password });
                         if (r.error) { pcDebug('error', 'auth_signup_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
                         if (!r.data.ok) { pcDebug('warn', 'auth_signup_rejected', { error: r.data.error }); if (signInMsg) signInMsg.textContent = r.data.error || 'Could not create account.'; return; }
@@ -7863,7 +8436,7 @@
                     pcDebug('error', 'auth_signin_exception', { message: String(e && e.message) });
                     if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
                 } finally {
-                    if (btn) { btn.disabled = false; btn.textContent = 'Play online'; }
+                    if (btn) { btn.disabled = false; btn.textContent = getUiString('playOnlineBtn'); }
                 }
             };
 
@@ -8158,6 +8731,9 @@
                 const ph = document.getElementById('device-phone');
                 const xb = document.getElementById('device-xbox');
                 if (!pc || !ph || !xb) return;
+                pc.textContent = getUiString('deviceComputer');
+                ph.textContent = getUiString('devicePhone');
+                xb.textContent = getUiString('deviceXbox');
                 pc.className = state.deviceMode === 'computer' ? active : inactive;
                 ph.className = state.deviceMode === 'phone' ? active : inactive;
                 xb.className = state.deviceMode === 'xbox' ? active : inactive;
@@ -8202,6 +8778,32 @@
                 catch { showMessage(`Your code: ${code}`); }
             });
             document.getElementById('solo-new-code-btn')?.addEventListener('click', () => { void regenerateMultiplayerInviteCode(); });
+
+            const lobbySettingsOverlay = document.getElementById('lobby-settings-overlay');
+            const openLobbySettings = () => {
+                if (!lobbySettingsOverlay) return;
+                syncLangSelects();
+                applyBeta3dToggleUI();
+                lobbySettingsOverlay.classList.add('flex-show');
+            };
+            const closeLobbySettings = () => {
+                if (lobbySettingsOverlay) lobbySettingsOverlay.classList.remove('flex-show');
+            };
+            document.getElementById('lobby-settings-open-btn')?.addEventListener('click', openLobbySettings);
+            document.getElementById('lobby-settings-close-btn')?.addEventListener('click', closeLobbySettings);
+            lobbySettingsOverlay?.addEventListener('click', (e) => {
+                if (e.target === lobbySettingsOverlay) closeLobbySettings();
+            });
+            document.getElementById('sign-in-lang-select')?.addEventListener('change', (e) => {
+                setUiLanguage(e.target.value);
+            });
+            document.getElementById('lobby-settings-lang')?.addEventListener('change', (e) => {
+                setUiLanguage(e.target.value);
+            });
+            document.getElementById('lobby-beta3d-toggle')?.addEventListener('click', () => {
+                setBeta3dMode(!state.beta3dMode);
+            });
+
             applyModeButtonStyles();
             updateLobbyHints();
             
