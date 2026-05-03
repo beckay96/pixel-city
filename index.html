@@ -169,6 +169,17 @@
         #jackpot-flash { background: rgba(250, 204, 21, 0.4); z-index: 1000; pointer-events: none; }
         #jail-overlay, #game-over-overlay { background: rgba(0,0,0,0.95); }
         #victory-overlay { background: radial-gradient(circle, #1e3a8a 0%, #000 100%); border: 8px solid #fbbf24; }
+        @keyframes pc-glitch-shake {
+            0% { transform: translate(0, 0); filter: hue-rotate(0deg) contrast(1.05); }
+            20% { transform: translate(-2px, 1px); filter: hue-rotate(25deg) contrast(1.12); }
+            40% { transform: translate(3px, -2px); filter: hue-rotate(-18deg) contrast(1.08); }
+            60% { transform: translate(-1px, -2px); filter: hue-rotate(40deg) contrast(1.15); }
+            80% { transform: translate(2px, 2px); filter: hue-rotate(-30deg) contrast(1.1); }
+            100% { transform: translate(0, 0); filter: hue-rotate(0deg) contrast(1.05); }
+        }
+        #gameCanvas.pc-glitch-vfx {
+            animation: pc-glitch-shake 0.14s steps(2, end) infinite;
+        }
         
         .spin-anim { animation: pulse 0.1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
@@ -226,6 +237,31 @@
             background: rgba(0,0,0,0.75); padding: 16px; pointer-events: auto;
         }
         #lobby-stats-overlay.open { display: flex; }
+
+        #lobby-settings-fab {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1150;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #334155, #1e293b);
+            border: 2px solid #64748b;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            color: #e2e8f0;
+        }
+        #lobby-settings-fab:active { transform: scale(0.95); }
+        #lobby-settings-overlay {
+            position: fixed; inset: 0; z-index: 1160; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.78); padding: 16px; pointer-events: auto;
+        }
+        #lobby-settings-overlay.open { display: flex; }
 
         #owner-dashboard-fab {
             position: fixed;
@@ -535,6 +571,26 @@
         </div>
     </div>
 
+    <button type="button" id="lobby-settings-fab" class="interactive" title="Settings" aria-label="Open settings">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
+    <div id="lobby-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-settings-title">
+        <div class="bg-slate-900 border border-slate-500 rounded-2xl p-5 max-w-sm w-full shadow-xl">
+            <div class="flex justify-between items-start gap-2 mb-3">
+                <h2 id="lobby-settings-title" class="text-slate-200 font-black text-sm uppercase tracking-widest">Settings</h2>
+                <button type="button" id="lobby-settings-close" class="text-slate-400 hover:text-white text-lg font-bold interactive leading-none px-1">✕</button>
+            </div>
+            <label class="flex items-start gap-3 cursor-pointer interactive mb-4">
+                <input type="checkbox" id="lobby-settings-debug-verbose" class="mt-1 rounded border-slate-600 interactive" />
+                <span>
+                    <span class="block text-sm font-bold text-white">Verbose debug logs</span>
+                    <span class="block text-[10px] text-slate-400 mt-0.5 leading-snug">Extra PixelCity console detail (multiplayer / sessions). Errors always log.</span>
+                </span>
+            </label>
+            <p class="text-[10px] text-slate-500 leading-snug border-t border-slate-700 pt-3">Tip: add <span class="text-cyan-400 font-mono">?debug=1</span> to the URL. In-game support export: <span class="text-cyan-400 font-mono">await copyPixelCityDebugInfo()</span></p>
+        </div>
+    </div>
+
     <button type="button" id="lobby-stats-fab" class="interactive" title="Server stats" aria-label="Open online player stats">📡</button>
     <div id="lobby-stats-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-stats-title">
         <div class="bg-slate-900 border border-teal-500/60 rounded-2xl p-4 max-w-sm w-full shadow-xl max-h-[90vh] overflow-y-auto">
@@ -724,6 +780,7 @@
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to buy</div>
                 <button type="button" id="dealer-buy-friend-0" class="w-full bg-amber-800/90 hover:bg-amber-700 text-amber-100 text-xs font-bold py-2 rounded-lg mb-2 interactive border border-amber-600/60">🎁 Buy for friend (tap twice)</button>
                 <p id="dealer-friend-hint-0" class="text-[9px] text-amber-200/80 text-center mb-2 min-h-[1rem]"></p>
+                <button type="button" id="dealer-toggle-sell-0" class="w-full bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-2 rounded-lg mb-2 interactive">Sell my cars (½ price)</button>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
             <div id="bank-modal-0" class="modal interactive">
@@ -788,6 +845,7 @@
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to buy</div>
                 <button type="button" id="dealer-buy-friend-1" class="w-full bg-amber-800/90 hover:bg-amber-700 text-amber-100 text-xs font-bold py-2 rounded-lg mb-2 interactive border border-amber-600/60">🎁 Buy for friend (tap twice)</button>
                 <p id="dealer-friend-hint-1" class="text-[9px] text-amber-200/80 text-center mb-2 min-h-[1rem]"></p>
+                <button type="button" id="dealer-toggle-sell-1" class="w-full bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-2 rounded-lg mb-2 interactive">Sell my cars (½ price)</button>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="bank-modal-1" class="modal interactive">
@@ -1111,6 +1169,8 @@
             </div>
         </div>
         <button id="nuke-btn" onclick="window.dropNuke()" class="bg-red-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block mb-4 w-64 rounded-lg">DROP NUKE</button>
+        <button type="button" id="victory-continue-btn" class="bg-violet-600 hover:bg-violet-500 text-white px-12 py-4 text-lg font-black interactive mx-auto block mb-4 w-64 rounded-lg">KEEP PLAYING</button>
+        <p class="text-[10px] text-slate-400 text-center max-w-xs mx-auto mb-3">No forced end — explore until you nuke the city or start a new run.</p>
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black interactive mx-auto block w-64 rounded-lg">NEW RUN</button>
     </div>
 
@@ -1126,6 +1186,7 @@
     <div id="orb-win-overlay" class="fixed inset-0 bg-black/95 hidden flex-col items-center justify-center z-[550] interactive text-white p-6">
         <h1 id="orb-win-title" class="text-5xl md:text-6xl font-black text-cyan-400 mb-2 text-center uppercase">You found it!</h1>
         <p id="orb-win-sub" class="text-slate-300 text-center mb-8 max-w-sm"></p>
+        <button type="button" id="orb-win-continue-btn" class="bg-violet-600 hover:bg-violet-500 text-white px-12 py-4 text-lg font-black rounded-lg interactive mb-4">KEEP PLAYING</button>
         <button onclick="window.restartGame()" class="bg-green-600 text-white px-12 py-4 text-xl font-black rounded-lg interactive">NEW RUN</button>
     </div>
 
@@ -1163,6 +1224,13 @@
             <p class="text-[9px] text-slate-500 text-center mb-2">Friend edges: <span id="dash-stat-friends" class="text-slate-300 font-bold">—</span> · Updated <span id="dash-stat-time" class="text-slate-400">—</span></p>
             <p id="dash-stat-err" class="text-[10px] text-red-400 text-center min-h-[1rem] mb-4"></p>
             <button type="button" id="owner-dashboard-refresh" class="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg font-bold text-sm mb-6">Refresh analytics</button>
+
+            <div id="owner-events-block" class="hidden border border-fuchsia-600/50 rounded-xl p-3 mb-4 bg-fuchsia-950/40">
+                <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest mb-2">Live events (online)</p>
+                <p class="text-[9px] text-slate-400 mb-2">Broadcasts to signed-in players in any session. Glitch storm: screen distortion + slow “corruption” mobs that bite.</p>
+                <button type="button" id="owner-event-glitch-btn" class="w-full bg-fuchsia-700 hover:bg-fuchsia-600 text-white py-2 rounded-lg font-bold text-sm interactive">Glitch storm (~45s)</button>
+                <p id="owner-event-glitch-err" class="text-[10px] text-red-400 min-h-[1rem] mt-1"></p>
+            </div>
 
             <div class="border-t border-slate-700 pt-4 flex gap-3 items-start">
                 <div class="pixel-bot-face shrink-0" aria-hidden="true">
@@ -1307,6 +1375,12 @@
             { id: 'rockets', name: 'Lock rockets', price: 24000, kind: 'rocket' },
             { id: 'nukette', name: 'Micro nuke (PvP)', price: 50000, kind: 'nuke' }
         ];
+        /** Owner “Glitch storm” — duration + mob tuning */
+        const GLITCH_EVENT_DURATION_SEC = 45;
+        const GLITCH_MOB_SPEED = 0.85;
+        const GLITCH_MOB_BITE_DMG = 10;
+        const GLITCH_MOB_SPAWN_PER_SEC = 1.1;
+        const GLITCH_MOB_RENDER_CHARS = '░▒▓█▀▄╬∑⌠≈§¤†‡';
 
         /** Verbose console + ring buffer for support. Enable: ?debug=1 or localStorage pixelCityDebugVerbose=1 */
         const LS_DEBUG_VERBOSE = 'pixelCityDebugVerbose';
@@ -1501,7 +1575,14 @@
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
             stamina: 100,
             /** Lobby "Load progress" stores full save here until joinRoom creates players. */
-            pendingLobbySave: null
+            pendingLobbySave: null,
+            /** Dealership UI: list owned cars to sell at ½ purchase price */
+            dealerSellMode: false,
+            /** Owner global glitch event — screen FX + slow glitch mobs until frame */
+            glitchEventUntilFrame: 0,
+            glitchSpawnAccumulator: 0,
+            /** Separate from civilians so city NPC cap does not delete them */
+            glitchMobs: []
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -2458,7 +2539,13 @@
         function menuMaxForPlayer(p) {
             if (!p || !p.menuType) return 0;
             if (p.menuType === 'store') return (state.schoolGameMode ? SCHOOL_JOBS.length : JOBS.length) - 1;
-            if (p.menuType === 'dealer') return VEHICLE_TYPES.length - 1;
+            if (p.menuType === 'dealer') {
+                if (state.dealerSellMode) {
+                    const n = getOwnedUnoccupiedVehiclesSorted().length;
+                    return Math.max(0, n - 1);
+                }
+                return VEHICLE_TYPES.length - 1;
+            }
             if (p.menuType === 'gadget') return GADGET_ITEMS.length - 1;
             if (p.menuType === 'weapon') return WEAPON_ITEMS.length - 1;
             return 0;
@@ -2543,6 +2630,16 @@
                         }
                         return;
                     }
+                    const gz = tryHitGlitchMobInRange(pIdx, { kind: 'rocket' }, PVP_NUKE_RADIUS, 99999);
+                    if (gz.hit) {
+                        p.loadout.lastNukeFired = now;
+                        state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 28, hit: true });
+                        showMessage('Glitch cluster erased!');
+                        if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                            supabaseRealtimeChannel.send({ type: 'broadcast', event: 'pvp_fx', payload: { k: 'shot', pIdx, kind: def.kind, x: p.x, y: p.y } });
+                        }
+                        return;
+                    }
                 }
                 // Gather all players in range (local + remote)
                 const targets = [];
@@ -2589,28 +2686,43 @@
                 }
             } else {
                 const t = otherPlayerInRadius(p.x, p.y, 260, pIdx);
+                let firedMsg = false;
+                const tryGlitch = () => {
+                    if (!state.glitchMobs.length) return false;
+                    const gz = tryHitGlitchMobInRange(pIdx, def);
+                    if (!gz.hit) return false;
+                    firedMsg = true;
+                    if (gz.killed) showMessage(def.kind === 'rocket' ? 'Glitch mob vaporized!' : 'Glitch shard dispersed!');
+                    return true;
+                };
                 if (isZombieSecretActive() && (!t || t.idx < 0)) {
                     const z = tryHitZombieInRange(pIdx, def);
                     if (z.hit && z.killed) {
+                        firedMsg = true;
                         if (def.kind === 'rocket') {
                             state.pvpNukeBlasts.push({ x: p.x, y: p.y, r: 0, maxR: 120, until: 12, hit: true });
                         }
                         showMessage(`Zombie down! +$${z.add.toLocaleString()}`);
-                    } else if (t && t.idx >= 0) {
+                    } else if (z.hit) {
+                        firedMsg = true;
+                    } else if (!tryGlitch()) {
+                        showMessage('No target in range');
+                    } else {
+                        firedMsg = true;
+                    }
+                }
+                if (!firedMsg && !isZombieSecretActive()) {
+                    if (t && t.idx >= 0) {
                         dealDamageToPlayer(t.idx, def.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN);
                         stunLocalPlayer(t.idx, def.kind === 'rocket' ? 1200 : 650);
                         showMessage(`${def.name} connected!`);
-                    } else {
-                        showMessage('No target in range');
+                        firedMsg = true;
+                    } else if (t && t.uid) {
+                        showMessage(`💥 ${def.name} hit ${t.remote.username || 'player'}!`);
+                        firedMsg = true;
+                    } else if (!tryGlitch()) {
+                        showMessage('No player in range');
                     }
-                } else if (t && t.idx >= 0) {
-                    dealDamageToPlayer(t.idx, def.kind === 'rocket' ? WEP_DMG_NUKE * 0.6 : WEP_DMG_STUN);
-                    stunLocalPlayer(t.idx, def.kind === 'rocket' ? 1200 : 650);
-                    showMessage(`${def.name} connected!`);
-                } else if (t && t.uid) {
-                    showMessage(`💥 ${def.name} hit ${t.remote.username || 'player'}!`);
-                } else {
-                    showMessage('No player in range');
                 }
                 if (state.playMode === 'online' && supabaseRealtimeChannel && t) {
                     const targetUid = t.uid || null;
@@ -3025,11 +3137,16 @@
                 teardownOnlineRealtime();
             }
             state.players = [];
+            state.glitchMobs = [];
+            state.glitchEventUntilFrame = 0;
+            state.glitchSpawnAccumulator = 0;
+            document.getElementById('gameCanvas')?.classList.remove('pc-glitch-vfx');
             document.getElementById('lobby-screen').style.display = 'flex';
             const xbOut = document.getElementById('exit-to-lobby-btn');
             if (xbOut) xbOut.style.display = 'none';
             setInGamePhoneVisible(false);
             updateOwnerDashboardFabVisibility();
+            updateLobbyStatsFabVisibility();
             applyModeButtonStyles();
             updateLobbyHints();
             updateSavedWorldButton();
@@ -3156,6 +3273,38 @@
             if (!fab) return;
             const inLobby = isLobbyScreenVisible();
             fab.style.display = (inLobby && state.lobbyStatsUnlocked) ? 'flex' : 'none';
+            updateLobbySettingsFabVisibility();
+        }
+
+        function updateLobbySettingsFabVisibility() {
+            const fab = document.getElementById('lobby-settings-fab');
+            if (!fab) return;
+            fab.style.display = isLobbyScreenVisible() ? 'flex' : 'none';
+        }
+
+        function syncLobbySettingsCheckboxFromStorage() {
+            const cb = document.getElementById('lobby-settings-debug-verbose');
+            if (!cb) return;
+            try {
+                cb.checked = localStorage.getItem(LS_DEBUG_VERBOSE) === '1';
+            } catch (_) {
+                cb.checked = false;
+            }
+        }
+
+        function openLobbySettingsOverlay() {
+            const o = document.getElementById('lobby-settings-overlay');
+            if (!o) return;
+            syncLobbySettingsCheckboxFromStorage();
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeLobbySettingsOverlay() {
+            const o = document.getElementById('lobby-settings-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
         }
 
         function closeLobbyStatsOverlay() {
@@ -3272,6 +3421,12 @@
                 const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
                 if (s) showServerNoticeOverlay(s);
             });
+            ch.on('broadcast', { event: 'owner_game_event' }, ({ payload }) => {
+                if (!payload || !payload.kind) return;
+                if (payload.kind === 'glitch_storm') {
+                    if (isInGame()) applyGlitchStormLocal();
+                }
+            });
             ch.subscribe();
             globalNoticeChannel = ch;
         }
@@ -3296,14 +3451,35 @@
             }
         }
 
+        async function sendOwnerGameEvent(kind) {
+            if (!isOwnerDashboardUser() || !supabase) {
+                return { ok: false, err: 'Only the owner account can trigger events.' };
+            }
+            ensureGlobalServerNoticeSubscribed();
+            if (!globalNoticeChannel) return { ok: false, err: 'Could not open broadcast channel.' };
+            try {
+                await globalNoticeChannel.send({
+                    type: 'broadcast',
+                    event: 'owner_game_event',
+                    payload: { kind: String(kind || '') }
+                });
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, err: e && e.message ? e.message : 'Send failed' };
+            }
+        }
+
         function openOwnerDashboard() {
             if (!isOwnerDashboardUser()) return;
             const ov = document.getElementById('owner-dashboard-overlay');
             if (!ov) return;
             ov.classList.add('open');
             document.getElementById('owner-broadcast-block')?.classList.remove('hidden');
+            document.getElementById('owner-events-block')?.classList.remove('hidden');
             const errB = document.getElementById('owner-broadcast-err');
             if (errB) errB.textContent = '';
+            const ge = document.getElementById('owner-event-glitch-err');
+            if (ge) ge.textContent = '';
             renderAssistantTips();
             void refreshOwnerDashboardAnalytics();
         }
@@ -3420,6 +3596,107 @@
             }
         }
 
+        function applyGlitchStormLocal() {
+            state.glitchEventUntilFrame = state.frameCount + Math.floor(GLITCH_EVENT_DURATION_SEC * JAIL_FRAMES_PER_SEC);
+            state.glitchSpawnAccumulator = 0;
+            showMessage('GLITCH STORM — slow corruption entities approaching!');
+        }
+
+        function spawnGlitchMob() {
+            const ch = GLITCH_MOB_RENDER_CHARS;
+            return {
+                x: Math.random() * WORLD_SIZE,
+                y: Math.random() * WORLD_SIZE,
+                angle: Math.random() * Math.PI * 2,
+                speed: GLITCH_MOB_SPEED,
+                charIdx: Math.floor(Math.random() * ch.length),
+                wanderT: Math.floor(Math.random() * 120)
+            };
+        }
+
+        function nearestAliveFootPlayerForGlitch(g) {
+            let best = null, bestD = 1e9;
+            state.players.forEach((pl) => {
+                if (!pl || pl.dead || pl.downed || pl.inVehicle) return;
+                const d = idist(pl, g);
+                if (d < bestD) { bestD = d; best = pl; }
+            });
+            return best;
+        }
+
+        function syncGlitchScreenFx() {
+            const cv = document.getElementById('gameCanvas');
+            if (!cv) return;
+            cv.classList.toggle('pc-glitch-vfx', state.frameCount < state.glitchEventUntilFrame);
+        }
+
+        function processGlitchEvent() {
+            syncGlitchScreenFx();
+            if (state.frameCount >= state.glitchEventUntilFrame) {
+                if (state.glitchMobs.length > 0) state.glitchMobs = [];
+                return;
+            }
+            state.glitchSpawnAccumulator += GLITCH_MOB_SPAWN_PER_SEC / JAIL_FRAMES_PER_SEC;
+            while (state.glitchSpawnAccumulator >= 1 && state.glitchMobs.length < 56) {
+                state.glitchSpawnAccumulator -= 1;
+                state.glitchMobs.push(spawnGlitchMob());
+            }
+            const aggro = 520;
+            for (let i = state.glitchMobs.length - 1; i >= 0; i--) {
+                const g = state.glitchMobs[i];
+                const prey = nearestAliveFootPlayerForGlitch(g);
+                const chase = prey && idist(prey, g) < aggro;
+                if (chase) {
+                    const ta = Math.atan2(prey.y - g.y, prey.x - g.x);
+                    let diff = ta - g.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    g.angle += diff * 0.04;
+                } else {
+                    g.wanderT = (g.wanderT || 0) + 1;
+                    if (g.wanderT > 90 + Math.floor(Math.random() * 60)) {
+                        g.wanderT = 0;
+                        g.angle = Math.random() * Math.PI * 2;
+                    }
+                }
+                g.x += Math.cos(g.angle) * g.speed;
+                g.y += Math.sin(g.angle) * g.speed;
+                g.x = Math.max(12, Math.min(WORLD_SIZE - 12, g.x));
+                g.y = Math.max(12, Math.min(WORLD_SIZE - 12, g.y));
+                if ((state.frameCount + i * 3) % 14 === 0) {
+                    g.charIdx = Math.floor(Math.random() * GLITCH_MOB_RENDER_CHARS.length);
+                }
+                for (let pi = 0; pi < state.players.length; pi++) {
+                    const pl = state.players[pi];
+                    if (!pl || pl.dead || pl.downed || pl.inVehicle) continue;
+                    if (idist(pl, g) < 22) {
+                        if (state.frameCount % 45 === pi % 3) dealDamageToPlayer(pi, GLITCH_MOB_BITE_DMG);
+                    }
+                }
+            }
+        }
+
+        function tryHitGlitchMobInRange(pIdx, def, maxR, damageOverride) {
+            const p = state.players[pIdx];
+            if (!p || !state.glitchMobs.length) return { hit: false, killed: false };
+            const isRocket = def && def.kind === 'rocket';
+            const r = maxR != null ? maxR : (isRocket ? ZOMBIE_ROCKET_RANGE : ZOMBIE_WEP_RANGE);
+            let bestI = -1, bestD = r + 1;
+            for (let i = 0; i < state.glitchMobs.length; i++) {
+                const g = state.glitchMobs[i];
+                const d = dist(p.x, p.y, g.x, g.y);
+                if (d < bestD) { bestD = d; bestI = i; }
+            }
+            if (bestI < 0 || bestD > r) return { hit: false, killed: false };
+            const dmg = damageOverride != null ? damageOverride : zombieWeaponChipDamage(def);
+            if (dmg >= 999) {
+                state.glitchMobs.splice(bestI, 1);
+                return { hit: true, killed: true };
+            }
+            state.glitchMobs.splice(bestI, 1);
+            return { hit: true, killed: true };
+        }
+
         function grantZombieKillPayout() {
             let add = ZOMBIE_KILL_CASH;
             if (Math.random() < 0.45) add += 80 + Math.floor(Math.random() * 420);
@@ -3525,7 +3802,8 @@
                 angle: Math.PI / 2,
                 speed: 0,
                 type: JSON.parse(JSON.stringify(carType)),
-                occupied: false
+                occupied: false,
+                purchasePrice: typeof carType.price === 'number' ? carType.price : 0
             };
         }
 
@@ -3540,7 +3818,8 @@
                 y: v.y,
                 angle: v.angle,
                 occupied: !!v.occupied,
-                typeId: v.type && v.type.id ? v.type.id : 'sedan'
+                typeId: v.type && v.type.id ? v.type.id : 'sedan',
+                purchasePrice: typeof v.purchasePrice === 'number' ? v.purchasePrice : (v.type && typeof v.type.price === 'number' ? v.type.price : 0)
             }));
         }
 
@@ -3552,6 +3831,7 @@
                 const typeCopy = JSON.parse(JSON.stringify(def));
                 const id = typeof row.id === 'number' ? row.id : state.nextVehicleId++;
                 maxId = Math.max(maxId, id);
+                const pp = typeof row.purchasePrice === 'number' ? row.purchasePrice : (typeCopy.price || 0);
                 return {
                     id,
                     x: Number(row.x) || 2000,
@@ -3559,10 +3839,70 @@
                     angle: Number(row.angle) || 0,
                     speed: 0,
                     type: typeCopy,
-                    occupied: !!row.occupied
+                    occupied: !!row.occupied,
+                    purchasePrice: pp
                 };
             });
             state.nextVehicleId = Math.max(state.nextVehicleId, maxId + 1);
+        }
+
+        function recalcBestCarTierFromOwnedVehicles() {
+            let best = -1;
+            for (const v of state.vehicles) {
+                const t = v.type && typeof v.type.tier === 'number' ? v.type.tier : -1;
+                if (t > best) best = t;
+            }
+            state.bestCarTier = best;
+        }
+
+        function getOwnedUnoccupiedVehiclesSorted() {
+            return state.vehicles
+                .filter(v => v && !v.occupied)
+                .slice()
+                .sort((a, b) => (a.id || 0) - (b.id || 0));
+        }
+
+        function sellVehicleFromDealerMenu(pIdx, listIdx) {
+            const owned = getOwnedUnoccupiedVehiclesSorted();
+            const veh = owned[listIdx];
+            if (!veh) {
+                showMessage('No car at that slot.');
+                return;
+            }
+            const paid = typeof veh.purchasePrice === 'number' ? veh.purchasePrice : (veh.type && veh.type.price) || 0;
+            const payout = Math.floor(paid / 2);
+            state.vehicles = state.vehicles.filter(x => x.id !== veh.id);
+            state.money += payout;
+            updateMoneyUI();
+            recalcBestCarTierFromOwnedVehicles();
+            try {
+                if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                    supabaseRealtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'pvp_fx',
+                        payload: { k: 'vehicle_remove', id: veh.id }
+                    });
+                }
+            } catch (_) {}
+            showMessage(`Sold ${veh.type && veh.type.name ? veh.type.name : 'car'} for $${payout.toLocaleString()} (½ paid).`);
+            updateMenuUI(pIdx);
+        }
+
+        function toggleDealerSellMode(pIdx) {
+            state.dealerSellMode = !state.dealerSellMode;
+            const p = state.players[pIdx];
+            if (p && p.menuType === 'dealer') {
+                p.menuSelection = 0;
+                updateMenuUI(pIdx);
+            }
+            [0, 1].forEach(i => {
+                const btn = document.getElementById(`dealer-toggle-sell-${i}`);
+                if (btn) {
+                    btn.textContent = state.dealerSellMode ? '← Back to showroom (buy)' : 'Sell my cars (½ price)';
+                    btn.classList.toggle('bg-emerald-800', state.dealerSellMode);
+                    btn.classList.toggle('bg-slate-600', !state.dealerSellMode);
+                }
+            });
         }
 
         function broadcastVehicleSpawnIfOnline(veh) {
@@ -3579,7 +3919,8 @@
                             y: veh.y,
                             angle: veh.angle,
                             typeId: veh.type && veh.type.id ? veh.type.id : 'sedan',
-                            occupied: !!veh.occupied
+                            occupied: !!veh.occupied,
+                            purchasePrice: typeof veh.purchasePrice === 'number' ? veh.purchasePrice : (veh.type && typeof veh.type.price === 'number' ? veh.type.price : 0)
                         }
                     }
                 });
@@ -4093,10 +4434,19 @@
                             angle: Number(row.angle) || 0,
                             speed: 0,
                             type: typeCopy,
-                            occupied: !!row.occupied
+                            occupied: !!row.occupied,
+                            purchasePrice: typeof row.purchasePrice === 'number' ? row.purchasePrice : (typeCopy.price || 0)
                         });
                         state.nextVehicleId = Math.max(state.nextVehicleId, row.id + 1);
                     }
+                }
+                if (payload.k === 'vehicle_remove' && payload.id != null) {
+                    state.vehicles = state.vehicles.filter(v => v.id !== payload.id);
+                    state.players.forEach(pl => {
+                        if (pl && pl.inVehicle && pl.inVehicle.id === payload.id) {
+                            pl.inVehicle = null;
+                        }
+                    });
                 }
                 if (payload.k === 'landmine_boom') {
                     state.landmines = state.landmines.filter(l => l.id !== payload.id);
@@ -4689,6 +5039,19 @@
             }
             
             document.getElementById('victory-overlay').style.display = 'flex';
+            state.isGameOver = false;
+        }
+
+        function dismissVictoryContinuePlaying() {
+            document.getElementById('victory-overlay').style.display = 'none';
+            state.isGameOver = false;
+            showMessage('President mode — keep playing, or drop the nuke when you want the finale.');
+        }
+
+        function dismissOrbWinContinuePlaying() {
+            document.getElementById('orb-win-overlay').style.display = 'none';
+            state.isGameOver = false;
+            showMessage('Orb claimed — city stays ruined until a new run.');
         }
 
         function resize() {
@@ -4769,7 +5132,6 @@
             if (dist(p.x, p.y, state.orb.x, state.orb.y) > ORB_PICKUP_RADIUS) return false;
             state.orbCollected = true;
             state.orbHuntActive = false;
-            state.isGameOver = true;
             state.wantedLevel = 0;
             state.police = [];
             state.policeDelay = 0;
@@ -4790,6 +5152,7 @@
                 }
                 overlay.style.display = 'flex';
             }
+            state.isGameOver = false;
             return true;
         }
 
@@ -4883,6 +5246,12 @@
             state.tyreTraps = [];
             state.inventoryGadgetCounts = {};
             state.inventoryWeaponCounts = {};
+            state.glitchMobs = [];
+            state.glitchEventUntilFrame = 0;
+            state.glitchSpawnAccumulator = 0;
+            state.dealerSellMode = false;
+            const cv = document.getElementById('gameCanvas');
+            if (cv) cv.classList.remove('pc-glitch-vfx');
             if (state.playMode !== 'online') teardownOnlineRealtime();
             else if (state.onlineSessionCode) void subscribeToSessionChannelAsync(state.onlineSessionCode, { skipIfSame: true });
             hideOrbHuntIntro();
@@ -4951,6 +5320,15 @@
             });
             if (state.players[pIdx] && state.players[pIdx].menuType === 'dealer') {
                 resetDealerFriendGiftUI(pIdx);
+                state.dealerSellMode = false;
+                [0, 1].forEach(i => {
+                    const btn = document.getElementById(`dealer-toggle-sell-${i}`);
+                    if (btn) {
+                        btn.textContent = 'Sell my cars (½ price)';
+                        btn.classList.remove('bg-emerald-800');
+                        btn.classList.add('bg-slate-600');
+                    }
+                });
             }
             if (state.players[pIdx]) {
                 state.players[pIdx].activeJob = null;
@@ -5127,6 +5505,25 @@
                 }
             } else if (p.menuType === 'dealer' && dealerList) {
                 dealerList.innerHTML = '';
+                if (state.dealerSellMode) {
+                    const owned = getOwnedUnoccupiedVehiclesSorted();
+                    if (owned.length === 0) {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-[11px] text-slate-400 text-center py-4';
+                        empty.textContent = 'No parked cars to sell (exit vehicles first).';
+                        dealerList.appendChild(empty);
+                    } else {
+                        owned.forEach((veh, i) => {
+                            const paid = typeof veh.purchasePrice === 'number' ? veh.purchasePrice : (veh.type && veh.type.price) || 0;
+                            const half = Math.floor(paid / 2);
+                            const btn = document.createElement('div');
+                            btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
+                            btn.innerHTML = `<div class="font-bold uppercase text-sm text-emerald-200">${veh.type && veh.type.name ? veh.type.name : 'Car'} #${veh.id}</div><div class="text-emerald-400 font-bold text-xs">Sell +$${half.toLocaleString()} (½ of $${paid.toLocaleString()})</div>`;
+                            btn.onclick = () => { p.menuSelection = i; updateMenuUI(pIdx); };
+                            dealerList.appendChild(btn);
+                        });
+                    }
+                } else {
                 VEHICLE_TYPES.forEach((v, i) => {
                     const btn = document.createElement('div');
                     btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''}`;
@@ -5134,6 +5531,7 @@
                     btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
                     dealerList.appendChild(btn);
                 });
+                }
             } else if (p.menuType === 'gadget' && gList) {
                 gList.innerHTML = '';
                 GADGET_ITEMS.forEach((g, i) => {
@@ -5281,9 +5679,13 @@
                     syncWorkModalLayout(pIdx);
                 }
             } else if (p.menuType === 'dealer') {
+                if (state.dealerSellMode) {
+                    sellVehicleFromDealerMenu(pIdx, p.menuSelection);
+                } else {
                 const car = VEHICLE_TYPES[p.menuSelection];
                 const gift = state.dealerBuyForFriendArmed;
                 completeDealershipPurchase(pIdx, car, { giftForFriend: gift });
+                }
             } else if (p.menuType === 'rob') {
                 window.startRobbery(pIdx);
             }
@@ -5382,6 +5784,15 @@
                 else if (bNear.type === 'shop_w') { openWeaponModal(pIdx); }
                 else if (bNear.type === 'dealership') {
                     resetDealerFriendGiftUI(pIdx);
+                    state.dealerSellMode = false;
+                    [0, 1].forEach(i => {
+                        const btn = document.getElementById(`dealer-toggle-sell-${i}`);
+                        if (btn) {
+                            btn.textContent = 'Sell my cars (½ price)';
+                            btn.classList.remove('bg-emerald-800');
+                            btn.classList.add('bg-slate-600');
+                        }
+                    });
                     p.menuType = 'dealer';
                     p.menuSelection = 0;
                     updateMenuUI(pIdx);
@@ -5543,6 +5954,7 @@
             }
             if (Array.isArray(save.vehicles) && save.vehicles.length > 0) {
                 hydrateVehiclesFromSave(save.vehicles);
+                recalcBestCarTierFromOwnedVehicles();
             }
             // Restore player positions if saved
             if (typeof save.playerX === 'number' && typeof save.playerY === 'number' && state.players[0]) {
@@ -5670,6 +6082,7 @@
             try {
                 document.getElementById('lobby-screen').style.display = 'none';
                 document.getElementById('sign-in-screen').style.display = 'flex';
+                updateLobbySettingsFabVisibility();
             } catch (_) {}
         }
 
@@ -5870,6 +6283,7 @@
                         pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
                         showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
                         document.getElementById('lobby-screen').style.display = 'flex';
+                        updateLobbySettingsFabVisibility();
                         setInGamePhoneVisible(false);
                         const xb2 = document.getElementById('exit-to-lobby-btn');
                         if (xb2) xb2.style.display = 'none';
@@ -5891,6 +6305,7 @@
                         pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
                         showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
                         document.getElementById('lobby-screen').style.display = 'flex';
+                        updateLobbySettingsFabVisibility();
                         setInGamePhoneVisible(false);
                         const xb2 = document.getElementById('exit-to-lobby-btn');
                         if (xb2) xb2.style.display = 'none';
@@ -5972,8 +6387,10 @@
                 }
             }
             closeLobbyStatsOverlay();
+            closeLobbySettingsOverlay();
 
             document.getElementById('lobby-screen').style.display = 'none';
+            updateLobbySettingsFabVisibility();
             state.isGameOver = false;
             state.gamePaused = false;
             if (!mergedSave) {
@@ -6214,7 +6631,7 @@
             processTyreTrapsVsPolice();
             updateGpsArrival();
             processBleedAndDowned();
-            
+
             let customSpeed = 4;
             if (canUseGodPanelInGame()) {
                 customSpeed = parseInt(document.getElementById('god-speed').value) || 4;
@@ -6226,6 +6643,7 @@
                 customSpeed = 2;
             }
             const pedSpeed = customSpeed;
+            processGlitchEvent();
 
             // SPRINT & STAMINA — P1 only in solo mode; Shift in 2P mode stays as P2 action
             const STAMINA_MAX = 100;
@@ -6780,6 +7198,22 @@
                 c.restore();
             });
 
+            state.glitchMobs.forEach(g => {
+                c.save();
+                c.translate(g.x, g.y);
+                const ch = GLITCH_MOB_RENDER_CHARS[(g.charIdx || 0) % GLITCH_MOB_RENDER_CHARS.length];
+                const flick = (state.frameCount + (g.x | 0)) % 6 < 3;
+                c.fillStyle = flick ? '#22d3ee' : '#e879f9';
+                c.strokeStyle = '#0f172a';
+                c.lineWidth = 2;
+                c.font = 'bold 14px monospace';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.strokeText(ch, 0, 0);
+                c.fillText(ch, 0, 0);
+                c.restore();
+            });
+
             state.vehicles.forEach(v => { drawCartoonCar(c, v); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#f8fafc'; c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.beginPath(); c.moveTo(-26, -14); c.lineTo(26, -14); c.quadraticCurveTo(30, 0, 26, 14); c.lineTo(-26, 14); c.quadraticCurveTo(-30, 0, -26, -14); c.closePath(); c.fill(); c.stroke(); const flash = Math.floor(state.frameCount / 5) % 2 === 0; c.fillStyle = flash ? '#ef4444' : '#2563eb'; c.fillRect(2, -12, 10, 24); c.fillStyle = 'rgba(254,252,232,0.95)'; c.beginPath(); c.arc(22, -8, 2.5, 0, Math.PI * 2); c.arc(22, 8, 2.5, 0, Math.PI * 2); c.fill(); c.fillStyle = '#fecaca'; c.beginPath(); c.arc(-22, -8, 2.2, 0, Math.PI * 2); c.arc(-22, 8, 2.2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#0f172a'; c.beginPath(); c.arc(12, 16, 5, 0, Math.PI * 2); c.arc(-12, 16, 5, 0, Math.PI * 2); c.arc(12, -16, 5, 0, Math.PI * 2); c.arc(-12, -16, 5, 0, Math.PI * 2); c.fill(); c.restore(); });
             // Draw a pixel-art avatar based on characterType ('boy', 'girl', 'circle')
@@ -7015,6 +7449,12 @@
                 ms.fill();
             }
             state.civilians.forEach(c => { ms.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR_MINI : '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
+            state.glitchMobs.forEach(g => {
+                ms.fillStyle = ((state.frameCount + (g.x | 0)) % 8 < 4) ? '#22d3ee' : '#e879f9';
+                ms.beginPath();
+                ms.arc(g.x * s, g.y * s, 2.5, 0, Math.PI * 2);
+                ms.fill();
+            });
             state.players.forEach(p => { if (p) {
                 const rad = 4.5;
                 let pxM = p.dead ? (p.corpseX != null ? p.corpseX : p.x) : (p.downed ? (p.corpseX != null ? p.corpseX : p.x) : p.x);
@@ -7850,6 +8290,10 @@
 
             document.getElementById('dealer-buy-friend-0')?.addEventListener('click', () => onDealerBuyForFriendClick(0));
             document.getElementById('dealer-buy-friend-1')?.addEventListener('click', () => onDealerBuyForFriendClick(1));
+            document.getElementById('dealer-toggle-sell-0')?.addEventListener('click', () => toggleDealerSellMode(0));
+            document.getElementById('dealer-toggle-sell-1')?.addEventListener('click', () => toggleDealerSellMode(1));
+            document.getElementById('victory-continue-btn')?.addEventListener('click', () => dismissVictoryContinuePlaying());
+            document.getElementById('orb-win-continue-btn')?.addEventListener('click', () => dismissOrbWinContinuePlaying());
 
             const signInMsg = document.getElementById('sign-in-msg');
             const userInput = document.getElementById('auth-username-input');
@@ -7952,6 +8396,7 @@
                 // Go back to sign-in screen
                 document.getElementById('lobby-screen').style.display = 'none';
                 document.getElementById('sign-in-screen').style.display = 'flex';
+                updateLobbySettingsFabVisibility();
             });
 
             document.getElementById('lobby-stats-fab')?.addEventListener('click', () => {
@@ -7967,6 +8412,20 @@
                 if (e.target && e.target.id === 'lobby-stats-overlay') closeLobbyStatsOverlay();
             });
 
+            document.getElementById('lobby-settings-fab')?.addEventListener('click', () => openLobbySettingsOverlay());
+            document.getElementById('lobby-settings-close')?.addEventListener('click', () => closeLobbySettingsOverlay());
+            document.getElementById('lobby-settings-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'lobby-settings-overlay') closeLobbySettingsOverlay();
+            });
+            document.getElementById('lobby-settings-debug-verbose')?.addEventListener('change', (e) => {
+                const on = !!(e.target && e.target.checked);
+                try {
+                    if (on) localStorage.setItem(LS_DEBUG_VERBOSE, '1');
+                    else localStorage.removeItem(LS_DEBUG_VERBOSE);
+                } catch (_) {}
+                debugVerbose = on;
+            });
+
             document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
             document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
             document.getElementById('owner-dashboard-refresh')?.addEventListener('click', () => { void refreshOwnerDashboardAnalytics(); });
@@ -7979,6 +8438,20 @@
                     if (ta) ta.value = '';
                     if (err) err.textContent = 'Sent.';
                     setTimeout(() => { if (err) err.textContent = ''; }, 2000);
+                } else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('owner-event-glitch-btn')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-event-glitch-err');
+                if (err) err.textContent = '';
+                const r = await sendOwnerGameEvent('glitch_storm');
+                if (r.ok) {
+                    if (isInGame()) applyGlitchStormLocal();
+                    if (err) {
+                        err.textContent = 'Glitch storm sent.';
+                        err.classList.remove('text-red-400');
+                        err.classList.add('text-emerald-400');
+                        setTimeout(() => { err.textContent = ''; err.classList.remove('text-emerald-400'); err.classList.add('text-red-400'); }, 2500);
+                    }
                 } else if (err) err.textContent = r.err || 'Failed';
             });
             document.getElementById('admin-global-broadcast-dismiss')?.addEventListener('click', () => hideServerNoticeOverlay());
