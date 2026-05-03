@@ -2133,6 +2133,7 @@
             }
             for (const uid in state.remotePlayers) {
                 const rp = state.remotePlayers[uid];
+                if (!rp || rp.dead || rp.downed || rp.inVehicle) continue;
                 if (dist(px, py, rp.x, rp.y) < r) return { idx: -1, remote: rp, uid };
             }
             return null;
@@ -2542,7 +2543,8 @@
                 }
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
-                    if (!rp.dead && !rp.downed && dist(p.x, p.y, rp.x, rp.y) < PVP_NUKE_RADIUS) {
+                    if (!rp || rp.dead || rp.downed || rp.inVehicle) continue;
+                    if (dist(p.x, p.y, rp.x, rp.y) < PVP_NUKE_RADIUS) {
                         targets.push({ uid, remote: rp, name: rp.username || 'player' });
                     }
                 }
@@ -3973,7 +3975,7 @@
             disconnectRealtimeOnly();
             const topic = `pixel-city-${code}`;
             pcDebug('debug', 'realtime_subscribe_start', { topic, skipIfSame, uid: state.supabaseUserId || null });
-            const ch = supabase.channel(topic, { config: { broadcast: { self: false } } });
+            const ch = supabase.channel(topic, { config: { broadcast: { self: true } } });
             ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
                 if (!payload || payload.uid === state.supabaseUserId) return;
                 const isNew = !state.remotePlayers[payload.uid];
@@ -4013,7 +4015,7 @@
                 if (payload.k === 'nuke_hit' && payload.targetUid === state.supabaseUserId) {
                     state.pvpNukeBlasts.push({ x: payload.x, y: payload.y, r: 0, maxR: PVP_NUKE_RADIUS, until: 25, hit: true });
                     const myP = state.players[0];
-                    if (myP && !myP.dead && !myP.downed && isInGame()) {
+                    if (myP && !myP.dead && !myP.downed && isInGame() && !state.sessionSettings.friendlyFireOff) {
                         const dmg = payload.dmg || Math.ceil(PLAYER_MAX_HP * PVP_NUKE_DMG_FRAC);
                         dealDamageToPlayer(0, dmg);
                         showMessage(`💥 You were nuked! -${dmg}HP`);
@@ -4148,8 +4150,8 @@
                     if (typeof s.friendlyFireOff === 'boolean') {
                         state.sessionSettings.friendlyFireOff = s.friendlyFireOff;
                     } else if (typeof s.friendlyFire === 'boolean') {
-                        // Legacy: old clients inverted the flag — migrate so PvP works when host meant "FF off".
-                        state.sessionSettings.friendlyFireOff = s.friendlyFire;
+                        // Legacy: payload named friendlyFire meant "PvP weapons enabled" when true.
+                        state.sessionSettings.friendlyFireOff = !s.friendlyFire;
                     }
                     updateSessionSettingsUI();
                     const labels = [];
