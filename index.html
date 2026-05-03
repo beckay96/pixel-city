@@ -1623,7 +1623,7 @@
             { id: 'codes', label: 'Friend codes & invites?', answer: () => 'MULTIPLAYER shows Your code — Copy or New code if hosting. Friends paste into Join then everyone taps Start game.' },
             { id: 'solo_online', label: 'Why does 1 PLAYER still sync?', answer: () => 'Signed-in solo quietly hosts Realtime so friends can join your city later — UI stays on 1 PLAYER until you choose MULTIPLAYER.' },
             { id: 'settings_btn', label: 'Where are lobby settings?', answer: () => 'Big ⚙ Settings button at the bottom of the lobby next to Character — language, Beta 3D, verbose logs.' },
-            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Experimental first-person strips — solo only. Move mouse to look; pointer-lock on canvas helps. Turn off if dizzy.' },
+            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Full-screen raycast 3D: camera plane, distance-correct walls, sky and ground, mouse look (click canvas). Solo 1P only. Turn off if dizzy.' },
             { id: 'lang', label: 'Changing language?', answer: () => 'Lobby settings → Language updates buttons like Character / Settings immediately (more translations arrive over time).' },
             { id: 'debug_logs', label: 'Extra debug for bugs?', answer: () => 'Add ?debug=1 to the URL or flip Verbose logs in lobby settings. Run copyPixelCityDebugInfo() in the console to export a bundle.' },
             { id: 'minimap', label: 'Minimap dots?', answer: () => 'Shows buildings, cars, players — including icons while you drive or sit in jail so friends still see you.' },
@@ -1921,6 +1921,8 @@
             beta3dMode: initialBeta3d,
             /** First-person yaw (radians), mouse-driven in Beta 3D */
             beta3dYaw: 0,
+            /** First-person pitch (radians), mouse Y in Beta 3D */
+            beta3dPitch: 0,
             /** UI language code for lobby chrome */
             uiLang: initialUiLang
         };
@@ -5080,7 +5082,7 @@
                 lobbySettingsBody: 'Language, experimental view, and debug logs apply on this device.',
                 langLabel: 'Language',
                 beta3dLabel: 'Beta 3D (1 player)',
-                beta3dHint: 'Experimental first-person view. Solo 1-player only. Click the game to capture the mouse.',
+                beta3dHint: 'True first-person ray view (Wolfenstein-style). Solo 1P. Click the game for mouse look; higher internal resolution than the top-down view.',
                 debugLabel: 'Verbose debug logs',
                 debugHint: 'Same as ?debug=1. Errors always log.',
                 deviceComputer: 'Computer',
@@ -5101,7 +5103,7 @@
                 lobbySettingsBody: 'Idioma, vista experimental y registros de depuración en este dispositivo.',
                 langLabel: 'Idioma',
                 beta3dLabel: 'Beta 3D (1 jugador)',
-                beta3dHint: 'Vista en primera persona experimental. Solo 1 jugador. Haz clic en el juego para capturar el ratón.',
+                beta3dHint: 'Raycast 3D en primera persona (estilo Wolfenstein). Solo 1 jugador. Clic en el juego para mirar con el ratón; más nitidez que la vista cenital.',
                 debugLabel: 'Registros detallados',
                 debugHint: 'Igual que ?debug=1. Los errores siempre se registran.',
                 deviceComputer: 'Ordenador',
@@ -5122,7 +5124,7 @@
                 lobbySettingsBody: '言語・実験ビュー・詳細ログはこの端末に保存されます。',
                 langLabel: '言語',
                 beta3dLabel: 'ベータ3D（1人用）',
-                beta3dHint: '実験的な一人称ビュー。1人用ソロのみ。ゲーム画面をクリックしてマウスをロック。',
+                beta3dHint: 'ウルフェン式レイキャストの一人称3D。1人用ソロのみ。クリックでマウス視点。俯瞰より高精細な内部解像度。',
                 debugLabel: '詳細デバッグログ',
                 debugHint: '?debug=1 と同じ。エラーは常に出力。',
                 deviceComputer: 'PC',
@@ -5230,6 +5232,7 @@
             if (document.pointerLockElement === canvas) {
                 try { document.exitPointerLock(); } catch (_) { /* */ }
             }
+            if (!state.beta3dMode) state.beta3dPitch = 0;
             if (!silent && !state.beta3dMode) showMessage('Beta 3D off');
             else if (!silent && state.beta3dMode) showMessage('Beta 3D on — click the game to look around');
             updateBeta3dBanner();
@@ -5280,38 +5283,63 @@
             applyLobbyCharacterDuoLock();
         }
 
-        function rayBeta3dHit(ox, oy, dx, dy) {
-            let bestT = Infinity;
+        /** Beta 3D: vertical wall height in world units (same scale as building boxes). */
+        const BETA3D_WALL_HEIGHT = 320;
+        /** Horizontal FOV (radians). */
+        const BETA3D_FOV = 1.05;
+        /** Max ray length in world pixels. */
+        const BETA3D_MAX_DIST = 2200;
+
+        function intersectRayAabb2d(ox, oy, rdx, rdy, bx, by, bw, bh) {
+            const eps = 1e-9;
+            let tmin = 0;
+            let tmax = Infinity;
+            let side = -1;
+            if (Math.abs(rdx) < eps) {
+                if (ox < bx || ox > bx + bw) return null;
+            } else {
+                const inv = 1 / rdx;
+                const t1 = (bx - ox) * inv;
+                const t2 = (bx + bw - ox) * inv;
+                const tNear = Math.min(t1, t2);
+                const tFar = Math.max(t1, t2);
+                if (tNear > tmin) { tmin = tNear; side = rdx > 0 ? 3 : 2; }
+                tmax = Math.min(tmax, tFar);
+                if (tmin > tmax) return null;
+            }
+            if (Math.abs(rdy) < eps) {
+                if (oy < by || oy > by + bh) return null;
+            } else {
+                const inv = 1 / rdy;
+                const t1 = (by - oy) * inv;
+                const t2 = (by + bh - oy) * inv;
+                const tNear = Math.min(t1, t2);
+                const tFar = Math.max(t1, t2);
+                if (tNear > tmin) {
+                    tmin = tNear;
+                    side = rdy > 0 ? 0 : 1;
+                }
+                tmax = Math.min(tmax, tFar);
+                if (tmin > tmax) return null;
+            }
+            if (tmin < 0 || tmin > BETA3D_MAX_DIST) return null;
+            const hitX = ox + rdx * tmin;
+            const hitY = oy + rdy * tmin;
+            return { t: tmin, side, hitX, hitY, bx, by, bw, bh };
+        }
+
+        function rayBeta3dNearestBuilding(ox, oy, rdx, rdy) {
             let best = null;
-            const eps = 1e-6;
+            let bestT = Infinity;
             for (let i = 0; i < state.buildings.length; i++) {
                 const b = state.buildings[i];
                 if (!b || b.type === 'invisible') continue;
-                let tmin = -Infinity;
-                let tmax = Infinity;
-                if (Math.abs(dx) < eps) {
-                    if (ox < b.x || ox > b.x + b.w) continue;
-                } else {
-                    const tx1 = (b.x - ox) / dx;
-                    const tx2 = (b.x + b.w - ox) / dx;
-                    tmin = Math.max(tmin, Math.min(tx1, tx2));
-                    tmax = Math.min(tmax, Math.max(tx1, tx2));
-                }
-                if (Math.abs(dy) < eps) {
-                    if (oy < b.y || oy > b.y + b.h) continue;
-                } else {
-                    const ty1 = (b.y - oy) / dy;
-                    const ty2 = (b.y + b.h - oy) / dy;
-                    tmin = Math.max(tmin, Math.min(ty1, ty2));
-                    tmax = Math.min(tmax, Math.max(ty1, ty2));
-                }
-                if (tmax < 0 || tmin > tmax) continue;
-                const tHit = tmin >= 0 ? tmin : (tmax > 0 ? tmax : -1);
-                if (tHit < 0 || tHit >= bestT) continue;
-                bestT = tHit;
-                best = b;
+                const hit = intersectRayAabb2d(ox, oy, rdx, rdy, b.x, b.y, b.w, b.h);
+                if (!hit || hit.t >= bestT) continue;
+                bestT = hit.t;
+                best = { t: hit.t, side: hit.side, b, hitX: hit.hitX, hitY: hit.hitY };
             }
-            return bestT < Infinity ? { t: bestT, b: best } : null;
+            return best;
         }
 
         function renderBeta3dScene(targetCtx, clipX, clipY, clipW, clipH) {
@@ -5321,47 +5349,90 @@
             const ox = p0.x;
             const oy = p0.y;
             const yaw = state.beta3dYaw;
-            const cos = Math.cos(yaw);
-            const sin = Math.sin(yaw);
-            const fov = 0.55;
-            const cols = Math.min(clipW, 120);
-            const colW = clipW / cols;
+            const pitch = Math.max(-0.42, Math.min(0.42, state.beta3dPitch || 0));
+            const dirX = Math.cos(yaw);
+            const dirY = Math.sin(yaw);
+            const planeScale = Math.tan(BETA3D_FOV * 0.5);
+            const planeX = -dirY * planeScale;
+            const planeY = dirX * planeScale;
+            const horizon = clipH * (0.5 + pitch * 1.15);
+            const cols = clipW;
             c.save();
             c.beginPath();
             c.rect(clipX, clipY, clipW, clipH);
             c.clip();
+            const skyGrad = c.createLinearGradient(clipX, clipY, clipX, clipY + horizon);
+            skyGrad.addColorStop(0, '#020617');
+            skyGrad.addColorStop(0.45, '#1e3a8a');
+            skyGrad.addColorStop(1, '#38bdf8');
+            c.fillStyle = skyGrad;
+            c.fillRect(clipX, clipY, clipW, Math.max(0, horizon));
+            const floorGrad = c.createLinearGradient(clipX, horizon, clipX, clipY + clipH);
+            floorGrad.addColorStop(0, '#14532d');
+            floorGrad.addColorStop(0.55, '#166534');
+            floorGrad.addColorStop(1, '#052e16');
+            c.fillStyle = floorGrad;
+            c.fillRect(clipX, horizon, clipW, Math.max(0, clipY + clipH - horizon));
             for (let col = 0; col < cols; col++) {
-                const ndc = (col + 0.5) / cols * 2 - 1;
-                const rdx = cos + ndc * fov * -sin;
-                const rdy = sin + ndc * fov * cos;
-                const hit = rayBeta3dHit(ox, oy, rdx, rdy);
-                let h = 0.35;
-                let colorTop = '#0ea5e9';
-                let colorBot = '#0f172a';
-                if (hit && hit.b) {
-                    const d = Math.min(1, hit.t / 900);
-                    h = 0.2 + (1 - d) * 0.65;
-                    colorTop = hit.b.color || '#64748b';
-                    colorBot = '#020617';
+                const cameraX = 2 * (col + 0.5) / cols - 1;
+                let rdx = dirX + planeX * cameraX;
+                let rdy = dirY + planeY * cameraX;
+                const rlen = Math.hypot(rdx, rdy) || 1;
+                rdx /= rlen;
+                rdy /= rlen;
+                const hit = rayBeta3dNearestBuilding(ox, oy, rdx, rdy);
+                const cosRay = rdx * dirX + rdy * dirY;
+                const perpDist = hit ? hit.t * cosRay : BETA3D_MAX_DIST;
+                const lineH = Math.min(clipH * 1.5, (BETA3D_WALL_HEIGHT / (perpDist + 0.0001)) * (clipH / 480) * 140);
+                const wallTop = horizon - lineH / 2;
+                const wallBot = horizon + lineH / 2;
+                if (!hit) {
+                    continue;
                 }
-                const wallTop = clipY + clipH * (0.5 - h / 2);
-                const wallH = clipH * h;
-                const g = c.createLinearGradient(clipX + col * colW, wallTop, clipX + col * colW, wallTop + wallH);
-                g.addColorStop(0, colorTop);
-                g.addColorStop(1, colorBot);
-                c.fillStyle = g;
-                c.fillRect(clipX + col * colW, wallTop, colW + 0.6, wallH);
-                c.fillStyle = '#14532d';
-                c.fillRect(clipX + col * colW, wallTop + wallH, colW + 0.6, clipY + clipH - (wallTop + wallH));
-                c.fillStyle = '#38bdf8';
-                c.fillRect(clipX + col * colW, clipY, colW + 0.6, wallTop);
+                const base = hit.b.color || '#64748b';
+                let norm = base;
+                if (norm[0] === '#') {
+                    if (norm.length === 4) {
+                        norm = '#' + norm[1] + norm[1] + norm[2] + norm[2] + norm[3] + norm[3];
+                    }
+                }
+                let shade = 1;
+                if (hit.side === 0 || hit.side === 1) shade = 0.72;
+                else if (hit.side === 2 || hit.side === 3) shade = 0.95;
+                const fog = Math.min(1, perpDist / BETA3D_MAX_DIST);
+                const r0 = parseInt(norm.slice(1, 3), 16) || 100;
+                const g0 = parseInt(norm.slice(3, 5), 16) || 100;
+                const b0 = parseInt(norm.slice(5, 7), 16) || 120;
+                const r = Math.min(255, Math.floor(r0 * shade * (1 - fog * 0.35) + fog * 20));
+                const g = Math.min(255, Math.floor(g0 * shade * (1 - fog * 0.35) + fog * 25));
+                const bch = Math.min(255, Math.floor(b0 * shade * (1 - fog * 0.35) + fog * 35));
+                const topRgb = `rgb(${r},${g},${bch})`;
+                const dr = Math.floor(r * 0.35);
+                const dg = Math.floor(g * 0.35);
+                const db = Math.floor(bch * 0.4);
+                const botRgb = `rgb(${dr},${dg},${db})`;
+                const x0 = clipX + col;
+                if (wallTop > clipY) {
+                    c.fillStyle = '#38bdf8';
+                    c.fillRect(x0, clipY, 1, wallTop - clipY);
+                }
+                if (wallBot < clipY + clipH) {
+                    c.fillStyle = '#14532d';
+                    c.fillRect(x0, wallBot, 1, clipY + clipH - wallBot);
+                }
+                const gwall = c.createLinearGradient(x0, wallTop, x0, wallBot);
+                gwall.addColorStop(0, topRgb);
+                gwall.addColorStop(0.55, topRgb);
+                gwall.addColorStop(1, botRgb);
+                c.fillStyle = gwall;
+                c.fillRect(x0, wallTop, 1, Math.max(1, wallBot - wallTop));
             }
-            c.fillStyle = 'rgba(15,23,42,0.5)';
-            c.fillRect(clipX, clipY + clipH - 28, clipW, 28);
+            c.fillStyle = 'rgba(15,23,42,0.45)';
+            c.fillRect(clipX, clipY + clipH - 30, clipW, 30);
             c.fillStyle = '#e2e8f0';
             c.font = 'bold 11px system-ui,sans-serif';
             c.textAlign = 'center';
-            c.fillText('Beta 3D · move mouse · Esc exits game to lobby', clipX + clipW / 2, clipY + clipH - 10);
+            c.fillText('Beta 3D · mouse look · Esc = lobby', clipX + clipW / 2, clipY + clipH - 11);
             c.restore();
         }
         
@@ -6734,7 +6805,10 @@
             const baseP = (id, c) => ({ id, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: c, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0, hp: PLAYER_MAX_HP, dead: false, downed: false, bleedFrames: 0, draggingPlayerIdx: null, corpseX: null, corpseY: null });
             state.players = [baseP(0, skin0)];
             const p0join = state.players[0];
-            if (p0join) state.beta3dYaw = p0join.angle || 0;
+            if (p0join) {
+                state.beta3dYaw = p0join.angle || 0;
+                state.beta3dPitch = 0;
+            }
             state.spectatePIdx = 0;
             state.soloHospModalShown = false;
             const sh = document.getElementById('spectate-hint');
@@ -6939,9 +7013,16 @@
             return true;
         }
 
+        function getInternalPixelScale() {
+            const beta3dOn = state.beta3dMode && isInGame() && state.playerMode === 1 && !(state.playMode === 'online' && !state.isSoloAutoHost);
+            if (beta3dOn) return Math.max(1, n64RenderScale - 1);
+            return n64RenderScale;
+        }
+
         function getViewBufferSize() {
-            const w = Math.max(64, Math.floor(canvas.width / n64RenderScale));
-            const h = Math.max(64, Math.floor(canvas.height / n64RenderScale));
+            const scale = getInternalPixelScale();
+            const w = Math.max(64, Math.floor(canvas.width / scale));
+            const h = Math.max(64, Math.floor(canvas.height / scale));
             return { bw: w, bh: h };
         }
 
@@ -7284,8 +7365,9 @@
                     gameBufCtx.imageSmoothingEnabled = false;
                 }
             }
-            const bw = Math.max(64, Math.floor(w / n64RenderScale));
-            const bh = Math.max(64, Math.floor(h / n64RenderScale));
+            const scale = getInternalPixelScale();
+            const bw = Math.max(64, Math.floor(w / scale));
+            const bh = Math.max(64, Math.floor(h / scale));
             if (gameBuffer.width !== bw || gameBuffer.height !== bh) {
                 gameBuffer.width = bw;
                 gameBuffer.height = bh;
@@ -7677,16 +7759,17 @@
             const ch = canvas.height;
             const bc = ensureGameBuffer(cw, ch);
             if (!bc) return;
-            bc.imageSmoothingEnabled = false;
+            const beta3dOn = state.playerMode === 1 && state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
+            bc.imageSmoothingEnabled = !!beta3dOn;
+            const drawScale = getInternalPixelScale();
             const bw = gameBuffer.width;
             const bh = gameBuffer.height;
-            const ox = Math.floor((cw - bw * n64RenderScale) / 2);
-            const oy = Math.floor((ch - bh * n64RenderScale) / 2);
+            const ox = Math.floor((cw - bw * drawScale) / 2);
+            const oy = Math.floor((ch - bh * drawScale) / 2);
             bc.fillStyle = '#0f172a';
             bc.fillRect(0, 0, bw, bh);
 
             if (state.playerMode === 1) {
-                const beta3dOn = state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
                 if (beta3dOn) {
                     renderBeta3dScene(bc, 0, 0, bw, bh);
                 } else {
@@ -7700,11 +7783,11 @@
                 bc.fillRect(half - 1, 0, 2, bh);
             }
 
-            ctx.imageSmoothingEnabled = false;
+            ctx.imageSmoothingEnabled = !!beta3dOn;
             ctx.clearRect(0, 0, cw, ch);
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
-            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * n64RenderScale, bh * n64RenderScale);
+            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * drawScale, bh * drawScale);
             const mmCont = document.getElementById('minimap-container');
             if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
             if (isZombieSecretActive()) {
@@ -9006,8 +9089,10 @@
             function onBeta3dMouseMove(e) {
                 if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
                 if (document.pointerLockElement !== canvas) return;
-                const sens = 0.0022;
-                state.beta3dYaw += (e.movementX || 0) * sens;
+                const sensX = 0.0022;
+                const sensY = 0.0018;
+                state.beta3dYaw += (e.movementX || 0) * sensX;
+                state.beta3dPitch = Math.max(-0.48, Math.min(0.48, (state.beta3dPitch || 0) + (e.movementY || 0) * sensY));
             }
             canvas.addEventListener('click', () => {
                 if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
