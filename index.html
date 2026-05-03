@@ -733,7 +733,13 @@
                     <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
                 </button>
             </label>
-            <p id="lobby-settings-beta-hint" class="text-[8px] text-slate-500 mb-4">Experimental first-person ray view. Only works in 1-player mode before you start.</p>
+            <p id="lobby-settings-beta-hint" class="text-[8px] text-slate-500 mb-3">Experimental first-person ray view. Only works in 1-player mode before you start.</p>
+            <div id="lobby-beta3d-quality-block" class="mb-4 space-y-1">
+                <label id="lobby-settings-beta3d-quality-label" for="lobby-beta3d-quality" class="block text-[9px] text-slate-500 uppercase font-bold">Beta 3D quality</label>
+                <input type="range" id="lobby-beta3d-quality" min="0" max="100" value="70" class="w-full interactive accent-sky-500 h-2">
+                <p id="lobby-beta3d-quality-readout" class="text-[9px] text-slate-400 font-mono">70% · ~2877 rays</p>
+                <p id="lobby-settings-beta3d-quality-hint" class="text-[8px] text-slate-500 leading-snug">Higher = sharper columns on wide screens; lower if the game stutters in first-person.</p>
+            </div>
             <label class="flex items-center justify-between gap-3 cursor-pointer interactive mb-2">
                 <span id="lobby-settings-debug-label" class="text-[11px] text-slate-200 font-bold">Verbose debug logs</span>
                 <button type="button" id="lobby-toggle-debug-verbose" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
@@ -1562,6 +1568,8 @@
         const LS_DEBUG_VERBOSE = 'pixelCityDebugVerbose';
         const LS_LANG = 'pixelCityUiLang';
         const LS_BETA_3D = 'pixelCityBeta3d';
+        /** 0–100; maps to Beta 3D ray column cap (performance vs sharpness). */
+        const LS_BETA_3D_QUALITY = 'pixelCityBeta3dQuality';
         const LS_DEVICE_MODE = 'pixelCityDeviceMode';
         const LS_TUTORIAL_COMPLETED_RUN = 'pixelCityTutorialCompletedRun';
         const LS_TUTORIAL_DECLINED_FOREVER = 'pixelCityTutorialDeclinedForever';
@@ -1623,7 +1631,7 @@
             { id: 'codes', label: 'Friend codes & invites?', answer: () => 'MULTIPLAYER shows Your code — Copy or New code if hosting. Friends paste into Join then everyone taps Start game.' },
             { id: 'solo_online', label: 'Why does 1 PLAYER still sync?', answer: () => 'Signed-in solo quietly hosts Realtime so friends can join your city later — UI stays on 1 PLAYER until you choose MULTIPLAYER.' },
             { id: 'settings_btn', label: 'Where are lobby settings?', answer: () => 'Big ⚙ Settings button at the bottom of the lobby next to Character — language, Beta 3D, verbose logs.' },
-            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Full-screen raycast 3D. Hold Ctrl and left-click the game to capture the mouse and look. WASD moves relative to where you are facing. Esc releases the mouse first, then Esc again leaves to the lobby.' },
+            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Full-screen raycast 3D. Hold Ctrl and left-click the game to capture the mouse and look. WASD moves relative to where you are facing. Esc releases the mouse first, then Esc again leaves to the lobby. In Lobby → Settings, use the Beta 3D quality slider to trade FPS for sharper rays.' },
             { id: 'lang', label: 'Changing language?', answer: () => 'Lobby settings → Language updates buttons like Character / Settings immediately (more translations arrive over time).' },
             { id: 'debug_logs', label: 'Extra debug for bugs?', answer: () => 'Add ?debug=1 to the URL or flip Verbose logs in lobby settings. Run copyPixelCityDebugInfo() in the console to export a bundle.' },
             { id: 'minimap', label: 'Minimap dots?', answer: () => 'Shows buildings, cars, players — including icons while you drive or sit in jail so friends still see you.' },
@@ -1814,6 +1822,11 @@
 
         let initialBeta3d = false;
         try { initialBeta3d = localStorage.getItem(LS_BETA_3D) === '1'; } catch (_) { /* */ }
+        let initialBeta3dQuality = 70;
+        try {
+            const q = parseInt(localStorage.getItem(LS_BETA_3D_QUALITY) || '', 10);
+            if (Number.isFinite(q)) initialBeta3dQuality = Math.max(0, Math.min(100, q));
+        } catch (_) { /* */ }
         let initialUiLang = 'en';
         try {
             const L = localStorage.getItem(LS_LANG);
@@ -1923,6 +1936,8 @@
             beta3dYaw: 0,
             /** First-person pitch (radians), mouse Y while Ctrl+look is active */
             beta3dPitch: 0,
+            /** Beta 3D ray quality 0–100 (lobby slider); higher = more ray columns, heavier GPU */
+            beta3dQualityPercent: initialBeta3dQuality,
             /** UI language code for lobby chrome */
             uiLang: initialUiLang
         };
@@ -3509,7 +3524,10 @@
                 })(),
                 realtimeReady: typeof onlineRealtimeReady !== 'undefined' ? !!onlineRealtimeReady : false,
                 realtimeSubscribedCode: state && state.onlineRealtimeSubscribedCode != null ? state.onlineRealtimeSubscribedCode : null,
-                lobbyHostUpsertSuppressed: typeof lobbyHostUpsertSuppressed !== 'undefined' ? !!lobbyHostUpsertSuppressed : false
+                lobbyHostUpsertSuppressed: typeof lobbyHostUpsertSuppressed !== 'undefined' ? !!lobbyHostUpsertSuppressed : false,
+                beta3dMode: !!(state && state.beta3dMode),
+                beta3dQualityPercent: state && state.beta3dQualityPercent != null ? state.beta3dQualityPercent : null,
+                beta3dMaxRayColumns: typeof getBeta3dMaxRayColumns === 'function' ? getBeta3dMaxRayColumns() : null
             };
         }
 
@@ -5083,6 +5101,8 @@
                 langLabel: 'Language',
                 beta3dLabel: 'Beta 3D (1 player)',
                 beta3dHint: 'Native-res raycast (sharp). Solo 1P. Hold Ctrl and left-click the canvas to look; WASD strafes relative to view. Esc unlocks mouse, Esc again exits.',
+                beta3dQualityLabel: 'Beta 3D quality',
+                beta3dQualityHint: 'Higher = more ray columns (sharper on wide screens). Lower if first-person stutters.',
                 debugLabel: 'Verbose debug logs',
                 debugHint: 'Same as ?debug=1. Errors always log.',
                 deviceComputer: 'Computer',
@@ -5104,6 +5124,8 @@
                 langLabel: 'Idioma',
                 beta3dLabel: 'Beta 3D (1 jugador)',
                 beta3dHint: 'Raycast nativo (nítido). Solo 1 jugador. Ctrl + clic izquierdo en el canvas para mirar; WASD según la vista. Esc libera el ratón; Esc otra vez sale.',
+                beta3dQualityLabel: 'Calidad Beta 3D',
+                beta3dQualityHint: 'Más alto = más rayos (más nítido). Más bajo si va a tirones en primera persona.',
                 debugLabel: 'Registros detallados',
                 debugHint: 'Igual que ?debug=1. Los errores siempre se registran.',
                 deviceComputer: 'Ordenador',
@@ -5125,6 +5147,8 @@
                 langLabel: '言語',
                 beta3dLabel: 'ベータ3D（1人用）',
                 beta3dHint: 'ネイティブ解像度レイキャスト。1人用ソロ。Ctrl+左クリックで視点ロック、WASDは視線基準。Escでマウス解放、もう一度Escでロビーへ。',
+                beta3dQualityLabel: 'ベータ3D品質',
+                beta3dQualityHint: '高いほどレイ数増（高精細）。一人称でカクつく場合は下げる。',
                 debugLabel: '詳細デバッグログ',
                 debugHint: '?debug=1 と同じ。エラーは常に出力。',
                 deviceComputer: 'PC',
@@ -5185,8 +5209,13 @@
             if (dbgL) dbgL.textContent = getUiLabel('debugLabel');
             const dbgH = document.getElementById('lobby-settings-debug-hint');
             if (dbgH) dbgH.textContent = getUiLabel('debugHint');
+            const qLab = document.getElementById('lobby-settings-beta3d-quality-label');
+            if (qLab) qLab.textContent = getUiLabel('beta3dQualityLabel');
+            const qHint = document.getElementById('lobby-settings-beta3d-quality-hint');
+            if (qHint) qHint.textContent = getUiLabel('beta3dQualityHint');
             const sel = document.getElementById('lobby-settings-lang');
             if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
+            updateBeta3dQualityReadout();
         }
 
         function applyLobbyCharacterDuoLock() {
@@ -5263,6 +5292,7 @@
                 if (k2) k2.style.transform = state.beta3dMode ? 'translateX(1.5rem)' : '';
             }
             syncLobbyBarLabels();
+            updateBeta3dQualityReadout();
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
         }
@@ -5285,8 +5315,28 @@
 
         /** Beta 3D: vertical wall height in world units (same scale as building boxes). */
         const BETA3D_WALL_HEIGHT = 320;
-        /** Beta 3D: max ray columns per frame (native width capped for performance; scaled smoothly to screen). */
-        const BETA3D_MAX_RAY_COLUMNS = 2560;
+        const BETA3D_RAY_COLS_MIN = 320;
+        const BETA3D_RAY_COLS_MAX = 4096;
+
+        function getBeta3dMaxRayColumns() {
+            const p = Math.max(0, Math.min(100, Number(state.beta3dQualityPercent) || 0));
+            return Math.round(BETA3D_RAY_COLS_MIN + (p / 100) * (BETA3D_RAY_COLS_MAX - BETA3D_RAY_COLS_MIN));
+        }
+
+        function setBeta3dQualityPercent(p) {
+            state.beta3dQualityPercent = Math.max(0, Math.min(100, Math.round(Number(p) || 0)));
+            try { localStorage.setItem(LS_BETA_3D_QUALITY, String(state.beta3dQualityPercent)); } catch (_) { /* */ }
+            updateBeta3dQualityReadout();
+        }
+
+        function updateBeta3dQualityReadout() {
+            const slider = document.getElementById('lobby-beta3d-quality');
+            const el = document.getElementById('lobby-beta3d-quality-readout');
+            const v = Math.round(state.beta3dQualityPercent);
+            if (slider) slider.value = String(v);
+            const rays = getBeta3dMaxRayColumns();
+            if (el) el.textContent = `${v}% · ~${rays} rays`;
+        }
         /** Horizontal FOV (radians). */
         const BETA3D_FOV = 1.05;
         /** Max ray length in world pixels. */
@@ -5358,7 +5408,7 @@
             const planeX = -dirY * planeScale;
             const planeY = dirX * planeScale;
             const horizon = clipH * (0.5 + pitch * 1.15);
-            const rayCols = Math.min(clipW, BETA3D_MAX_RAY_COLUMNS);
+            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns());
             c.save();
             c.beginPath();
             c.rect(clipX, clipY, clipW, clipH);
@@ -8879,6 +8929,10 @@
             });
             document.getElementById('lobby-toggle-beta3d')?.addEventListener('click', () => {
                 setBeta3dMode(!state.beta3dMode, { silent: false });
+            });
+            document.getElementById('lobby-beta3d-quality')?.addEventListener('input', (e) => {
+                const v = e.target && e.target.value;
+                setBeta3dQualityPercent(v != null ? parseInt(v, 10) : 70);
             });
             document.getElementById('lobby-toggle-debug-verbose')?.addEventListener('click', () => {
                 debugVerbose = !debugVerbose;
