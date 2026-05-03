@@ -1623,7 +1623,7 @@
             { id: 'codes', label: 'Friend codes & invites?', answer: () => 'MULTIPLAYER shows Your code — Copy or New code if hosting. Friends paste into Join then everyone taps Start game.' },
             { id: 'solo_online', label: 'Why does 1 PLAYER still sync?', answer: () => 'Signed-in solo quietly hosts Realtime so friends can join your city later — UI stays on 1 PLAYER until you choose MULTIPLAYER.' },
             { id: 'settings_btn', label: 'Where are lobby settings?', answer: () => 'Big ⚙ Settings button at the bottom of the lobby next to Character — language, Beta 3D, verbose logs.' },
-            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Full-screen raycast 3D: camera plane, distance-correct walls, sky and ground, mouse look (click canvas). Solo 1P only. Turn off if dizzy.' },
+            { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Full-screen raycast 3D. Hold Ctrl and left-click the game to capture the mouse and look. WASD moves relative to where you are facing. Esc releases the mouse first, then Esc again leaves to the lobby.' },
             { id: 'lang', label: 'Changing language?', answer: () => 'Lobby settings → Language updates buttons like Character / Settings immediately (more translations arrive over time).' },
             { id: 'debug_logs', label: 'Extra debug for bugs?', answer: () => 'Add ?debug=1 to the URL or flip Verbose logs in lobby settings. Run copyPixelCityDebugInfo() in the console to export a bundle.' },
             { id: 'minimap', label: 'Minimap dots?', answer: () => 'Shows buildings, cars, players — including icons while you drive or sit in jail so friends still see you.' },
@@ -1921,7 +1921,7 @@
             beta3dMode: initialBeta3d,
             /** First-person yaw (radians), mouse-driven in Beta 3D */
             beta3dYaw: 0,
-            /** First-person pitch (radians), mouse Y in Beta 3D */
+            /** First-person pitch (radians), mouse Y while Ctrl+look is active */
             beta3dPitch: 0,
             /** UI language code for lobby chrome */
             uiLang: initialUiLang
@@ -5082,7 +5082,7 @@
                 lobbySettingsBody: 'Language, experimental view, and debug logs apply on this device.',
                 langLabel: 'Language',
                 beta3dLabel: 'Beta 3D (1 player)',
-                beta3dHint: 'True first-person ray view (Wolfenstein-style). Solo 1P. Click the game for mouse look; higher internal resolution than the top-down view.',
+                beta3dHint: 'Native-res raycast (sharp). Solo 1P. Hold Ctrl and left-click the canvas to look; WASD strafes relative to view. Esc unlocks mouse, Esc again exits.',
                 debugLabel: 'Verbose debug logs',
                 debugHint: 'Same as ?debug=1. Errors always log.',
                 deviceComputer: 'Computer',
@@ -5103,7 +5103,7 @@
                 lobbySettingsBody: 'Idioma, vista experimental y registros de depuración en este dispositivo.',
                 langLabel: 'Idioma',
                 beta3dLabel: 'Beta 3D (1 jugador)',
-                beta3dHint: 'Raycast 3D en primera persona (estilo Wolfenstein). Solo 1 jugador. Clic en el juego para mirar con el ratón; más nitidez que la vista cenital.',
+                beta3dHint: 'Raycast nativo (nítido). Solo 1 jugador. Ctrl + clic izquierdo en el canvas para mirar; WASD según la vista. Esc libera el ratón; Esc otra vez sale.',
                 debugLabel: 'Registros detallados',
                 debugHint: 'Igual que ?debug=1. Los errores siempre se registran.',
                 deviceComputer: 'Ordenador',
@@ -5124,7 +5124,7 @@
                 lobbySettingsBody: '言語・実験ビュー・詳細ログはこの端末に保存されます。',
                 langLabel: '言語',
                 beta3dLabel: 'ベータ3D（1人用）',
-                beta3dHint: 'ウルフェン式レイキャストの一人称3D。1人用ソロのみ。クリックでマウス視点。俯瞰より高精細な内部解像度。',
+                beta3dHint: 'ネイティブ解像度レイキャスト。1人用ソロ。Ctrl+左クリックで視点ロック、WASDは視線基準。Escでマウス解放、もう一度Escでロビーへ。',
                 debugLabel: '詳細デバッグログ',
                 debugHint: '?debug=1 と同じ。エラーは常に出力。',
                 deviceComputer: 'PC',
@@ -5234,7 +5234,7 @@
             }
             if (!state.beta3dMode) state.beta3dPitch = 0;
             if (!silent && !state.beta3dMode) showMessage('Beta 3D off');
-            else if (!silent && state.beta3dMode) showMessage('Beta 3D on — click the game to look around');
+            else if (!silent && state.beta3dMode) showMessage('Beta 3D on — Ctrl+click game to look, WASD to move');
             updateBeta3dBanner();
         }
 
@@ -5285,6 +5285,8 @@
 
         /** Beta 3D: vertical wall height in world units (same scale as building boxes). */
         const BETA3D_WALL_HEIGHT = 320;
+        /** Beta 3D: max ray columns per frame (native width capped for performance; scaled smoothly to screen). */
+        const BETA3D_MAX_RAY_COLUMNS = 2560;
         /** Horizontal FOV (radians). */
         const BETA3D_FOV = 1.05;
         /** Max ray length in world pixels. */
@@ -5356,7 +5358,7 @@
             const planeX = -dirY * planeScale;
             const planeY = dirX * planeScale;
             const horizon = clipH * (0.5 + pitch * 1.15);
-            const cols = clipW;
+            const rayCols = Math.min(clipW, BETA3D_MAX_RAY_COLUMNS);
             c.save();
             c.beginPath();
             c.rect(clipX, clipY, clipW, clipH);
@@ -5373,8 +5375,9 @@
             floorGrad.addColorStop(1, '#052e16');
             c.fillStyle = floorGrad;
             c.fillRect(clipX, horizon, clipW, Math.max(0, clipY + clipH - horizon));
-            for (let col = 0; col < cols; col++) {
-                const cameraX = 2 * (col + 0.5) / cols - 1;
+            for (let col = 0; col < rayCols; col++) {
+                const u = (col + 0.5) / rayCols;
+                const cameraX = 2 * u - 1;
                 let rdx = dirX + planeX * cameraX;
                 let rdy = dirY + planeY * cameraX;
                 const rlen = Math.hypot(rdx, rdy) || 1;
@@ -5411,28 +5414,29 @@
                 const dg = Math.floor(g * 0.35);
                 const db = Math.floor(bch * 0.4);
                 const botRgb = `rgb(${dr},${dg},${db})`;
-                const x0 = clipX + col;
+                const x0 = clipX + (u * clipW - 0.5);
+                const sliceW = Math.max(1, (clipW / rayCols) + 1);
                 if (wallTop > clipY) {
                     c.fillStyle = '#38bdf8';
-                    c.fillRect(x0, clipY, 1, wallTop - clipY);
+                    c.fillRect(x0, clipY, sliceW, wallTop - clipY);
                 }
                 if (wallBot < clipY + clipH) {
                     c.fillStyle = '#14532d';
-                    c.fillRect(x0, wallBot, 1, clipY + clipH - wallBot);
+                    c.fillRect(x0, wallBot, sliceW, clipY + clipH - wallBot);
                 }
                 const gwall = c.createLinearGradient(x0, wallTop, x0, wallBot);
                 gwall.addColorStop(0, topRgb);
                 gwall.addColorStop(0.55, topRgb);
                 gwall.addColorStop(1, botRgb);
                 c.fillStyle = gwall;
-                c.fillRect(x0, wallTop, 1, Math.max(1, wallBot - wallTop));
+                c.fillRect(x0, wallTop, sliceW, Math.max(1, wallBot - wallTop));
             }
             c.fillStyle = 'rgba(15,23,42,0.45)';
             c.fillRect(clipX, clipY + clipH - 30, clipW, 30);
             c.fillStyle = '#e2e8f0';
             c.font = 'bold 11px system-ui,sans-serif';
             c.textAlign = 'center';
-            c.fillText('Beta 3D · mouse look · Esc = lobby', clipX + clipW / 2, clipY + clipH - 11);
+            c.fillText('Beta 3D · Ctrl+click to look · WASD move · Esc unlock / lobby', clipX + clipW / 2, clipY + clipH - 11);
             c.restore();
         }
         
@@ -6916,6 +6920,12 @@
                 const t = e.target;
                 if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
                 if (e.code === 'Escape' && isInGame()) {
+                    if (document.pointerLockElement === canvas) {
+                        e.preventDefault();
+                        try { document.exitPointerLock(); } catch (_) { /* */ }
+                        showMessage('Look mode off — press Esc again to leave game');
+                        return;
+                    }
                     const lo = document.getElementById('hud-loadout-overlay');
                     const inv = document.getElementById('hud-inventory-overlay');
                     if (lo && !lo.classList.contains('hidden')) {
@@ -7013,10 +7023,17 @@
             return true;
         }
 
+        function isBeta3dFpP1() {
+            return state.playerMode === 1 && state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
+        }
+
         function getInternalPixelScale() {
-            const beta3dOn = state.beta3dMode && isInGame() && state.playerMode === 1 && !(state.playMode === 'online' && !state.isSoloAutoHost);
-            if (beta3dOn) return Math.max(1, n64RenderScale - 1);
+            if (isBeta3dFpP1() && isInGame()) return 1;
             return n64RenderScale;
+        }
+
+        function isBeta3dLookActive() {
+            return isBeta3dFpP1() && document.pointerLockElement === canvas;
         }
 
         function getViewBufferSize() {
@@ -7182,11 +7199,24 @@
                     }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
                 } else if (!stunLock) {
-                    let mx=0, my=0; 
-                    if(state.keys[controls.u]) my-=spd; 
-                    if(state.keys[controls.d]) my+=spd; 
-                    if(state.keys[controls.l]) mx-=spd; 
-                    if(state.keys[controls.r]) mx+=spd;
+                    let mx = 0;
+                    let my = 0;
+                    if (idx === 0 && isBeta3dFpP1() && !p.inVehicle) {
+                        const yaw = state.beta3dYaw;
+                        const fx = Math.cos(yaw);
+                        const fy = Math.sin(yaw);
+                        const rx = -fy;
+                        const ry = fx;
+                        if (state.keys[controls.u]) { mx += fx * spd; my += fy * spd; }
+                        if (state.keys[controls.d]) { mx -= fx * spd; my -= fy * spd; }
+                        if (state.keys[controls.l]) { mx -= rx * spd; my -= ry * spd; }
+                        if (state.keys[controls.r]) { mx += rx * spd; my += ry * spd; }
+                    } else {
+                        if (state.keys[controls.u]) my -= spd;
+                        if (state.keys[controls.d]) my += spd;
+                        if (state.keys[controls.l]) mx -= spd;
+                        if (state.keys[controls.r]) mx += spd;
+                    }
                     
                     const nx = p.x + mx, ny = p.y + my; 
                     
@@ -7196,7 +7226,11 @@
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
                     p.x = Math.max(20, Math.min(3980, Math.round(p.x)));
                     p.y = Math.max(20, Math.min(3980, Math.round(p.y)));
-                    if(mx!==0 || my!==0) p.angle = Math.atan2(my, mx);
+                    if (idx === 0 && isBeta3dFpP1() && !p.inVehicle) {
+                        p.angle = state.beta3dYaw;
+                    } else if (mx !== 0 || my !== 0) {
+                        p.angle = Math.atan2(my, mx);
+                    }
                 }
                 const pr = document.getElementById(`prompt-${idx}`); if (pr) {
                     const subEl = document.getElementById(`prompt-sub-${idx}`);
@@ -7760,7 +7794,7 @@
             const bc = ensureGameBuffer(cw, ch);
             if (!bc) return;
             const beta3dOn = state.playerMode === 1 && state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
-            bc.imageSmoothingEnabled = !!beta3dOn;
+            bc.imageSmoothingEnabled = !beta3dOn;
             const drawScale = getInternalPixelScale();
             const bw = gameBuffer.width;
             const bh = gameBuffer.height;
@@ -7783,7 +7817,7 @@
                 bc.fillRect(half - 1, 0, 2, bh);
             }
 
-            ctx.imageSmoothingEnabled = !!beta3dOn;
+            ctx.imageSmoothingEnabled = !beta3dOn;
             ctx.clearRect(0, 0, cw, ch);
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
@@ -9087,17 +9121,21 @@
             resize();
 
             function onBeta3dMouseMove(e) {
-                if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
-                if (document.pointerLockElement !== canvas) return;
+                if (!isBeta3dLookActive()) return;
                 const sensX = 0.0022;
                 const sensY = 0.0018;
                 state.beta3dYaw += (e.movementX || 0) * sensX;
                 state.beta3dPitch = Math.max(-0.48, Math.min(0.48, (state.beta3dPitch || 0) + (e.movementY || 0) * sensY));
             }
-            canvas.addEventListener('click', () => {
+            canvas.addEventListener('mousedown', (e) => {
                 if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
                 if (state.playMode === 'online' && !state.isSoloAutoHost) return;
+                if (e.button !== 0 || !e.ctrlKey) return;
+                e.preventDefault();
                 canvas.requestPointerLock?.();
+            });
+            canvas.addEventListener('contextmenu', (e) => {
+                if (isBeta3dFpP1() && isInGame()) e.preventDefault();
             });
             document.addEventListener('pointerlockchange', () => {
                 if (document.pointerLockElement !== canvas && state.beta3dMode && isInGame()) {
