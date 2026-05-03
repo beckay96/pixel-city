@@ -5326,6 +5326,8 @@
         const BETA3D_WALL_HEIGHT = 320;
         const BETA3D_RAY_COLS_MIN = 320;
         const BETA3D_RAY_COLS_MAX = 4096;
+        /** In-game raycast cap (quality slider can go higher for lobby preview only). */
+        const BETA3D_IN_GAME_RAY_CAP = 1920;
 
         function getBeta3dMaxRayColumns() {
             return getBeta3dMaxRayColumnsForPercent(state.beta3dQualityPercent);
@@ -5508,6 +5510,7 @@
         }
 
         function paintLobbyBeta3dQualityPreview() {
+            if (isInGame()) return;
             const cv = document.getElementById('lobby-beta3d-quality-preview');
             if (!cv) return;
             const cssW = cv.clientWidth || 280;
@@ -5540,7 +5543,7 @@
             const oy = p0.y;
             const yaw = state.beta3dYaw;
             const pitch = Math.max(-0.42, Math.min(0.42, state.beta3dPitch || 0));
-            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns());
+            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns(), BETA3D_IN_GAME_RAY_CAP);
             renderBeta3dRaycastStripes(c, clipX, clipY, clipW, clipH, ox, oy, yaw, pitch, rayCols, state.buildings);
             c.save();
             c.beginPath();
@@ -5616,7 +5619,7 @@
 
         function resize() {
             syncMobileViewport();
-            paintLobbyBeta3dQualityPreview();
+            if (!isInGame()) paintLobbyBeta3dQualityPreview();
         }
 
         /** True for phones/small touch layouts — wider world view + capped DPR so the city does not feel “zoomed in”. */
@@ -9237,7 +9240,6 @@
 
             window.addEventListener('resize', resize);
             window.visualViewport?.addEventListener('resize', resize);
-            window.visualViewport?.addEventListener('scroll', resize);
             resize();
 
             function onBeta3dMouseMove(e) {
