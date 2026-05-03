@@ -202,6 +202,107 @@
         }
         #in-game-phone-btn:active { transform: scale(0.95); }
 
+        #tutorial-welcome-overlay {
+            position: fixed; inset: 0; z-index: 460; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.82); padding: 16px; pointer-events: auto;
+        }
+        #tutorial-welcome-overlay.open { display: flex; }
+
+        #tutorial-buddy-dock {
+            position: fixed;
+            bottom: 84px;
+            left: 12px;
+            z-index: 340;
+            display: none;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            pointer-events: none;
+        }
+        #tutorial-buddy-dock.visible {
+            display: flex;
+        }
+        #tutorial-buddy-dock .interactive,
+        #tutorial-buddy-dock button {
+            pointer-events: auto;
+        }
+        .tutorial-buddy-toggle-btn {
+            position: relative;
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+            border: 3px solid #1e3a8a;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.55);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .tutorial-buddy-toggle-btn:active { transform: scale(0.96); }
+        .tutorial-buddy-antenna {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 12px;
+            background: #1e293b;
+            border-radius: 2px;
+            animation: buddy-antenna-wiggle 2.2s ease-in-out infinite;
+        }
+        .tutorial-buddy-antenna::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background: #fbbf24;
+            border-radius: 50%;
+            border: 1px solid #92400e;
+        }
+        @keyframes buddy-antenna-wiggle {
+            0%, 100% { transform: translateX(-50%) rotate(-6deg); }
+            50% { transform: translateX(-50%) rotate(6deg); }
+        }
+        .tutorial-buddy-face {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding-top: 2px;
+        }
+        .tutorial-buddy-eyes {
+            display: flex;
+            gap: 10px;
+        }
+        .tutorial-buddy-eye {
+            width: 8px;
+            height: 8px;
+            background: #0f172a;
+            border-radius: 50%;
+        }
+        .tutorial-buddy-mouth {
+            width: 22px;
+            height: 3px;
+            background: #0f172a;
+            border-radius: 1px;
+        }
+        #tutorial-buddy-panel {
+            max-width: min(92vw, 300px);
+            background: rgba(15, 23, 42, 0.96);
+            border: 2px solid rgba(56, 189, 248, 0.55);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+        }
+
         #lobby-stats-fab {
             position: fixed;
             bottom: 16px;
@@ -839,6 +940,47 @@
             </svg>
         </button>
 
+        <div id="tutorial-welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="tutorial-welcome-title">
+            <div class="bg-slate-900 border-2 border-sky-500 rounded-2xl p-5 max-w-sm w-full shadow-[0_0_40px_rgba(56,189,248,0.25)]">
+                <div class="flex gap-3 items-start mb-4">
+                    <div class="tutorial-buddy-toggle-btn shrink-0 flex-shrink-0" style="width:52px;height:52px;cursor:default;pointer-events:none" aria-hidden="true">
+                        <span class="tutorial-buddy-antenna"></span>
+                        <span class="tutorial-buddy-face">
+                            <span class="tutorial-buddy-eyes"><span class="tutorial-buddy-eye"></span><span class="tutorial-buddy-eye"></span></span>
+                            <span class="tutorial-buddy-mouth"></span>
+                        </span>
+                    </div>
+                    <div>
+                        <h2 id="tutorial-welcome-title" class="text-sky-300 font-black text-xs uppercase tracking-widest mb-1">Guide bot</h2>
+                        <p class="text-sm text-slate-200 leading-snug">Hi! I'm here to help. Want a quick tutorial tour of the controls and goals?</p>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button type="button" id="tutorial-welcome-yes" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-black py-3 rounded-xl interactive text-sm">Yes — start tutorial</button>
+                    <button type="button" id="tutorial-welcome-later" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-2.5 rounded-xl interactive text-xs">Maybe later</button>
+                    <button type="button" id="tutorial-welcome-no" class="w-full text-slate-500 hover:text-slate-300 font-bold py-2 text-[11px] interactive">No thanks</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tutorial-buddy-dock" aria-live="polite">
+            <button type="button" id="tutorial-buddy-toggle" class="tutorial-buddy-toggle-btn interactive" title="Guide bot — tips &amp; help" aria-expanded="false" aria-controls="tutorial-buddy-panel">
+                <span class="tutorial-buddy-antenna" aria-hidden="true"></span>
+                <span class="tutorial-buddy-face">
+                    <span class="tutorial-buddy-eyes" aria-hidden="true"><span class="tutorial-buddy-eye"></span><span class="tutorial-buddy-eye"></span></span>
+                    <span class="tutorial-buddy-mouth" aria-hidden="true"></span>
+                </span>
+            </button>
+            <div id="tutorial-buddy-panel" class="hidden">
+                <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest mb-1">Guide bot</p>
+                <p id="tutorial-buddy-msg" class="text-[11px] text-slate-200 leading-snug mb-3 min-h-[3rem]">Pick a topic — I'm pre-programmed with answers!</p>
+                <label for="tutorial-buddy-topic" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Ask about…</label>
+                <select id="tutorial-buddy-topic" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-2 px-2 mb-2 interactive"></select>
+                <button type="button" id="tutorial-buddy-tell" class="w-full bg-sky-600 hover:bg-sky-500 text-white text-xs font-black py-2 rounded-lg interactive mb-2">Tell me</button>
+                <button type="button" id="tutorial-buddy-close" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold py-2 rounded-lg interactive">Hide</button>
+            </div>
+        </div>
+
         <!-- GOD PANEL UI (GODLY code or admin PIN) -->
         <div id="god-panel-btn" class="hidden fixed top-4 right-4 bg-yellow-500 text-black font-black px-4 py-2 rounded-lg interactive z-[300] shadow-[0_0_15px_rgba(234,179,8,0.8)] border-2 border-white cursor-pointer">
             GOD MODE
@@ -1310,6 +1452,8 @@
 
         /** Verbose console + ring buffer for support. Enable: ?debug=1 or localStorage pixelCityDebugVerbose=1 */
         const LS_DEBUG_VERBOSE = 'pixelCityDebugVerbose';
+        const LS_TUTORIAL_COMPLETED_RUN = 'pixelCityTutorialCompletedRun';
+        const LS_TUTORIAL_DECLINED_FOREVER = 'pixelCityTutorialDeclinedForever';
         const DEBUG_RING_MAX = 100;
         const debugRing = [];
         let debugVerbose = false;
@@ -1328,6 +1472,141 @@
             }
         }
         initPixelCityDebug();
+
+        /** Guide bot — pre-programmed FAQ for new players */
+        const TUTORIAL_BUDDY_TOPICS = [
+            {
+                id: 'welcome',
+                label: 'What do I do first?',
+                answer: (ctx) => `Walk around with ${ctx.moveKeys}. ${ctx.interactHint} Green buildings are shops — earn cash at the store. Save often from the 🌍 menu!`
+            },
+            {
+                id: 'goal',
+                label: 'What is the goal?',
+                answer: () => 'Grow your wallet — $100k is the headline goal on the HUD. Buy better cars to earn more per tap at the store. Secret modes change the rules — try “Secret Modes” in the lobby.'
+            },
+            {
+                id: 'money',
+                label: 'How do I make money?',
+                answer: () => 'Work at the Store building (green), rob houses (spin wheel — cops may chase), or loot in special modes. Sell cars at the dealership for half what you paid.'
+            },
+            {
+                id: 'police',
+                label: 'Police & wanted stars?',
+                answer: () => 'Robberies can alert police — stars show on screen. Lose them by reaching your safe house (home lot) or outrunning cops. Vault jobs pay more but cops are tougher.'
+            },
+            {
+                id: 'cars',
+                label: 'Cars & driving?',
+                answer: () => 'Buy at the blue dealership — cars spawn at the lot. Walk up and press your interact key to enter. Hold movement keys — cars only drive while keys are held.'
+            },
+            {
+                id: 'multi',
+                label: 'Playing with friends?',
+                answer: () => 'In the lobby pick MULTIPLAYER: host shares a code, friend pastes it and taps Join, then both tap Start game. Your friend appears as a dot on the map.'
+            },
+            {
+                id: 'save',
+                label: 'Saving progress?',
+                answer: () => 'Tap 🌍 in-game → Save progress (autosave also runs periodically). Use Save & leave to return to the lobby. Load from the lobby when you come back.'
+            },
+            {
+                id: 'phone',
+                label: 'What is the phone icon?',
+                answer: () => 'Bottom-left smartphone — GPS, mini-games, and messages. Open it when you need a route or a break.'
+            },
+            {
+                id: 'health',
+                label: 'Health & hospital?',
+                answer: () => 'Watch your green HP bar. Downed teammates can be revived in co-op; hospital helps when you are hurt — keep cash for fees.'
+            }
+        ];
+
+        function getTutorialBuddyContext() {
+            const phone = state.deviceMode === 'phone';
+            const duo = state.playerMode === 2;
+            let moveKeys = phone ? 'drag / tap sides of the screen' : 'W A S D';
+            let interactHint = phone ? 'Tap the action button when a prompt appears.' : 'Press E near doors (Player 2 uses Shift).';
+            if (duo && !phone) interactHint = 'P1: E to interact · P2: Shift.';
+            return { moveKeys, interactHint, phone, duo };
+        }
+
+        function populateTutorialBuddyTopics() {
+            const sel = document.getElementById('tutorial-buddy-topic');
+            if (!sel) return;
+            sel.innerHTML = '';
+            TUTORIAL_BUDDY_TOPICS.forEach((t, i) => {
+                const opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = t.label;
+                sel.appendChild(opt);
+            });
+        }
+
+        function showTutorialBuddyAnswer(idx) {
+            const msg = document.getElementById('tutorial-buddy-msg');
+            const topic = TUTORIAL_BUDDY_TOPICS[idx];
+            if (!msg || !topic) return;
+            const ctx = getTutorialBuddyContext();
+            msg.textContent = typeof topic.answer === 'function' ? topic.answer(ctx) : String(topic.answer);
+        }
+
+        function openTutorialBuddyPanel() {
+            const panel = document.getElementById('tutorial-buddy-panel');
+            const btn = document.getElementById('tutorial-buddy-toggle');
+            if (!panel) return;
+            panel.classList.remove('hidden');
+            if (btn) btn.setAttribute('aria-expanded', 'true');
+            showTutorialBuddyAnswer(parseInt(document.getElementById('tutorial-buddy-topic')?.value || '0', 10) || 0);
+        }
+
+        function closeTutorialBuddyPanel() {
+            const panel = document.getElementById('tutorial-buddy-panel');
+            const btn = document.getElementById('tutorial-buddy-toggle');
+            if (panel) panel.classList.add('hidden');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleTutorialBuddyPanel() {
+            const panel = document.getElementById('tutorial-buddy-panel');
+            if (!panel) return;
+            if (panel.classList.contains('hidden')) openTutorialBuddyPanel();
+            else closeTutorialBuddyPanel();
+        }
+
+        function updateTutorialBuddyDockVisibility() {
+            const dock = document.getElementById('tutorial-buddy-dock');
+            if (!dock) return;
+            const show = isInGame() && !state.gamePaused && !state.isGameOver;
+            dock.classList.toggle('visible', show);
+            if (!show) closeTutorialBuddyPanel();
+        }
+
+        function openTutorialWelcomeOverlay() {
+            const o = document.getElementById('tutorial-welcome-overlay');
+            if (!o) return;
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+            state.gamePaused = true;
+        }
+
+        function closeTutorialWelcomeOverlay() {
+            const o = document.getElementById('tutorial-welcome-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
+            state.gamePaused = false;
+        }
+
+        function maybeOfferTutorialAfterNewGame(mergedSave) {
+            if (mergedSave) return;
+            try {
+                if (localStorage.getItem(LS_TUTORIAL_DECLINED_FOREVER) === '1') return;
+                if (localStorage.getItem(LS_TUTORIAL_COMPLETED_RUN) === '1') return;
+            } catch (_) {}
+            if ((state.winCount || 0) > 0) return;
+            queueMicrotask(() => openTutorialWelcomeOverlay());
+        }
 
         function pcDebugSanitizeUrl(url) {
             try {
@@ -2963,6 +3242,9 @@
         function showLobbyFromSignIn() {
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
+            closeTutorialWelcomeOverlay();
+            closeTutorialBuddyPanel();
+            state.gamePaused = false;
             setInGamePhoneVisible(false);
             const xb = document.getElementById('exit-to-lobby-btn');
             if (xb) xb.style.display = 'none';
@@ -2973,6 +3255,7 @@
             updateSavedWorldButton();
             applyModeButtonStyles();
             updateLobbyHints();
+            updateTutorialBuddyDockVisibility();
         }
 
         function isSignInScreenVisible() {
@@ -3009,6 +3292,9 @@
         function exitToLobby() {
             autosaveWorld();
             hideWastedOverlay();
+            closeTutorialWelcomeOverlay();
+            closeTutorialBuddyPanel();
+            state.gamePaused = false;
             state.isGameOver = true;
             clearGpsRoute();
             const sb = document.getElementById('smartphone-overlay');
@@ -3033,6 +3319,7 @@
             applyModeButtonStyles();
             updateLobbyHints();
             updateSavedWorldButton();
+            updateTutorialBuddyDockVisibility();
         }
 
         function getSupabaseConfig() {
@@ -4846,6 +5133,8 @@
         };
 
         window.restartGame = () => {
+            closeTutorialWelcomeOverlay();
+            closeTutorialBuddyPanel();
             clearGpsRoute();
             state.benHouseRobbed = false;
             state.benCodeOkThisRun = false;
@@ -4943,6 +5232,7 @@
             const hm = document.getElementById('hospital-modal');
             if (hm) hm.style.display = 'none';
             updateIngameSchoolGameBadge();
+            updateTutorialBuddyDockVisibility();
         };
 
         window.closePlayerModal = (pIdx) => {
@@ -6072,8 +6362,10 @@
             }
 
             initGameLoop();
+            populateTutorialBuddyTopics();
+            updateTutorialBuddyDockVisibility();
+            maybeOfferTutorialAfterNewGame(mergedSave);
         }
-
         /** Grid cars: accelerate only while the key matching travel direction is held. */
         function vehicleForwardKeyHeld(v, controls) {
             const c = Math.cos(v.angle);
@@ -7064,6 +7356,7 @@
         function gameLoop() {
             if (!state.gamePaused) update();
             draw();
+            updateTutorialBuddyDockVisibility();
             requestAnimationFrame(gameLoop);
         }
 
@@ -7850,6 +8143,37 @@
 
             document.getElementById('dealer-buy-friend-0')?.addEventListener('click', () => onDealerBuyForFriendClick(0));
             document.getElementById('dealer-buy-friend-1')?.addEventListener('click', () => onDealerBuyForFriendClick(1));
+
+            populateTutorialBuddyTopics();
+            document.getElementById('tutorial-buddy-toggle')?.addEventListener('click', () => toggleTutorialBuddyPanel());
+            document.getElementById('tutorial-buddy-close')?.addEventListener('click', () => closeTutorialBuddyPanel());
+            document.getElementById('tutorial-buddy-tell')?.addEventListener('click', () => {
+                const sel = document.getElementById('tutorial-buddy-topic');
+                const idx = sel ? parseInt(sel.value, 10) : 0;
+                showTutorialBuddyAnswer(Number.isFinite(idx) ? idx : 0);
+            });
+            document.getElementById('tutorial-buddy-topic')?.addEventListener('change', (e) => {
+                const idx = e.target ? parseInt(e.target.value, 10) : 0;
+                showTutorialBuddyAnswer(Number.isFinite(idx) ? idx : 0);
+            });
+            document.getElementById('tutorial-welcome-yes')?.addEventListener('click', () => {
+                try { localStorage.setItem(LS_TUTORIAL_COMPLETED_RUN, '1'); } catch (_) {}
+                closeTutorialWelcomeOverlay();
+                openTutorialBuddyPanel();
+                showTutorialBuddyAnswer(0);
+                showMessage('Guide bot: tap the blue square anytime for tips!');
+            });
+            document.getElementById('tutorial-welcome-later')?.addEventListener('click', () => {
+                closeTutorialWelcomeOverlay();
+                showMessage('Ok — tap the little blue guide bot in the corner when you want tips.');
+            });
+            document.getElementById('tutorial-welcome-no')?.addEventListener('click', () => {
+                try {
+                    localStorage.setItem(LS_TUTORIAL_DECLINED_FOREVER, '1');
+                    localStorage.setItem(LS_TUTORIAL_COMPLETED_RUN, '1');
+                } catch (_) {}
+                closeTutorialWelcomeOverlay();
+            });
 
             const signInMsg = document.getElementById('sign-in-msg');
             const userInput = document.getElementById('auth-username-input');
