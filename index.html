@@ -238,6 +238,31 @@
         }
         #lobby-stats-overlay.open { display: flex; }
 
+        #lobby-settings-fab {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1150;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #334155, #1e293b);
+            border: 2px solid #64748b;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            color: #e2e8f0;
+        }
+        #lobby-settings-fab:active { transform: scale(0.95); }
+        #lobby-settings-overlay {
+            position: fixed; inset: 0; z-index: 1160; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.78); padding: 16px; pointer-events: auto;
+        }
+        #lobby-settings-overlay.open { display: flex; }
+
         #owner-dashboard-fab {
             position: fixed;
             bottom: 80px;
@@ -543,6 +568,26 @@
                 <p class="text-[10px] text-center text-cyan-400/90 mt-2 font-bold">Admin PIN also unlocks GOD MODE in-game (same as GODLY).</p>
                 <p class="text-[10px] text-center text-slate-500 mt-2 border-t border-slate-700 pt-2">PixelPhone → Messages: <span class="text-amber-400 font-mono">/help</span> · <span class="font-mono text-amber-400/90">/explode</span> <span class="font-mono text-amber-400/90">/destroy</span> · <span class="font-mono text-amber-400/90">/kill</span> · <span class="font-mono text-amber-400/90">/teleport all</span></p>
             </div>
+        </div>
+    </div>
+
+    <button type="button" id="lobby-settings-fab" class="interactive" title="Settings" aria-label="Open settings">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
+    <div id="lobby-settings-overlay" role="dialog" aria-modal="true" aria-labelledby="lobby-settings-title">
+        <div class="bg-slate-900 border border-slate-500 rounded-2xl p-5 max-w-sm w-full shadow-xl">
+            <div class="flex justify-between items-start gap-2 mb-3">
+                <h2 id="lobby-settings-title" class="text-slate-200 font-black text-sm uppercase tracking-widest">Settings</h2>
+                <button type="button" id="lobby-settings-close" class="text-slate-400 hover:text-white text-lg font-bold interactive leading-none px-1">✕</button>
+            </div>
+            <label class="flex items-start gap-3 cursor-pointer interactive mb-4">
+                <input type="checkbox" id="lobby-settings-debug-verbose" class="mt-1 rounded border-slate-600 interactive" />
+                <span>
+                    <span class="block text-sm font-bold text-white">Verbose debug logs</span>
+                    <span class="block text-[10px] text-slate-400 mt-0.5 leading-snug">Extra PixelCity console detail (multiplayer / sessions). Errors always log.</span>
+                </span>
+            </label>
+            <p class="text-[10px] text-slate-500 leading-snug border-t border-slate-700 pt-3">Tip: add <span class="text-cyan-400 font-mono">?debug=1</span> to the URL. In-game support export: <span class="text-cyan-400 font-mono">await copyPixelCityDebugInfo()</span></p>
         </div>
     </div>
 
@@ -3101,6 +3146,7 @@
             if (xbOut) xbOut.style.display = 'none';
             setInGamePhoneVisible(false);
             updateOwnerDashboardFabVisibility();
+            updateLobbyStatsFabVisibility();
             applyModeButtonStyles();
             updateLobbyHints();
             updateSavedWorldButton();
@@ -3227,6 +3273,38 @@
             if (!fab) return;
             const inLobby = isLobbyScreenVisible();
             fab.style.display = (inLobby && state.lobbyStatsUnlocked) ? 'flex' : 'none';
+            updateLobbySettingsFabVisibility();
+        }
+
+        function updateLobbySettingsFabVisibility() {
+            const fab = document.getElementById('lobby-settings-fab');
+            if (!fab) return;
+            fab.style.display = isLobbyScreenVisible() ? 'flex' : 'none';
+        }
+
+        function syncLobbySettingsCheckboxFromStorage() {
+            const cb = document.getElementById('lobby-settings-debug-verbose');
+            if (!cb) return;
+            try {
+                cb.checked = localStorage.getItem(LS_DEBUG_VERBOSE) === '1';
+            } catch (_) {
+                cb.checked = false;
+            }
+        }
+
+        function openLobbySettingsOverlay() {
+            const o = document.getElementById('lobby-settings-overlay');
+            if (!o) return;
+            syncLobbySettingsCheckboxFromStorage();
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeLobbySettingsOverlay() {
+            const o = document.getElementById('lobby-settings-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
         }
 
         function closeLobbyStatsOverlay() {
@@ -6004,6 +6082,7 @@
             try {
                 document.getElementById('lobby-screen').style.display = 'none';
                 document.getElementById('sign-in-screen').style.display = 'flex';
+                updateLobbySettingsFabVisibility();
             } catch (_) {}
         }
 
@@ -6204,6 +6283,7 @@
                         pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
                         showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
                         document.getElementById('lobby-screen').style.display = 'flex';
+                        updateLobbySettingsFabVisibility();
                         setInGamePhoneVisible(false);
                         const xb2 = document.getElementById('exit-to-lobby-btn');
                         if (xb2) xb2.style.display = 'none';
@@ -6225,6 +6305,7 @@
                         pcDebug('error', 'join_room_multiplayer_realtime_failed', { code: state.onlineSessionCode, reason: sub.reason || null });
                         showMessage(sub.reason === 'timeout' ? '📶 Connection timed out — check your internet and try again.' : '📶 Connection failed. Try again.');
                         document.getElementById('lobby-screen').style.display = 'flex';
+                        updateLobbySettingsFabVisibility();
                         setInGamePhoneVisible(false);
                         const xb2 = document.getElementById('exit-to-lobby-btn');
                         if (xb2) xb2.style.display = 'none';
@@ -6306,8 +6387,10 @@
                 }
             }
             closeLobbyStatsOverlay();
+            closeLobbySettingsOverlay();
 
             document.getElementById('lobby-screen').style.display = 'none';
+            updateLobbySettingsFabVisibility();
             state.isGameOver = false;
             state.gamePaused = false;
             if (!mergedSave) {
@@ -8313,6 +8396,7 @@
                 // Go back to sign-in screen
                 document.getElementById('lobby-screen').style.display = 'none';
                 document.getElementById('sign-in-screen').style.display = 'flex';
+                updateLobbySettingsFabVisibility();
             });
 
             document.getElementById('lobby-stats-fab')?.addEventListener('click', () => {
@@ -8326,6 +8410,20 @@
             document.getElementById('lobby-stats-close')?.addEventListener('click', () => closeLobbyStatsOverlay());
             document.getElementById('lobby-stats-overlay')?.addEventListener('click', (e) => {
                 if (e.target && e.target.id === 'lobby-stats-overlay') closeLobbyStatsOverlay();
+            });
+
+            document.getElementById('lobby-settings-fab')?.addEventListener('click', () => openLobbySettingsOverlay());
+            document.getElementById('lobby-settings-close')?.addEventListener('click', () => closeLobbySettingsOverlay());
+            document.getElementById('lobby-settings-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'lobby-settings-overlay') closeLobbySettingsOverlay();
+            });
+            document.getElementById('lobby-settings-debug-verbose')?.addEventListener('change', (e) => {
+                const on = !!(e.target && e.target.checked);
+                try {
+                    if (on) localStorage.setItem(LS_DEBUG_VERBOSE, '1');
+                    else localStorage.removeItem(LS_DEBUG_VERBOSE);
+                } catch (_) {}
+                debugVerbose = on;
             });
 
             document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
