@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>Pixel City Evolution 1</title>
     <meta name="description" content="Pixel City Evolution 1 — multiplayer low‑res city game. Sign in for online play or go offline.">
     <!-- Production root URL — invite links and meta tags point here so shares work from forks/GitHub Pages previews -->
@@ -19,8 +19,17 @@
     <!--SUPABASE_BUILD_INJECT-->
     <script src="config.js"></script>
     <style>
+        html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
         body {
             margin: 0;
+            height: 100%;
+            width: 100%;
             overflow: hidden;
             background-color: #1a1a1a;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -1228,8 +1237,11 @@
             { id: 'yellow', label: 'Yellow', color: '#facc15' },
             { id: 'white', label: 'White', color: '#e2e8f0' }
         ];
-        /** < 1 = zoomed out (see more world). 0.8 ≈ 25% more visible area. */
-        const CAMERA_ZOOM = 0.82;
+        /** < 1 = zoomed out (see more world). Phones use a lower effective zoom via syncMobileViewport(). */
+        const CAMERA_ZOOM_DESKTOP = 0.82;
+        let cameraZoom = CAMERA_ZOOM_DESKTOP;
+        /** Internal pixel scale for chunky upscale; 2 on narrow phones for a wider world view. */
+        let n64RenderScale = 3;
         const JAIL_SENTENCE_TEXT = 'I will not rob anybody ever again';
         const JAIL_LINE_TIMES = 5;
         const BEN_HOUSE_CASH = 75000;
@@ -4680,8 +4692,53 @@
         }
 
         function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            syncMobileViewport();
+        }
+
+        /** True for phones/small touch layouts — wider world view + capped DPR so the city does not feel “zoomed in”. */
+        function isCoarseTouchPhoneLayout() {
+            if (typeof window.matchMedia === 'function') {
+                try {
+                    if (window.matchMedia('(pointer: coarse)').matches && window.matchMedia('(max-width: 900px)').matches) return true;
+                } catch (_) {}
+            }
+            const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        }
+
+        function syncMobileViewport() {
+            const vv = window.visualViewport;
+            let cssW = vv ? vv.width : window.innerWidth;
+            let cssH = vv ? vv.height : window.innerHeight;
+            if (!Number.isFinite(cssW) || cssW <= 0) cssW = window.innerWidth;
+            if (!Number.isFinite(cssH) || cssH <= 0) cssH = window.innerHeight;
+
+            const coarseTouch = isCoarseTouchPhoneLayout();
+            const shortSide = Math.min(cssW, cssH);
+            const phoneLayout = coarseTouch && shortSide <= 600;
+
+            if (phoneLayout) {
+                n64RenderScale = 2;
+                cameraZoom = Math.min(CAMERA_ZOOM_DESKTOP, 0.62 + cssW / 2200);
+                cameraZoom = Math.max(0.56, cameraZoom);
+            } else {
+                n64RenderScale = 3;
+                cameraZoom = CAMERA_ZOOM_DESKTOP;
+            }
+
+            const rawDpr = window.devicePixelRatio || 1;
+            const dprCap = phoneLayout ? 2 : 4;
+            const scale = Math.min(rawDpr, dprCap);
+
+            canvas.style.width = `${cssW}px`;
+            canvas.style.height = `${cssH}px`;
+            canvas.style.maxWidth = '100vw';
+            canvas.style.maxHeight = '100dvh';
+            const bw = Math.max(1, Math.floor(cssW * scale));
+            const bh = Math.max(1, Math.floor(cssH * scale));
+            canvas.width = bw;
+            canvas.height = bh;
+
             minimapCanvas.width = MINIMAP_PX;
             minimapCanvas.height = MINIMAP_PX;
         }
@@ -6142,8 +6199,8 @@
         }
 
         function getViewBufferSize() {
-            const w = Math.max(64, Math.floor(canvas.width / N64_RENDER_SCALE));
-            const h = Math.max(64, Math.floor(canvas.height / N64_RENDER_SCALE));
+            const w = Math.max(64, Math.floor(canvas.width / n64RenderScale));
+            const h = Math.max(64, Math.floor(canvas.height / n64RenderScale));
             return { bw: w, bh: h };
         }
 
@@ -6427,7 +6484,7 @@
             }
 
             const CAM_LERP = 0.12;
-            const Z = CAMERA_ZOOM;
+            const Z = cameraZoom;
             const { bw, bh } = getViewBufferSize();
             if (state.playerMode === 1 && state.players[0]) {
                 const f = state.players[state.spectatePIdx] && !state.players[state.spectatePIdx].dead ? state.players[state.spectatePIdx] : state.players[0];
@@ -6474,8 +6531,6 @@
             updateHealthBars();
         }
 
-        /** N64-style: world drawn at low res then scaled up (chunky pixels) */
-        const N64_RENDER_SCALE = 3;
         let gameBuffer = null;
         let gameBufCtx = null;
 
@@ -6487,8 +6542,8 @@
                     gameBufCtx.imageSmoothingEnabled = false;
                 }
             }
-            const bw = Math.max(64, Math.floor(w / N64_RENDER_SCALE));
-            const bh = Math.max(64, Math.floor(h / N64_RENDER_SCALE));
+            const bw = Math.max(64, Math.floor(w / n64RenderScale));
+            const bh = Math.max(64, Math.floor(h / n64RenderScale));
             if (gameBuffer.width !== bw || gameBuffer.height !== bh) {
                 gameBuffer.width = bw;
                 gameBuffer.height = bh;
@@ -6573,7 +6628,7 @@
 
         function renderScene(targetCtx, camera, clipX, clipY, clipW, clipH) {
             const c = targetCtx;
-            const Z = CAMERA_ZOOM;
+            const Z = cameraZoom;
             c.save(); c.beginPath(); c.rect(clipX, clipY, clipW, clipH); c.clip();
             c.translate(clipX, clipY);
             c.scale(Z, Z);
@@ -6883,8 +6938,8 @@
             bc.imageSmoothingEnabled = false;
             const bw = gameBuffer.width;
             const bh = gameBuffer.height;
-            const ox = Math.floor((cw - bw * N64_RENDER_SCALE) / 2);
-            const oy = Math.floor((ch - bh * N64_RENDER_SCALE) / 2);
+            const ox = Math.floor((cw - bw * n64RenderScale) / 2);
+            const oy = Math.floor((ch - bh * n64RenderScale) / 2);
             bc.fillStyle = '#0f172a';
             bc.fillRect(0, 0, bw, bh);
 
@@ -6902,7 +6957,7 @@
             ctx.clearRect(0, 0, cw, ch);
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
-            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * N64_RENDER_SCALE, bh * N64_RENDER_SCALE);
+            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * n64RenderScale, bh * n64RenderScale);
             const mmCont = document.getElementById('minimap-container');
             if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
             if (isZombieSecretActive()) {
@@ -8135,21 +8190,26 @@
             });
 
             window.addEventListener('resize', resize);
+            window.visualViewport?.addEventListener('resize', resize);
+            window.visualViewport?.addEventListener('scroll', resize);
             resize();
             const setPC = () => {
                 state.deviceMode = 'computer';
                 updateDeviceButtonStyles();
                 updateLobbyHints();
+                resize();
             };
             const setPh = () => {
                 state.deviceMode = 'phone';
                 updateDeviceButtonStyles();
                 updateLobbyHints();
+                resize();
             };
             const setXbox = () => {
                 state.deviceMode = 'xbox';
                 updateDeviceButtonStyles();
                 updateLobbyHints();
+                resize();
             };
             function updateDeviceButtonStyles() {
                 const active = 'bg-blue-500 border-2 border-blue-500 flex-1 min-w-[100px] py-2 rounded-lg font-bold text-xs interactive';
