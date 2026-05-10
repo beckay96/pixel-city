@@ -1814,12 +1814,20 @@
             { id: 'pickup',  name: 'Ridge Pickup',      price: 4500,    topSpeed: 6.5, accel: 0.25, color: '#b45309', tier: 2, storeBonus: 55  },
             { id: 'suv',     name: 'Summit SUV',        price: 8500,    topSpeed: 7.5, accel: 0.28, color: '#1e293b', tier: 3, storeBonus: 70  },
             { id: 'porsche', name: 'Porsche 911',       price: 10000,   topSpeed: 55,  accel: 2.0,  color: '#475569', tier: 3, storeBonus: 75  },
-            { id: 'lambo',   name: 'Aventador LAMBO',   price: 100000,  topSpeed: 140, accel: 4.0,  color: '#fbbf24', tier: 4, storeBonus: 100 },
-            { id: 'bugatti', name: 'Bugatti Chiron',    price: 350000,  topSpeed: 160, accel: 4.5,  color: '#6366f1', tier: 5, storeBonus: 150 },
-            { id: 'ferrari', name: 'Ferrari LaFerrari', price: 750000,  topSpeed: 175, accel: 5.0,  color: '#ef4444', tier: 6, storeBonus: 200 },
-            { id: 'mclaren', name: 'McLaren Speedtail', price: 1500000, topSpeed: 190, accel: 5.5,  color: '#f97316', tier: 7, storeBonus: 300 },
-            { id: 'god',     name: '⭐ God Lambo',      price: 5000000, topSpeed: 220, accel: 6.0,  color: '#a78bfa', tier: 8, storeBonus: 500, secret: true }
+            { id: 'sport_coupe', name: 'Sports coupe',   price: 50000,   topSpeed: 95,  accel: 3.2,  color: '#dc2626', tier: 4, storeBonus: 88  },
+            { id: 'lambo',   name: 'Aventador LAMBO',   price: 100000,  topSpeed: 140, accel: 4.0,  color: '#fbbf24', tier: 5, storeBonus: 100 },
+            { id: 'bugatti', name: 'Bugatti Chiron',    price: 350000,  topSpeed: 160, accel: 4.5,  color: '#6366f1', tier: 6, storeBonus: 150 },
+            { id: 'ferrari', name: 'Ferrari LaFerrari', price: 750000,  topSpeed: 175, accel: 5.0,  color: '#ef4444', tier: 7, storeBonus: 200 },
+            { id: 'mclaren', name: 'McLaren Speedtail', price: 1500000, topSpeed: 190, accel: 5.5,  color: '#f97316', tier: 8, storeBonus: 300 },
+            { id: 'god',     name: '⭐ God Lambo',      price: 5000000, topSpeed: 220, accel: 6.0,  color: '#a78bfa', tier: 9, storeBonus: 500, secret: true }
         ];
+
+        /** Older saves used tiers 4–8 for Lambo→God; sport coupe added as tier 4 → bump stored tier by 1 in that range. */
+        function migrateBestCarTierFromSave(raw) {
+            if (typeof raw !== 'number' || raw < 0) return raw;
+            if (raw >= 4 && raw <= 8) return raw + 1;
+            return raw;
+        }
 
         function fastLamboTypeForNuke() {
             return { id: 'lambo', name: 'Aventador LAMBO', price: 0, topSpeed: 220, accel: 5.0, color: '#fbbf24' };
@@ -6423,13 +6431,13 @@
             state.vehicles.push(v1);
             broadcastVehicleSpawnIfOnline(v1);
 
-            if (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) {
+            if (state.playerMode === 2 && (car.id === 'sport_coupe' || car.id === 'lambo' || car.id === 'god')) {
                 const v2 = spawnVehicleAtDealership(car, 1);
                 state.vehicles.push(v2);
                 broadcastVehicleSpawnIfOnline(v2);
             }
             if (gift) {
-                const slot = (state.playerMode === 2 && (car.id === 'lambo' || car.id === 'god')) ? 2 : 1;
+                const slot = (state.playerMode === 2 && (car.id === 'sport_coupe' || car.id === 'lambo' || car.id === 'god')) ? 2 : 1;
                 const vGift = spawnVehicleAtDealership(car, slot);
                 state.vehicles.push(vGift);
                 broadcastVehicleSpawnIfOnline(vGift);
@@ -6443,6 +6451,8 @@
             if (car.id === 'god') {
                 triggerVictory();
                 showMessage(gift ? '🌟 GOD LAMBO × gift! You\'re the ultimate!' : '🌟 GOD LAMBO! You\'re the ultimate! Store earns $' + car.storeBonus + '/tap!');
+            } else if (car.id === 'sport_coupe') {
+                showMessage(gift ? '🏎️ Sports coupe + friend car at the lot!' : '🏎️ Sports coupe — fast lane! Store earns $' + car.storeBonus + '/tap!');
             } else if (car.id === 'lambo') {
                 showMessage(gift ? '🏆 LAMBO + friend car at the lot!' : '🏆 AVENTADOR LAMBO! Milestone reached! Store earns $' + car.storeBonus + '/tap! Keep going!');
             } else {
@@ -6743,7 +6753,7 @@
             if (save.cityNuked) state.cityNuked = true;
             if (save.benHouseRobbed) state.benHouseRobbed = true;
             if (save.isPresident) state.isPresident = true;
-            if (typeof save.bestCarTier === 'number') state.bestCarTier = save.bestCarTier;
+            if (typeof save.bestCarTier === 'number') state.bestCarTier = migrateBestCarTierFromSave(save.bestCarTier);
             if (typeof save.nextVehicleId === 'number' && save.nextVehicleId > 0) state.nextVehicleId = save.nextVehicleId;
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
