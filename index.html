@@ -1447,13 +1447,14 @@
                 <button type="button" id="owner-broadcast-send" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg font-bold text-sm">Send to all players</button>
                 <p id="owner-broadcast-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
                 <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest mb-2 mt-4">Live events (signed-in players)</p>
-                <p class="text-[9px] text-slate-500 mb-2">Thomas ON/OFF toggles — glitch storm stays until turned off. Everyone in-game receives the event.</p>
+                <p class="text-[9px] text-slate-500 mb-2">Thomas ON/OFF toggles — glitch storm stays until turned off. Seizure Death fires once (~45s); one random player per multiplayer session is spared.</p>
                 <div class="grid grid-cols-2 gap-2 mb-1">
                     <button type="button" id="owner-event-golden-orb-on" class="bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb · ON</button>
                     <button type="button" id="owner-event-golden-orb-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb · OFF</button>
                     <button type="button" id="owner-event-glitch-on" class="bg-fuchsia-800 hover:bg-fuchsia-700 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm · ON</button>
                     <button type="button" id="owner-event-glitch-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm · OFF</button>
                 </div>
+                <button type="button" id="owner-event-seizure-death" class="w-full bg-rose-800 hover:bg-rose-700 text-white py-2 rounded-lg font-bold text-xs mt-2 border border-rose-500/60">Seizure Death (~45s · one spared)</button>
                 <p id="owner-event-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
             </div>
         </div>
@@ -1658,6 +1659,7 @@
             { id: 'nuke_city', label: 'What does Nuke the city do?', answer: () => 'Ends the run dramatically — only pick it when you really want to reset the session.' },
             { id: 'admin', label: 'Admin / owner tools?', answer: () => 'Lobby admin PIN unlocks cheat sheet; owner accounts get dashboards + optional global glitch events for everyone online.' },
             { id: 'glitch_event', label: 'Glitch storm event?', answer: () => 'Thomas uses Owner dashboard Glitch Storm ON/OFF — lasts until turned off. Mobs won’t hurt you while you’re inside a car.' },
+            { id: 'seizure_death_event', label: 'What is Seizure Death?', answer: () => 'Thomas can trigger Seizure Death from the Owner dashboard. For ~45 seconds most players can’t move and slowly lose HP; one signed-in player per multiplayer session is randomly spared.' },
             { id: 'telepads', label: 'Teleporter pads?', answer: () => 'Gadget pair — drop two pads and walk through to warp between them for quick escapes.' },
             { id: 'weapons', label: 'Weapon basics?', answer: () => 'Weapon shop sells stunners, rockets, micro nukes for PvP — aim with face direction and respect friendly-fire rules.' },
             { id: 'wanted_drop', label: 'How do I lose stars fast?', answer: () => 'Stop committing crimes, hide at HOME, or put distance between you and cruisers until the meter cools.' },
@@ -1963,7 +1965,12 @@
             /** Legacy timer field — unused while glitchStormActive drives the storm */
             glitchStormUntilFrame: 0,
             /** Slow hostile mobs during glitch storm */
-            glitchMobs: []
+            glitchMobs: [],
+            /** Seizure Death: victims can't move; HP drains over ~45s; one exempt player per wave */
+            seizureDeathUntilFrame: 0,
+            seizureDeathWaveSeq: 0,
+            seizureDeathExemptUid: null,
+            seizureDeathExemptLocalPIdx: null
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -2938,6 +2945,7 @@
             if (state.players.length < 2) { showMessage('G — grab only works with 2 local players (2 LOCAL mode)'); return; }
             const h = state.players[helperIdx];
             if (!h || h.dead || h.downed) return;
+            if (isPlayerSeizureVictim(helperIdx)) return;
             if (h.draggingPlayerIdx != null) {
                 h.draggingPlayerIdx = null;
                 showMessage('Dropped');
@@ -3009,6 +3017,7 @@
         function fireWeapon(pIdx) {
             const p = state.players[pIdx];
             if (!p || p.menuType || p.activeJob || state.isJailed || p.inVehicle) return;
+            if (isPlayerSeizureVictim(pIdx)) return;
             ensurePlayerLoadout(p);
             const w = p.loadout.weapon;
             if (!w) { showMessage('No weapon — open Warden Arms'); return; }
@@ -3309,6 +3318,9 @@
         const GLITCH_MOB_RADIUS = 20;
         const GLITCH_MOB_TOUCH_DAMAGE = 10;
         const GLITCH_MOB_HIT_INTERVAL_FRAMES = 48;
+        /** Owner “Seizure Death” — HP drains to zero over this many frames */
+        const SEIZURE_DEATH_SECONDS = 45;
+        const SEIZURE_DEATH_FRAMES = SEIZURE_DEATH_SECONDS * JAIL_FRAMES_PER_SEC;
 
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY');
@@ -3570,6 +3582,89 @@
             return true;
         }
 
+        function clearSeizureDeathState() {
+            state.seizureDeathUntilFrame = 0;
+            state.seizureDeathWaveSeq = 0;
+            state.seizureDeathExemptUid = null;
+            state.seizureDeathExemptLocalPIdx = null;
+            state.players.forEach(pl => {
+                if (!pl) return;
+                pl.seizureDeathVictimHint = false;
+                pl.seizureDeathSparedHint = false;
+            });
+        }
+
+        function isSeizureDeathActive() {
+            return !!(state.seizureDeathUntilFrame && state.frameCount < state.seizureDeathUntilFrame);
+        }
+
+        function isPlayerSeizureVictim(pIdx) {
+            if (!isSeizureDeathActive()) return false;
+            const p = state.players[pIdx];
+            if (!p || p.dead || p.downed) return false;
+            if (state.playerMode === 2) {
+                if (state.seizureDeathExemptLocalPIdx !== null && state.seizureDeathExemptLocalPIdx === pIdx) return false;
+                return true;
+            }
+            if (pIdx !== 0) return false;
+            if (state.seizureDeathExemptUid && state.supabaseUserId && state.supabaseUserId === state.seizureDeathExemptUid) return false;
+            return true;
+        }
+
+        function computeSeizureDeathExemptUid(waveSeq) {
+            const ids = [];
+            if (state.supabaseUserId) ids.push(state.supabaseUserId);
+            Object.keys(state.remotePlayers || {}).forEach(uid => {
+                if (uid && !ids.includes(uid)) ids.push(uid);
+            });
+            ids.sort();
+            if (ids.length < 2) return null;
+            const h = hashWorldSeed(`seizure|${waveSeq}|${state.onlineSessionCode || 'offline'}|${ids.join(',')}`);
+            return ids[h % ids.length];
+        }
+
+        function startSeizureDeathFromOwnerEvent(waveSeq) {
+            if (!isInGame()) return false;
+            clearSeizureDeathState();
+            state.seizureDeathUntilFrame = state.frameCount + SEIZURE_DEATH_FRAMES;
+            state.seizureDeathWaveSeq = waveSeq;
+            state.seizureDeathExemptUid = computeSeizureDeathExemptUid(waveSeq);
+            state.seizureDeathExemptLocalPIdx = state.playerMode === 2
+                ? (hashWorldSeed(`seizure|${waveSeq}|local2p`) % 2)
+                : null;
+            showServerNoticeOverlay('Seizure Death activated.', { from: 'owner', labelKind: 'dev' });
+            return true;
+        }
+
+        function processSeizureDeath() {
+            if (!state.seizureDeathUntilFrame) return;
+            if (state.frameCount >= state.seizureDeathUntilFrame) {
+                clearSeizureDeathState();
+                return;
+            }
+            const dmg = PLAYER_MAX_HP / SEIZURE_DEATH_FRAMES;
+            state.players.forEach((p, pi) => {
+                if (!p || p.dead || p.downed) return;
+                if (!isPlayerSeizureVictim(pi)) {
+                    const spared = (state.playerMode === 2 && state.seizureDeathExemptLocalPIdx === pi)
+                        || (pi === 0 && state.supabaseUserId && state.seizureDeathExemptUid && state.supabaseUserId === state.seizureDeathExemptUid);
+                    if (spared && !p.seizureDeathSparedHint) {
+                        p.seizureDeathSparedHint = true;
+                        showMessage('Seizure Death — you\'re the one spared this round.');
+                    }
+                    return;
+                }
+                if (!p.seizureDeathVictimHint) {
+                    p.seizureDeathVictimHint = true;
+                    showMessage('Bro not again — you\'re having a seizure. You can\'t move!');
+                }
+                ensurePlayerHealth(p);
+                p.hp = Math.max(0, (p.hp || PLAYER_MAX_HP) - dmg);
+                if (p.hp <= 0) startDownOrBleed(pi);
+            });
+            updateHealthBars();
+        }
+
         function applyOwnerGameEventPayload(payload) {
             if (!payload || payload.from !== 'owner') return;
             const seq = typeof payload.seq === 'number' ? payload.seq : 0;
@@ -3580,6 +3675,7 @@
             else if (k === 'golden_orb_hunt_off') applied = !!stopGoldenOrbHuntFromOwnerEvent();
             else if (k === 'glitch_storm' || k === 'glitch_storm_on') applied = !!startGlitchStormFromOwnerEvent();
             else if (k === 'glitch_storm_off') applied = !!stopGlitchStormFromOwnerEvent();
+            else if (k === 'seizure_death') applied = !!startSeizureDeathFromOwnerEvent(seq);
             else return;
             if (seq > 0 && applied) lastOwnerGameEventSeqApplied = seq;
         }
@@ -3620,6 +3716,7 @@
             state.glitchStormActive = false;
             state.glitchStormUntilFrame = 0;
             state.glitchMobs = [];
+            clearSeizureDeathState();
             if (state.playMode === 'online') {
                 // If this was a solo auto-host, revert to 'solo' so the 1 PLAYER tab stays active in lobby
                 if (state.isSoloAutoHost) state.playMode = 'solo';
@@ -6192,6 +6289,7 @@
             state.glitchStormUntilFrame = 0;
             state.glitchStormActive = false;
             state.glitchMobs = [];
+            clearSeizureDeathState();
             state.remotePlayers = {};
             state.landmines = [];
             state.tyreTraps = [];
@@ -6623,6 +6721,7 @@
         function handleInteraction(pIdx) {
             const p = state.players[pIdx];
             if (!p || p.isRobbing || state.isJailed) return;
+            if (isPlayerSeizureVictim(pIdx)) return;
             if (p.dead) return;
             if (tryCollectOrb(pIdx)) return;
             if (p.inVehicle) { p.inVehicle.occupied = false; p.inVehicle = null; return; }
@@ -7339,6 +7438,7 @@
                 state.glitchStormActive = false;
                 state.glitchStormUntilFrame = 0;
                 state.glitchMobs = [];
+                clearSeizureDeathState();
             }
             state.stamina = 100;
             state.vehicles = [];
@@ -7493,6 +7593,20 @@
                 if (state.isJailed) return;
                 const k = e.key.toLowerCase();
                 const code = e.code;
+                if (state.players[0] && isPlayerSeizureVictim(0) && ['e', 'q', 'f', 'g'].includes(k)) {
+                    e.preventDefault();
+                    return;
+                }
+                if (state.players[1] && isPlayerSeizureVictim(1)) {
+                    if (['q', 'f', 'g'].includes(k)) {
+                        e.preventDefault();
+                        return;
+                    }
+                    if (code === 'ShiftRight' || code === 'ShiftLeft') {
+                        e.preventDefault();
+                        return;
+                    }
+                }
                 state.keys[k] = true;
                 
                 // PLAYER 1
@@ -7601,6 +7715,13 @@
             updateGpsArrival();
             processBleedAndDowned();
             processGlitchStormAndMobs();
+            processSeizureDeath();
+            if (state.players[0] && isPlayerSeizureVictim(0)) {
+                ['w', 'a', 's', 'd', 'shift', 'shiftleft', 'shiftright'].forEach(x => { state.keys[x] = false; });
+            }
+            if (state.players[1] && isPlayerSeizureVictim(1)) {
+                ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].forEach(x => { state.keys[x] = false; });
+            }
             
             let customSpeed = 4;
             if (canUseGodPanelInGame()) {
@@ -7728,6 +7849,7 @@
                     return;
                 }
                 if (p.activeJob || p.menuType || p.isRobbing || state.isJailed) return;
+                if (isPlayerSeizureVictim(idx)) return;
                 ensurePlayerLoadout(p);
                 const stunLock = p.loadout.stunUntil > state.frameCount;
                 const controls = idx === 0 ? { u:'w', d:'s', l:'a', r:'d' } : { u:'arrowup', d:'arrowdown', l:'arrowleft', r:'arrowright' };
@@ -8251,7 +8373,7 @@
             }
 
             const prR = 14;
-            state.players.forEach(p => {
+            state.players.forEach((p, pi) => {
                 if (!p) return;
                 if (p.dead) {
                     const rx = p.corpseX != null ? p.corpseX : p.x, ry = p.corpseY != null ? p.corpseY : p.y;
@@ -8283,7 +8405,9 @@
                     c.fillText('DOWN', 0, -12);
                     c.restore();
                 } else if (!p.inVehicle) {
-                    c.save(); c.translate(p.x, p.y); c.rotate(p.angle);
+                    const sx = isPlayerSeizureVictim(pi) ? Math.sin(state.frameCount * 0.82) * 6 + Math.cos(state.frameCount * 0.37) * 3 : 0;
+                    const sy = isPlayerSeizureVictim(pi) ? Math.cos(state.frameCount * 0.71) * 5 : 0;
+                    c.save(); c.translate(p.x + sx, p.y + sy); c.rotate(p.angle);
                     if (state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
                     drawPlayerAvatar(c, state.characterType, p.color);
                     c.restore();
@@ -9525,6 +9649,13 @@
                 if (err) err.textContent = '';
                 const r = await sendGlobalOwnerGameEvent('glitch_storm_off');
                 if (r.ok) flashOwnerEventStatus(err, 'Glitch Storm OFF sent.');
+                else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('owner-event-seizure-death')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-event-err');
+                if (err) err.textContent = '';
+                const r = await sendGlobalOwnerGameEvent('seizure_death');
+                if (r.ok) flashOwnerEventStatus(err, 'Seizure Death sent.');
                 else if (err) err.textContent = r.err || 'Failed';
             });
             document.getElementById('admin-global-broadcast-dismiss')?.addEventListener('click', () => hideServerNoticeOverlay());
