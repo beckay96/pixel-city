@@ -3254,6 +3254,12 @@
         let supabase = null;
         let supabaseRealtimeChannel = null;
         let globalNoticeChannel = null;
+        /** True after global notice channel reaches SUBSCRIBED (sends must await this). */
+        let globalNoticeChannelReady = false;
+        let globalNoticeSubscribePromise = null;
+        /** Monotonic seq so owner_game_event self-echo does not apply twice */
+        let ownerGameEventSeqCounter = 0;
+        let lastOwnerGameEventSeqApplied = 0;
         let lastOnlineBroadcast = 0;
         let pendingJoinCodeFromUrl = null;
         let onlineRealtimeReady = false;
@@ -3498,10 +3504,11 @@
         }
 
         function startGoldenOrbHuntFromOwnerEvent() {
-            if (!isInGame()) return;
+            if (!isInGame()) return false;
             if (state.orbHuntActive && state.cityNuked) {
                 showMessage('Post-nuke Orb hunt already running.');
-                return;
+                showServerNoticeOverlay('Golden Orb Hunt — already active (post-nuke).', { from: 'owner', labelKind: 'dev' });
+                return true;
             }
             const home = state.buildings.find(b => b.type === 'home');
             const cx = home ? home.x + home.w / 2 : 2150;
@@ -3511,12 +3518,14 @@
             state.orbCollected = false;
             state.softOrbHunt = true;
             state.isGameOver = false;
+            showServerNoticeOverlay('Golden Orb Hunt activated.', { from: 'owner', labelKind: 'dev' });
             showMessage('GOLDEN ORB HUNT — first to the orb wins $8,000!');
             showOrbHuntIntro();
+            return true;
         }
 
         function startGlitchStormFromOwnerEvent() {
-            if (!isInGame()) return;
+            if (!isInGame()) return false;
             state.glitchStormUntilFrame = Math.max(state.glitchStormUntilFrame || 0, state.frameCount + GLITCH_STORM_DURATION_FRAMES);
             if (!state.glitchMobs) state.glitchMobs = [];
             const spawnN = Math.max(14, 22 - state.glitchMobs.length);
@@ -3529,14 +3538,21 @@
                     lastHitFrame: 0
                 });
             }
+            showServerNoticeOverlay('Glitch Storm activated.', { from: 'owner', labelKind: 'dev' });
             showMessage('GLITCH STORM — slow glitch mobs are hunting players!');
+            return true;
         }
 
         function applyOwnerGameEventPayload(payload) {
             if (!payload || payload.from !== 'owner') return;
+            const seq = typeof payload.seq === 'number' ? payload.seq : 0;
+            if (seq > 0 && seq <= lastOwnerGameEventSeqApplied) return;
             const k = String(payload.kind || '');
-            if (k === 'golden_orb_hunt') startGoldenOrbHuntFromOwnerEvent();
-            else if (k === 'glitch_storm') startGlitchStormFromOwnerEvent();
+            let applied = false;
+            if (k === 'golden_orb_hunt') applied = !!startGoldenOrbHuntFromOwnerEvent();
+            else if (k === 'glitch_storm') applied = !!startGlitchStormFromOwnerEvent();
+            else return;
+            if (seq > 0 && applied) lastOwnerGameEventSeqApplied = seq;
         }
 
         function shouldShowSoloWastedAfterDeath() {
@@ -3829,19 +3845,50 @@
             }
         }
 
+        async function ensureGlobalServerNoticeSubscribedAsync() {
+            if (!supabase) return null;
+            if (globalNoticeChannelReady && globalNoticeChannel) return globalNoticeChannel;
+            if (!globalNoticeSubscribePromise) {
+                globalNoticeSubscribePromise = (async () => {
+                    const ch = supabase.channel(GLOBAL_SERVER_NOTICE_CHANNEL, { config: { broadcast: { self: true } } });
+                    ch.on('broadcast', { event: 'server_notice' }, ({ payload }) => {
+                        if (!payload || payload.text == null) return;
+                        const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
+                        if (s) showServerNoticeOverlay(s, { from: payload.from });
+                    });
+                    ch.on('broadcast', { event: 'owner_game_event' }, ({ payload }) => {
+                        applyOwnerGameEventPayload(payload || {});
+                    });
+                    await new Promise((resolve, reject) => {
+                        const to = setTimeout(() => reject(new Error('Global notice channel subscribe timeout')), 15000);
+                        ch.subscribe((status, err) => {
+                            if (status === 'SUBSCRIBED') {
+                                clearTimeout(to);
+                                resolve();
+                            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                                clearTimeout(to);
+                                reject(err || new Error(String(status)));
+                            }
+                        });
+                    });
+                    globalNoticeChannel = ch;
+                    globalNoticeChannelReady = true;
+                })();
+            }
+            try {
+                await globalNoticeSubscribePromise;
+            } catch (e) {
+                globalNoticeChannelReady = false;
+                globalNoticeChannel = null;
+                globalNoticeSubscribePromise = null;
+                throw e;
+            }
+            globalNoticeSubscribePromise = null;
+            return globalNoticeChannel;
+        }
+
         function ensureGlobalServerNoticeSubscribed() {
-            if (!supabase || globalNoticeChannel) return;
-            const ch = supabase.channel(GLOBAL_SERVER_NOTICE_CHANNEL, { config: { broadcast: { self: true } } });
-            ch.on('broadcast', { event: 'server_notice' }, ({ payload }) => {
-                if (!payload || payload.text == null) return;
-                const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
-                if (s) showServerNoticeOverlay(s, { from: payload.from });
-            });
-            ch.on('broadcast', { event: 'owner_game_event' }, ({ payload }) => {
-                applyOwnerGameEventPayload(payload || {});
-            });
-            ch.subscribe();
-            globalNoticeChannel = ch;
+            void ensureGlobalServerNoticeSubscribedAsync().catch(() => { /* signed-out or offline */ });
         }
 
         async function sendGlobalServerNotice(text) {
@@ -3850,7 +3897,11 @@
             }
             const t = String(text || '').trim().slice(0, GLOBAL_SERVER_NOTICE_MAX);
             if (!t) return { ok: false, err: 'Type a message first.' };
-            ensureGlobalServerNoticeSubscribed();
+            try {
+                await ensureGlobalServerNoticeSubscribedAsync();
+            } catch (_) {
+                return { ok: false, err: 'Could not connect to broadcast channel.' };
+            }
             if (!globalNoticeChannel) return { ok: false, err: 'Could not open broadcast channel.' };
             try {
                 await globalNoticeChannel.send({
@@ -3868,13 +3919,20 @@
             if (!isOwnerDashboardUser() || !supabase) {
                 return { ok: false, err: 'Only the owner account can trigger global events.' };
             }
-            ensureGlobalServerNoticeSubscribed();
+            const seq = ++ownerGameEventSeqCounter;
+            const payload = { kind: String(kind || ''), from: 'owner', seq };
+            applyOwnerGameEventPayload(payload);
+            try {
+                await ensureGlobalServerNoticeSubscribedAsync();
+            } catch (_) {
+                return { ok: false, err: 'Could not connect to broadcast channel.' };
+            }
             if (!globalNoticeChannel) return { ok: false, err: 'Could not open broadcast channel.' };
             try {
                 await globalNoticeChannel.send({
                     type: 'broadcast',
                     event: 'owner_game_event',
-                    payload: { kind: String(kind || ''), from: 'owner' }
+                    payload
                 });
                 return { ok: true };
             } catch (e) {
@@ -6879,6 +6937,12 @@
             state.playerName = '';
             state.multiplayerIntendsHost = true;
             stopPresenceLoop();
+            try {
+                if (globalNoticeChannel) globalNoticeChannel.unsubscribe();
+            } catch (_) { /* */ }
+            globalNoticeChannel = null;
+            globalNoticeChannelReady = false;
+            globalNoticeSubscribePromise = null;
             recomputeIsAdmin();
             updateOwnerDashboardFabVisibility();
         }
