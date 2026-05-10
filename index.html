@@ -845,7 +845,7 @@
         <div id="school-safe-badge" class="hidden fixed top-14 right-3 z-[1200] pointer-events-none text-[9px] font-bold uppercase tracking-widest text-emerald-200/90 bg-emerald-950/90 border border-emerald-600/50 px-2 py-1 rounded-md shadow-lg" title="School-safe mode is on (scaffold)">School-safe</div>
         <div id="admin-global-broadcast" class="interactive" role="alertdialog" aria-label="Server message" aria-hidden="true">
             <div class="admin-broadcast-bubble text-center">
-                <p class="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400 mb-2">Message from the server</p>
+                <p id="admin-global-broadcast-label" class="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400 mb-2">Message from the server</p>
                 <p id="admin-global-broadcast-text" class="text-white text-base font-bold leading-snug break-words mb-3"></p>
                 <button type="button" id="admin-global-broadcast-dismiss" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white w-full py-2 rounded-lg font-bold text-sm">OK</button>
             </div>
@@ -1446,6 +1446,13 @@
                 <textarea id="owner-broadcast-text" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm min-h-[72px] interactive mb-2" placeholder="Type a short message (max 400 chars)…" maxlength="400" rows="3"></textarea>
                 <button type="button" id="owner-broadcast-send" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg font-bold text-sm">Send to all players</button>
                 <p id="owner-broadcast-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
+                <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest mb-2 mt-4">Live events (signed-in players)</p>
+                <p class="text-[9px] text-slate-500 mb-2">Starts on everyone who is in-game with Pixel City open (different sessions OK).</p>
+                <div class="flex flex-col sm:flex-row gap-2 mb-1">
+                    <button type="button" id="owner-event-golden-orb" class="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb Hunt</button>
+                    <button type="button" id="owner-event-glitch-storm" class="flex-1 bg-fuchsia-800 hover:bg-fuchsia-700 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm</button>
+                </div>
+                <p id="owner-event-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
             </div>
         </div>
     </div>
@@ -1934,7 +1941,7 @@
             stamina: 100,
             /** Lobby "Load progress" stores full save here until joinRoom creates players. */
             pendingLobbySave: null,
-            /** Experimental Beta 3D view (solo 1P only); persisted in LS_BETA_3D */
+            /** Experimental Beta 3D first-person (1P); persisted in LS_BETA_3D — allowed in online multiplayer when solo player mode */
             beta3dMode: initialBeta3d,
             /** First-person yaw (radians), mouse-driven in Beta 3D */
             beta3dYaw: 0,
@@ -1943,7 +1950,13 @@
             /** Beta 3D ray quality 0–100 (lobby slider); higher = more ray columns, heavier GPU */
             beta3dQualityPercent: initialBeta3dQuality,
             /** UI language code for lobby chrome */
-            uiLang: initialUiLang
+            uiLang: initialUiLang,
+            /** Owner “Golden Orb Hunt” — orb at safe house without nuking the city */
+            softOrbHunt: false,
+            /** Frame index when glitch storm ends (0 = inactive) */
+            glitchStormUntilFrame: 0,
+            /** Slow hostile mobs during glitch storm */
+            glitchMobs: []
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -2850,6 +2863,43 @@
                 }
             });
         }
+
+        function processGlitchStormAndMobs() {
+            if (!state.glitchMobs) state.glitchMobs = [];
+            if (state.glitchStormUntilFrame <= state.frameCount) {
+                if (state.glitchMobs.length) state.glitchMobs = [];
+                return;
+            }
+            const mobs = state.glitchMobs;
+            for (let i = mobs.length - 1; i >= 0; i--) {
+                const g = mobs[i];
+                let target = null;
+                let bestD = Infinity;
+                state.players.forEach((p) => {
+                    if (!p || p.dead || p.downed) return;
+                    const d = dist(p.x, p.y, g.x, g.y);
+                    if (d < bestD) { bestD = d; target = p; }
+                });
+                if (target) {
+                    g.angle = Math.atan2(target.y - g.y, target.x - g.x);
+                    const sp = g.speed != null ? g.speed : 1;
+                    g.x += Math.cos(g.angle) * sp;
+                    g.y += Math.sin(g.angle) * sp;
+                } else {
+                    g.x += Math.cos(g.angle) * 0.35;
+                    g.y += Math.sin(g.angle) * 0.35;
+                }
+                if (!target || target.inVehicle) continue;
+                if (bestD > GLITCH_MOB_RADIUS + 18) continue;
+                const pIdx = state.players.indexOf(target);
+                if (pIdx < 0) continue;
+                const hitFr = g.lastHitFrame | 0;
+                if (state.frameCount - hitFr <= GLITCH_MOB_HIT_INTERVAL_FRAMES) continue;
+                g.lastHitFrame = state.frameCount;
+                dealDamageToPlayer(pIdx, GLITCH_MOB_TOUCH_DAMAGE);
+            }
+        }
+
         function tryRevivePartner(helperIdx) {
             const h = state.players[helperIdx];
             const tIdx = 1 - helperIdx;
@@ -3243,6 +3293,11 @@
 
         const ORB_PICKUP_RADIUS = 38;
         const ORB_VISUAL_RADIUS = 22;
+        /** Owner glitch-storm event (~55s at 60fps) */
+        const GLITCH_STORM_DURATION_FRAMES = 60 * 55;
+        const GLITCH_MOB_RADIUS = 20;
+        const GLITCH_MOB_TOUCH_DAMAGE = 10;
+        const GLITCH_MOB_HIT_INTERVAL_FRAMES = 48;
 
         function hasGodSettings() {
             return state.activeSecrets.includes('GODLY');
@@ -3437,6 +3492,48 @@
 
         function isInGame() {
             return !isSignInScreenVisible() && !isLobbyScreenVisible();
+        }
+
+        function startGoldenOrbHuntFromOwnerEvent() {
+            if (!isInGame()) return;
+            if (state.orbHuntActive && state.cityNuked) {
+                showMessage('Post-nuke Orb hunt already running.');
+                return;
+            }
+            const home = state.buildings.find(b => b.type === 'home');
+            const cx = home ? home.x + home.w / 2 : 2150;
+            const cy = home ? home.y + home.h / 2 : 2150;
+            state.orb = { x: cx, y: cy };
+            state.orbHuntActive = true;
+            state.orbCollected = false;
+            state.softOrbHunt = true;
+            state.isGameOver = false;
+            showMessage('GOLDEN ORB HUNT — first to the orb wins $8,000!');
+            showOrbHuntIntro();
+        }
+
+        function startGlitchStormFromOwnerEvent() {
+            if (!isInGame()) return;
+            state.glitchStormUntilFrame = Math.max(state.glitchStormUntilFrame || 0, state.frameCount + GLITCH_STORM_DURATION_FRAMES);
+            if (!state.glitchMobs) state.glitchMobs = [];
+            const spawnN = Math.max(14, 22 - state.glitchMobs.length);
+            for (let i = 0; i < spawnN; i++) {
+                state.glitchMobs.push({
+                    x: Math.random() * WORLD_SIZE,
+                    y: Math.random() * WORLD_SIZE,
+                    angle: Math.random() * Math.PI * 2,
+                    speed: 0.62 + Math.random() * 0.88,
+                    lastHitFrame: 0
+                });
+            }
+            showMessage('GLITCH STORM — slow glitch mobs are hunting players!');
+        }
+
+        function applyOwnerGameEventPayload(payload) {
+            if (!payload || payload.from !== 'owner') return;
+            const k = String(payload.kind || '');
+            if (k === 'golden_orb_hunt') startGoldenOrbHuntFromOwnerEvent();
+            else if (k === 'glitch_storm') startGlitchStormFromOwnerEvent();
         }
 
         function shouldShowSoloWastedAfterDeath() {
@@ -3708,10 +3805,14 @@
             set('dash-stat-time', data.generated_at || '—');
         }
 
-        function showServerNoticeOverlay(t) {
+        function showServerNoticeOverlay(t, opts) {
             const ov = document.getElementById('admin-global-broadcast');
             const tx = document.getElementById('admin-global-broadcast-text');
+            const lab = document.getElementById('admin-global-broadcast-label');
             if (!ov || !tx) return;
+            const fromDev = opts && (opts.from === 'owner' || opts.labelKind === 'dev');
+            if (lab) lab.textContent = fromDev ? 'Message from the dev' : 'Message from the server';
+            ov.setAttribute('aria-label', fromDev ? 'Message from the dev' : 'Server message');
             tx.textContent = t;
             ov.classList.add('open');
             ov.setAttribute('aria-hidden', 'false');
@@ -3731,7 +3832,10 @@
             ch.on('broadcast', { event: 'server_notice' }, ({ payload }) => {
                 if (!payload || payload.text == null) return;
                 const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
-                if (s) showServerNoticeOverlay(s);
+                if (s) showServerNoticeOverlay(s, { from: payload.from });
+            });
+            ch.on('broadcast', { event: 'owner_game_event' }, ({ payload }) => {
+                applyOwnerGameEventPayload(payload || {});
             });
             ch.subscribe();
             globalNoticeChannel = ch;
@@ -3757,6 +3861,24 @@
             }
         }
 
+        async function sendGlobalOwnerGameEvent(kind) {
+            if (!isOwnerDashboardUser() || !supabase) {
+                return { ok: false, err: 'Only the owner account can trigger global events.' };
+            }
+            ensureGlobalServerNoticeSubscribed();
+            if (!globalNoticeChannel) return { ok: false, err: 'Could not open broadcast channel.' };
+            try {
+                await globalNoticeChannel.send({
+                    type: 'broadcast',
+                    event: 'owner_game_event',
+                    payload: { kind: String(kind || ''), from: 'owner' }
+                });
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, err: e && e.message ? e.message : 'Send failed' };
+            }
+        }
+
         function openOwnerDashboard() {
             if (!isOwnerDashboardUser()) return;
             const ov = document.getElementById('owner-dashboard-overlay');
@@ -3764,7 +3886,9 @@
             ov.classList.add('open');
             document.getElementById('owner-broadcast-block')?.classList.remove('hidden');
             const errB = document.getElementById('owner-broadcast-err');
+            const evErr = document.getElementById('owner-event-err');
             if (errB) errB.textContent = '';
+            if (evErr) evErr.textContent = '';
             renderAssistantTips();
             void refreshOwnerDashboardAnalytics();
         }
@@ -5249,7 +5373,7 @@
         }
 
         function enforceBeta3dInvariants() {
-            if (state.beta3dMode && (state.playerMode !== 1 || state.playMode === 'online' && !state.isSoloAutoHost)) {
+            if (state.beta3dMode && state.playerMode !== 1) {
                 setBeta3dMode(false, { silent: true });
             }
             updateBeta3dBanner();
@@ -5330,6 +5454,8 @@
         const BETA3D_IN_GAME_RAY_CAP = 1920;
         /** World radius for Beta 3D vehicle billboard (ray–circle hit). */
         const BETA3D_VEHICLE_HIT_R = 28;
+        /** Smaller hit disc for glitch mobs in Beta 3D */
+        const BETA3D_GLITCH_HIT_R = 22;
 
         function getBeta3dMaxRayColumns() {
             return getBeta3dMaxRayColumnsForPercent(state.beta3dQualityPercent);
@@ -5486,16 +5612,19 @@
                 let perpUse = perpWall;
                 let wallHit = hit;
                 let vHit = null;
+                let bestVehTc = null;
                 if (vehiclesList && vehiclesList.length) {
                     let bestTv = Infinity;
                     for (let vi = 0; vi < vehiclesList.length; vi++) {
                         const v = vehiclesList[vi];
                         if (!v || v.x == null || v.y == null) continue;
-                        const tc = intersectRayCircle2d(ox, oy, rdx, rdy, v.x, v.y, BETA3D_VEHICLE_HIT_R);
+                        const rad = v.beta3dGlitchMob ? BETA3D_GLITCH_HIT_R : BETA3D_VEHICLE_HIT_R;
+                        const tc = intersectRayCircle2d(ox, oy, rdx, rdy, v.x, v.y, rad);
                         if (tc == null) continue;
                         const perpV = tc * cosRay;
                         if (perpV > 0 && perpV < bestTv) {
                             bestTv = perpV;
+                            bestVehTc = tc;
                             vHit = v;
                         }
                     }
@@ -5518,7 +5647,20 @@
                     c.fillStyle = '#14532d';
                     c.fillRect(x0, wallBot, sliceW, clipY + clipH - wallBot);
                 }
-                if (useVeh && vHit) {
+                if (useVeh && vHit && bestVehTc != null) {
+                    const fog = Math.min(1, perpUse / BETA3D_MAX_DIST);
+                    if (vHit.beta3dGlitchMob) {
+                        const flick = (((col * 17 + (state.frameCount | 0) * 5) % 7) < 3);
+                        const gh = Math.min(clipH * 0.72, (88 / (perpUse + 0.0001)) * (clipH / 480) * 140);
+                        const gTop = horizon - gh / 2;
+                        c.fillStyle = flick ? `rgba(168,85,247,${0.88 - fog * 0.15})` : `rgba(6,182,212,${0.85 - fog * 0.12})`;
+                        c.fillRect(x0, gTop, sliceW, Math.max(2, gh));
+                        c.fillStyle = `rgba(255,255,255,${0.22 - fog * 0.08})`;
+                        c.fillRect(x0, gTop + gh * 0.12, sliceW, Math.max(1, gh * 0.14));
+                        continue;
+                    }
+                    const hx = ox + rdx * bestVehTc;
+                    const hy = oy + rdy * bestVehTc;
                     const body = (vHit.type && vHit.type.color) ? vHit.type.color : '#475569';
                     let norm = body;
                     if (norm[0] === '#') {
@@ -5526,31 +5668,61 @@
                             norm = '#' + norm[1] + norm[1] + norm[2] + norm[2] + norm[3] + norm[3];
                         }
                     }
-                    const fog = Math.min(1, perpUse / BETA3D_MAX_DIST);
+                    const R = BETA3D_VEHICLE_HIT_R;
+                    const nx = (hx - vHit.x) / R;
+                    const ny = (hy - vHit.y) / R;
+                    const fx = Math.cos(vHit.angle || 0);
+                    const fy = Math.sin(vHit.angle || 0);
+                    const faceDot = nx * fx + ny * fy;
+                    const sideDot = nx * (-fy) + ny * fx;
+                    const sideMag = Math.min(1, Math.abs(sideDot));
+                    const roofLift = (0.08 + 0.1 * Math.max(0, faceDot)) * (1 - sideMag * 0.55);
                     const r0 = parseInt(norm.slice(1, 3), 16) || 70;
                     const g0 = parseInt(norm.slice(3, 5), 16) || 90;
                     const b0 = parseInt(norm.slice(5, 7), 16) || 110;
-                    const r = Math.min(255, Math.floor(r0 * (1 - fog * 0.25) + fog * 25));
-                    const g = Math.min(255, Math.floor(g0 * (1 - fog * 0.25) + fog * 28));
-                    const bch = Math.min(255, Math.floor(b0 * (1 - fog * 0.25) + fog * 32));
+                    const shadeSide = 0.62 + 0.38 * sideMag;
+                    const shadeFace = 0.75 + 0.35 * faceDot;
+                    const comb = Math.min(1.15, shadeSide * shadeFace);
+                    const r = Math.min(255, Math.floor(r0 * comb * (1 - fog * 0.22) + fog * 22));
+                    const g = Math.min(255, Math.floor(g0 * comb * (1 - fog * 0.22) + fog * 26));
+                    const bch = Math.min(255, Math.floor(b0 * comb * (1 - fog * 0.22) + fog * 30));
                     const topRgb = `rgb(${r},${g},${bch})`;
-                    const dr = Math.floor(r * 0.45);
-                    const dg = Math.floor(g * 0.45);
-                    const db = Math.floor(bch * 0.5);
+                    const dr = Math.floor(r * 0.42);
+                    const dg = Math.floor(g * 0.42);
+                    const db = Math.floor(bch * 0.48);
                     const botRgb = `rgb(${dr},${dg},${db})`;
-                    const carH = Math.min(clipH * 0.85, (110 / (perpUse + 0.0001)) * (clipH / 480) * 140);
-                    const carTop = horizon - carH / 2;
+                    const carH = Math.min(clipH * 0.88, (118 / (perpUse + 0.0001)) * (clipH / 480) * 140);
+                    const carTop = horizon - carH / 2 - carH * roofLift;
                     const carBot = horizon + carH / 2;
-                    const gcar = c.createLinearGradient(x0, carTop, x0, carBot);
+                    const sliceNarrow = sliceW * (0.38 + 0.62 * sideMag);
+                    const xCar = x0 + (sliceW - sliceNarrow) * 0.5;
+                    const wheelBand = sideMag > 0.48 && Math.abs(faceDot) < 0.82;
+                    if (wheelBand && Math.abs(sideDot) > 0.58) {
+                        c.fillStyle = `rgba(15,23,42,${0.62 + fog * 0.15})`;
+                        c.fillRect(xCar, carTop + carH * 0.52, sliceNarrow, Math.max(2, carH * 0.38));
+                        continue;
+                    }
+                    const gcar = c.createLinearGradient(xCar, carTop, xCar, carBot);
                     gcar.addColorStop(0, topRgb);
-                    gcar.addColorStop(0.5, topRgb);
+                    gcar.addColorStop(0.48, topRgb);
                     gcar.addColorStop(1, botRgb);
                     c.fillStyle = gcar;
-                    c.fillRect(x0, carTop, sliceW, Math.max(1, carBot - carTop));
-                    c.fillStyle = 'rgba(254,252,232,0.92)';
-                    c.fillRect(x0, carTop + carH * 0.18, sliceW, Math.max(1, carH * 0.08));
-                    c.fillStyle = 'rgba(248,113,113,0.95)';
-                    c.fillRect(x0, carBot - carH * 0.22, sliceW, Math.max(1, carH * 0.07));
+                    c.fillRect(xCar, carTop, sliceNarrow, Math.max(1, carBot - carTop));
+                    if (faceDot > 0.22 && sideMag < 0.62) {
+                        c.fillStyle = `rgba(226,232,240,${0.55 - fog * 0.15})`;
+                        c.fillRect(xCar, carTop + carH * 0.14, sliceNarrow, Math.max(1, carH * 0.12));
+                        c.fillStyle = `rgba(30,58,138,${0.35 - fog * 0.1})`;
+                        c.fillRect(xCar, carTop + carH * 0.22, sliceNarrow, Math.max(1, carH * 0.07));
+                    }
+                    if (faceDot < -0.25 && sideMag < 0.62) {
+                        c.fillStyle = `rgba(248,113,113,${0.92 - fog * 0.12})`;
+                        c.fillRect(xCar, carBot - carH * 0.28, sliceNarrow, Math.max(1, carH * 0.11));
+                        c.fillStyle = `rgba(254,252,232,${0.55 - fog * 0.12})`;
+                        c.fillRect(xCar, carBot - carH * 0.4, sliceNarrow, Math.max(1, carH * 0.06));
+                    } else if (faceDot > 0.18 && sideMag < 0.55) {
+                        c.fillStyle = `rgba(254,252,232,${0.9 - fog * 0.1})`;
+                        c.fillRect(xCar, carTop + carH * 0.17, sliceNarrow, Math.max(1, carH * 0.075));
+                    }
                     continue;
                 }
                 if (!wallHit) continue;
@@ -5621,7 +5793,19 @@
             const yaw = state.beta3dYaw;
             const pitch = Math.max(-0.42, Math.min(0.42, state.beta3dPitch || 0));
             const rayCols = Math.min(clipW, getBeta3dMaxRayColumns(), BETA3D_IN_GAME_RAY_CAP);
-            renderBeta3dRaycastStripes(c, clipX, clipY, clipW, clipH, ox, oy, yaw, pitch, rayCols, state.buildings, state.vehicles || []);
+            const beta3dSprites = (state.vehicles || []).slice();
+            if (state.glitchMobs && state.glitchMobs.length) {
+                state.glitchMobs.forEach(g => {
+                    beta3dSprites.push({
+                        x: g.x,
+                        y: g.y,
+                        angle: g.angle,
+                        type: { color: '#a855f7' },
+                        beta3dGlitchMob: true
+                    });
+                });
+            }
+            renderBeta3dRaycastStripes(c, clipX, clipY, clipW, clipH, ox, oy, yaw, pitch, rayCols, state.buildings, beta3dSprites);
             c.save();
             c.beginPath();
             c.rect(clipX, clipY, clipW, clipH);
@@ -5756,7 +5940,15 @@
             const modal = document.getElementById('orb-hunt-modal');
             const body = document.getElementById('orb-hunt-instructions');
             if (!modal || !body) return;
-            if (state.playerMode === 2) {
+            if (state.softOrbHunt) {
+                if (state.playerMode === 2) {
+                    body.textContent = 'Golden Orb Hunt: a glowing orb appeared at the safe house. First player to touch it wins the bonus. Player 1: E · Player 2: Shift.';
+                } else if (state.playMode === 'online') {
+                    body.textContent = 'Golden Orb Hunt: race to the cyan orb at the safe house — first player to reach it and press E wins $8,000.';
+                } else {
+                    body.textContent = 'Golden Orb Hunt: walk to the glowing orb at your safe house and press E to claim $8,000.';
+                }
+            } else if (state.playerMode === 2) {
                 body.textContent = 'The city is ash. A glowing Orb waits where your home stood. First player to walk into the Orb wins the hunt. Player 1: use E near the Orb. Player 2: use Shift near the Orb.';
             } else if (state.playMode === 'online') {
                 body.textContent = 'The city is ash. The Orb is at the old safe house. First player (you or your online friend) to reach it and press E wins. Your friend appears as a magenta dot.';
@@ -5776,6 +5968,18 @@
             const p = state.players[pIdx];
             if (!p || p.inVehicle) return false;
             if (dist(p.x, p.y, state.orb.x, state.orb.y) > ORB_PICKUP_RADIUS) return false;
+            if (state.softOrbHunt) {
+                state.orbCollected = true;
+                state.orbHuntActive = false;
+                state.softOrbHunt = false;
+                state.orb = null;
+                hideOrbHuntIntro();
+                const bonus = 8000;
+                state.money += bonus;
+                updateMoneyUI();
+                showMessage(`Golden Orb claimed! +$${bonus.toLocaleString()}`);
+                return true;
+            }
             state.orbCollected = true;
             state.orbHuntActive = false;
             state.isGameOver = true;
@@ -5835,6 +6039,7 @@
                 { x: cx + 80, y: cy + 40, angle: Math.PI, speed: 0, type: JSON.parse(JSON.stringify(fastLambo)), occupied: false }
             ];
             state.cityNuked = true;
+            state.softOrbHunt = false;
             state.orbHuntActive = true;
             state.orbCollected = false;
             state.isGameOver = false;
@@ -5889,6 +6094,9 @@
             state.orbHuntActive = false;
             state.orbCollected = false;
             state.orb = null;
+            state.softOrbHunt = false;
+            state.glitchStormUntilFrame = 0;
+            state.glitchMobs = [];
             state.remotePlayers = {};
             state.landmines = [];
             state.tyreTraps = [];
@@ -7246,7 +7454,7 @@
         }
 
         function isBeta3dFpP1() {
-            return state.playerMode === 1 && state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
+            return state.playerMode === 1 && state.beta3dMode;
         }
 
         function getInternalPixelScale() {
@@ -7275,6 +7483,7 @@
             processTyreTrapsVsPolice();
             updateGpsArrival();
             processBleedAndDowned();
+            processGlitchStormAndMobs();
             
             let customSpeed = 4;
             if (canUseGodPanelInGame()) {
@@ -7564,7 +7773,7 @@
             const CAM_LERP = 0.12;
             const Z = cameraZoom;
             const { bw, bh } = getViewBufferSize();
-            const beta3dOn = state.beta3dMode && state.playerMode === 1 && !(state.playMode === 'online' && !state.isSoloAutoHost);
+            const beta3dOn = state.beta3dMode && state.playerMode === 1;
             if (state.playerMode === 1 && state.players[0] && !beta3dOn) {
                 const f = state.players[state.spectatePIdx] && !state.players[state.spectatePIdx].dead ? state.players[state.spectatePIdx] : state.players[0];
                 if (f) {
@@ -7834,6 +8043,24 @@
                 c.restore();
             }
             
+            if (state.glitchMobs && state.glitchMobs.length) {
+                state.glitchMobs.forEach(g => {
+                    c.save();
+                    c.translate(g.x, g.y);
+                    const j = ((state.frameCount + Math.floor(g.x)) % 10) - 5;
+                    const hb = ((state.frameCount * 3 + Math.floor(g.y)) % 2) === 0;
+                    c.fillStyle = hb ? '#c084fc' : '#22d3ee';
+                    c.strokeStyle = '#0f172a';
+                    c.lineWidth = 2;
+                    c.fillRect(-10 + j * 0.15, -14, 20, 26);
+                    c.strokeRect(-10 + j * 0.15, -14, 20, 26);
+                    c.fillStyle = '#020617';
+                    c.fillRect(-5, -8, 4, 4);
+                    c.fillRect(2, -8, 4, 4);
+                    c.restore();
+                });
+            }
+
             state.civilians.forEach(cv => {
                 c.save();
                 c.translate(cv.x, cv.y);
@@ -8015,7 +8242,7 @@
             const ch = canvas.height;
             const bc = ensureGameBuffer(cw, ch);
             if (!bc) return;
-            const beta3dOn = state.playerMode === 1 && state.beta3dMode && !(state.playMode === 'online' && !state.isSoloAutoHost);
+            const beta3dOn = state.playerMode === 1 && state.beta3dMode;
             bc.imageSmoothingEnabled = !beta3dOn;
             const drawScale = getInternalPixelScale();
             const bw = gameBuffer.width;
@@ -8043,7 +8270,18 @@
             ctx.clearRect(0, 0, cw, ch);
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
-            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox, oy, bw * drawScale, bh * drawScale);
+            const glitchOn = state.glitchStormUntilFrame > state.frameCount && isInGame();
+            let shkx = 0;
+            let shky = 0;
+            if (glitchOn) {
+                shkx = (Math.random() - 0.5) * 14;
+                shky = (Math.random() - 0.5) * 14;
+                ctx.filter = `hue-rotate(${(state.frameCount * 13) % 360}deg) contrast(1.14) saturate(1.38)`;
+            } else {
+                ctx.filter = 'none';
+            }
+            ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox + shkx, oy + shky, bw * drawScale, bh * drawScale);
+            ctx.filter = 'none';
             const mmCont = document.getElementById('minimap-container');
             if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
             if (isZombieSecretActive()) {
@@ -8101,6 +8339,12 @@
                 ms.fill();
             }
             state.civilians.forEach(c => { ms.fillStyle = isZombieSecretActive() ? ZOMBIE_CIV_COLOR_MINI : '#f97316'; ms.beginPath(); ms.arc(c.x * s, c.y * s, 2, 0, Math.PI * 2); ms.fill(); });
+            if (state.glitchMobs && state.glitchMobs.length) {
+                state.glitchMobs.forEach(g => {
+                    ms.fillStyle = '#e879f9';
+                    ms.fillRect(g.x * s - 1.5, g.y * s - 1.5, 3, 3);
+                });
+            }
             state.players.forEach(p => { if (p) {
                 const rad = 4.5;
                 let pxM = p.dead ? (p.corpseX != null ? p.corpseX : p.x) : (p.downed ? (p.corpseX != null ? p.corpseX : p.x) : p.x);
@@ -9133,6 +9377,24 @@
                     setTimeout(() => { if (err) err.textContent = ''; }, 2000);
                 } else if (err) err.textContent = r.err || 'Failed';
             });
+            document.getElementById('owner-event-golden-orb')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-event-err');
+                if (err) err.textContent = '';
+                const r = await sendGlobalOwnerGameEvent('golden_orb_hunt');
+                if (r.ok) {
+                    if (err) err.textContent = 'Golden Orb Hunt broadcast.';
+                    setTimeout(() => { if (err) err.textContent = ''; }, 2200);
+                } else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('owner-event-glitch-storm')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-event-err');
+                if (err) err.textContent = '';
+                const r = await sendGlobalOwnerGameEvent('glitch_storm');
+                if (r.ok) {
+                    if (err) err.textContent = 'Glitch Storm broadcast.';
+                    setTimeout(() => { if (err) err.textContent = ''; }, 2200);
+                } else if (err) err.textContent = r.err || 'Failed';
+            });
             document.getElementById('admin-global-broadcast-dismiss')?.addEventListener('click', () => hideServerNoticeOverlay());
             document.getElementById('admin-global-broadcast')?.addEventListener('click', (e) => {
                 if (e.target && e.target.id === 'admin-global-broadcast') hideServerNoticeOverlay();
@@ -9354,7 +9616,6 @@
             }
             canvas.addEventListener('mousedown', (e) => {
                 if (!state.beta3dMode || !isInGame() || state.playerMode !== 1) return;
-                if (state.playMode === 'online' && !state.isSoloAutoHost) return;
                 if (e.button !== 0 || !e.ctrlKey) return;
                 e.preventDefault();
                 canvas.requestPointerLock?.();
