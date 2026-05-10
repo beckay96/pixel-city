@@ -1658,7 +1658,7 @@
             { id: 'win_continue', label: 'God Lambo / win screen?', answer: () => 'After winning you can Keep playing or Nuke the city — endless sandbox until you choose.' },
             { id: 'nuke_city', label: 'What does Nuke the city do?', answer: () => 'Ends the run dramatically — only pick it when you really want to reset the session.' },
             { id: 'admin', label: 'Admin / owner tools?', answer: () => 'Lobby admin PIN unlocks cheat sheet; owner accounts get dashboards + optional global glitch events for everyone online.' },
-            { id: 'glitch_event', label: 'Glitch storm event?', answer: () => 'Thomas uses Owner dashboard Glitch Storm ON/OFF — lasts until turned off. Mobs won’t hurt you while you’re inside a car.' },
+            { id: 'glitch_event', label: 'Glitch storm event?', answer: () => 'Thomas uses Owner dashboard Glitch Storm ON/OFF — lasts until turned off. Glitch mobs chase you and can still hurt you even if you’re driving.' },
             { id: 'seizure_death_event', label: 'What is Seizure Death?', answer: () => 'Thomas can trigger Seizure Death from the Owner dashboard. For ~45 seconds most players can’t move and slowly lose HP; one signed-in player per multiplayer session is randomly spared.' },
             { id: 'telepads', label: 'Teleporter pads?', answer: () => 'Gadget pair — drop two pads and walk through to warp between them for quick escapes.' },
             { id: 'weapons', label: 'Weapon basics?', answer: () => 'Weapon shop sells stunners, rockets, micro nukes for PvP — aim with face direction and respect friendly-fire rules.' },
@@ -2903,7 +2903,7 @@
                     g.x += Math.cos(g.angle) * 0.35;
                     g.y += Math.sin(g.angle) * 0.35;
                 }
-                if (!target || target.inVehicle) continue; /* safe inside cars — mobs don’t damage occupants */
+                if (!target) continue;
                 if (bestD > GLITCH_MOB_RADIUS + 18) continue;
                 const pIdx = state.players.indexOf(target);
                 if (pIdx < 0) continue;
