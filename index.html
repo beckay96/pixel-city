@@ -1662,7 +1662,7 @@
             { id: 'autosave', label: 'Autosave timing?', answer: () => 'World autosaves on an interval while you play — still manual-save before risky vault runs.' },
             { id: 'disconnect', label: 'Multiplayer disconnections?', answer: () => 'Game retries Realtime with backoff — check Wi‑Fi, stay signed in, and avoid refreshing mid-session.' },
             { id: 'character', label: 'Character appearance?', answer: () => 'Everyone plays as the neon dot — use Character in the lobby to recolor your trail.' },
-            { id: 'coupe', label: 'Sports coupe tier?', answer: () => 'Mid-luxury dealership step between Porsche tier and the Lambo — pricey but huge speed jump.' }
+            { id: 'coupe', label: 'Sports coupe tier?', answer: () => 'Dealership “Sports Coupe” is $50,000 between the Porsche 911 and the Lambo — strong mid milestone before the six-figure hypercars.' }
         ];
 
         function getTutorialBuddyContext() {
@@ -1805,7 +1805,7 @@
         const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
         const JOBS = [{ id: 'shelves', name: 'Stock Shelves' }, { id: 'floor', name: 'Mop Floor' }, { id: 'customers', name: 'Cashier' }];
         const VEHICLE_TYPES = [
-            { id: 'compact', name: 'City Compact',      price: 250,     topSpeed: 5.5, accel: 0.18, color: '#22c55e', tier: 0, storeBonus: 8   },
+            { id: 'compact', name: 'City Compact',      price: 250,     topSpeed: 6,   accel: 0.2,  color: '#22c55e', tier: 0, storeBonus: 11  },
             { id: 'sedan',   name: 'Standard Sedan',    price: 400,     topSpeed: 6,   accel: 0.2,  color: '#3b82f6', tier: 0, storeBonus: 10  },
             { id: 'hatch',   name: 'Sport Hatch',       price: 900,     topSpeed: 7,   accel: 0.22, color: '#e11d48', tier: 1, storeBonus: 15  },
             { id: 'truck',   name: 'Ironclad Truck',    price: 1500,    topSpeed: 5,   accel: 0.15, color: '#94a3b8', tier: 1, storeBonus: 20  },
@@ -1814,6 +1814,7 @@
             { id: 'pickup',  name: 'Ridge Pickup',      price: 4500,    topSpeed: 6.5, accel: 0.25, color: '#b45309', tier: 2, storeBonus: 55  },
             { id: 'suv',     name: 'Summit SUV',        price: 8500,    topSpeed: 7.5, accel: 0.28, color: '#1e293b', tier: 3, storeBonus: 70  },
             { id: 'porsche', name: 'Porsche 911',       price: 10000,   topSpeed: 55,  accel: 2.0,  color: '#475569', tier: 3, storeBonus: 75  },
+            { id: 'sportcoupe', name: 'Sports Coupe',   price: 50000,   topSpeed: 92,  accel: 3.1,  color: '#dc2626', tier: 3.5, storeBonus: 88 },
             { id: 'lambo',   name: 'Aventador LAMBO',   price: 100000,  topSpeed: 140, accel: 4.0,  color: '#fbbf24', tier: 4, storeBonus: 100 },
             { id: 'bugatti', name: 'Bugatti Chiron',    price: 350000,  topSpeed: 160, accel: 4.5,  color: '#6366f1', tier: 5, storeBonus: 150 },
             { id: 'ferrari', name: 'Ferrari LaFerrari', price: 750000,  topSpeed: 175, accel: 5.0,  color: '#ef4444', tier: 6, storeBonus: 200 },
@@ -1928,8 +1929,10 @@
             hudModalPlayerIdx: 0,
             /** friendlyFireOff: when true, PvP weapon hits do not damage remote players (host toggles in menu). */
             sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
-            /** Highest car tier bought this run — controls store earnings per tap */
+            /** Highest car tier bought this run (progression / saves). */
             bestCarTier: -1,
+            /** Best store $/tap from any car purchased this run — never lowered by buying a cheaper car */
+            bestStoreBonus: 10,
             /** Monotonic id for world vehicles (save/load + multiplayer sync). */
             nextVehicleId: 1,
             /** Dealership: after two taps on "Buy for friend", next E/Shift purchase spawns an extra car for peers. */
@@ -6072,6 +6075,7 @@
             state.money = 0;
             state.stamina = 100;
             state.bestCarTier = -1;
+            state.bestStoreBonus = 10;
             state.wantedLevel = 0;
             state.policeDelay = 0;
             state.arrestCount = 0;
@@ -6193,9 +6197,8 @@
         };
 
         function getStoreEarningsPerTap() {
-            if (state.bestCarTier < 0) return 10;
-            const car = VEHICLE_TYPES.find(v => v.tier === state.bestCarTier);
-            return car ? car.storeBonus : 10;
+            const b = typeof state.bestStoreBonus === 'number' ? state.bestStoreBonus : 10;
+            return Math.max(10, b);
         }
 
         window.handleWork = (pIdx) => {
@@ -6436,6 +6439,7 @@
             }
 
             if (car.tier > state.bestCarTier) state.bestCarTier = car.tier;
+            state.bestStoreBonus = Math.max(typeof state.bestStoreBonus === 'number' ? state.bestStoreBonus : 10, car.storeBonus);
 
             resetDealerFriendGiftUI(pIdx);
             window.closePlayerModal(pIdx);
@@ -6445,6 +6449,8 @@
                 showMessage(gift ? '🌟 GOD LAMBO × gift! You\'re the ultimate!' : '🌟 GOD LAMBO! You\'re the ultimate! Store earns $' + car.storeBonus + '/tap!');
             } else if (car.id === 'lambo') {
                 showMessage(gift ? '🏆 LAMBO + friend car at the lot!' : '🏆 AVENTADOR LAMBO! Milestone reached! Store earns $' + car.storeBonus + '/tap! Keep going!');
+            } else if (car.id === 'sportcoupe') {
+                showMessage(gift ? `🎁 ${car.name} for you + one for a friend at the lot!` : `🏎 Sports Coupe milestone! Store earns $${car.storeBonus}/tap — next stop: the Lambo.`);
             } else {
                 showMessage(gift ? `🎁 ${car.name} for you + one for a friend at the lot!` : `Purchased ${car.name}! Store now earns $${car.storeBonus}/tap!`);
             }
@@ -6661,6 +6667,7 @@
                 schoolGameMode: state.schoolGameMode,
                 worldSeed: state.worldSeed,
                 bestCarTier: state.bestCarTier,
+                bestStoreBonus: state.bestStoreBonus,
                 inventoryGadgetCounts: { ...state.inventoryGadgetCounts },
                 inventoryWeaponCounts: { ...state.inventoryWeaponCounts },
                 vehicles: serializeVehiclesForSave(),
@@ -6703,6 +6710,7 @@
                 benHouseRobbed: state.benHouseRobbed,
                 isPresident: state.isPresident,
                 bestCarTier: state.bestCarTier,
+                bestStoreBonus: state.bestStoreBonus,
                 vehicles: serializeVehiclesForSave(),
                 nextVehicleId: state.nextVehicleId,
                 inventoryGadgetCounts: { ...state.inventoryGadgetCounts },
@@ -6744,6 +6752,14 @@
             if (save.benHouseRobbed) state.benHouseRobbed = true;
             if (save.isPresident) state.isPresident = true;
             if (typeof save.bestCarTier === 'number') state.bestCarTier = save.bestCarTier;
+            if (typeof save.bestStoreBonus === 'number') {
+                state.bestStoreBonus = Math.max(10, save.bestStoreBonus);
+            } else if (typeof save.bestCarTier === 'number' && save.bestCarTier >= 0) {
+                const c = VEHICLE_TYPES.find(v => v.tier === save.bestCarTier);
+                state.bestStoreBonus = c ? Math.max(10, c.storeBonus) : 10;
+            } else {
+                state.bestStoreBonus = 10;
+            }
             if (typeof save.nextVehicleId === 'number' && save.nextVehicleId > 0) state.nextVehicleId = save.nextVehicleId;
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
@@ -7220,8 +7236,9 @@
             state.gamePaused = false;
             if (!mergedSave) {
                 state.bestCarTier = -1;
+                state.bestStoreBonus = 10;
                 state.nextVehicleId = 1;
-                state.dealerFriendGiftArmed = false;
+                state.dealerBuyForFriendArmed = false;
             }
             state.stamina = 100;
             state.vehicles = [];
