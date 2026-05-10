@@ -1447,10 +1447,12 @@
                 <button type="button" id="owner-broadcast-send" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg font-bold text-sm">Send to all players</button>
                 <p id="owner-broadcast-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
                 <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest mb-2 mt-4">Live events (signed-in players)</p>
-                <p class="text-[9px] text-slate-500 mb-2">Starts on everyone who is in-game with Pixel City open (different sessions OK).</p>
-                <div class="flex flex-col sm:flex-row gap-2 mb-1">
-                    <button type="button" id="owner-event-golden-orb" class="flex-1 bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb Hunt</button>
-                    <button type="button" id="owner-event-glitch-storm" class="flex-1 bg-fuchsia-800 hover:bg-fuchsia-700 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm</button>
+                <p class="text-[9px] text-slate-500 mb-2">Thomas ON/OFF toggles — glitch storm stays until turned off. Everyone in-game receives the event.</p>
+                <div class="grid grid-cols-2 gap-2 mb-1">
+                    <button type="button" id="owner-event-golden-orb-on" class="bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb · ON</button>
+                    <button type="button" id="owner-event-golden-orb-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb · OFF</button>
+                    <button type="button" id="owner-event-glitch-on" class="bg-fuchsia-800 hover:bg-fuchsia-700 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm · ON</button>
+                    <button type="button" id="owner-event-glitch-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm · OFF</button>
                 </div>
                 <p id="owner-event-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
             </div>
@@ -1655,7 +1657,7 @@
             { id: 'win_continue', label: 'God Lambo / win screen?', answer: () => 'After winning you can Keep playing or Nuke the city — endless sandbox until you choose.' },
             { id: 'nuke_city', label: 'What does Nuke the city do?', answer: () => 'Ends the run dramatically — only pick it when you really want to reset the session.' },
             { id: 'admin', label: 'Admin / owner tools?', answer: () => 'Lobby admin PIN unlocks cheat sheet; owner accounts get dashboards + optional global glitch events for everyone online.' },
-            { id: 'glitch_event', label: 'Glitch storm event?', answer: () => 'Owner-triggered mode — screen shakes, slow glitch mobs spawn. Survive until the timer ends.' },
+            { id: 'glitch_event', label: 'Glitch storm event?', answer: () => 'Thomas uses Owner dashboard Glitch Storm ON/OFF — lasts until turned off. Mobs won’t hurt you while you’re inside a car.' },
             { id: 'telepads', label: 'Teleporter pads?', answer: () => 'Gadget pair — drop two pads and walk through to warp between them for quick escapes.' },
             { id: 'weapons', label: 'Weapon basics?', answer: () => 'Weapon shop sells stunners, rockets, micro nukes for PvP — aim with face direction and respect friendly-fire rules.' },
             { id: 'wanted_drop', label: 'How do I lose stars fast?', answer: () => 'Stop committing crimes, hide at HOME, or put distance between you and cruisers until the meter cools.' },
@@ -1956,7 +1958,9 @@
             uiLang: initialUiLang,
             /** Owner “Golden Orb Hunt” — orb at safe house without nuking the city */
             softOrbHunt: false,
-            /** Frame index when glitch storm ends (0 = inactive) */
+            /** Owner glitch storm (toggle ON/OFF — no timer) */
+            glitchStormActive: false,
+            /** Legacy timer field — unused while glitchStormActive drives the storm */
             glitchStormUntilFrame: 0,
             /** Slow hostile mobs during glitch storm */
             glitchMobs: []
@@ -2869,7 +2873,7 @@
 
         function processGlitchStormAndMobs() {
             if (!state.glitchMobs) state.glitchMobs = [];
-            if (state.glitchStormUntilFrame <= state.frameCount) {
+            if (!state.glitchStormActive) {
                 if (state.glitchMobs.length) state.glitchMobs = [];
                 return;
             }
@@ -2892,7 +2896,7 @@
                     g.x += Math.cos(g.angle) * 0.35;
                     g.y += Math.sin(g.angle) * 0.35;
                 }
-                if (!target || target.inVehicle) continue;
+                if (!target || target.inVehicle) continue; /* safe inside cars — mobs don’t damage occupants */
                 if (bestD > GLITCH_MOB_RADIUS + 18) continue;
                 const pIdx = state.players.indexOf(target);
                 if (pIdx < 0) continue;
@@ -3302,8 +3306,6 @@
 
         const ORB_PICKUP_RADIUS = 38;
         const ORB_VISUAL_RADIUS = 22;
-        /** Owner glitch-storm event (~55s at 60fps) */
-        const GLITCH_STORM_DURATION_FRAMES = 60 * 55;
         const GLITCH_MOB_RADIUS = 20;
         const GLITCH_MOB_TOUCH_DAMAGE = 10;
         const GLITCH_MOB_HIT_INTERVAL_FRAMES = 48;
@@ -3524,9 +3526,24 @@
             return true;
         }
 
+        function stopGoldenOrbHuntFromOwnerEvent() {
+            if (!isInGame()) return false;
+            state.orbHuntActive = false;
+            state.softOrbHunt = false;
+            state.orbCollected = false;
+            state.orb = null;
+            hideOrbHuntIntro();
+            const orbWin = document.getElementById('orb-win-overlay');
+            if (orbWin) orbWin.style.display = 'none';
+            showServerNoticeOverlay('Golden Orb Hunt stopped.', { from: 'owner', labelKind: 'dev' });
+            showMessage('Golden Orb Hunt ended.');
+            return true;
+        }
+
         function startGlitchStormFromOwnerEvent() {
             if (!isInGame()) return false;
-            state.glitchStormUntilFrame = Math.max(state.glitchStormUntilFrame || 0, state.frameCount + GLITCH_STORM_DURATION_FRAMES);
+            state.glitchStormActive = true;
+            state.glitchStormUntilFrame = 0;
             if (!state.glitchMobs) state.glitchMobs = [];
             const spawnN = Math.max(14, 22 - state.glitchMobs.length);
             for (let i = 0; i < spawnN; i++) {
@@ -3539,7 +3556,17 @@
                 });
             }
             showServerNoticeOverlay('Glitch Storm activated.', { from: 'owner', labelKind: 'dev' });
-            showMessage('GLITCH STORM — slow glitch mobs are hunting players!');
+            showMessage('GLITCH STORM ON — Thomas can turn it off from the owner dashboard.');
+            return true;
+        }
+
+        function stopGlitchStormFromOwnerEvent() {
+            if (!isInGame()) return false;
+            state.glitchStormActive = false;
+            state.glitchStormUntilFrame = 0;
+            state.glitchMobs = [];
+            showServerNoticeOverlay('Glitch Storm stopped.', { from: 'owner', labelKind: 'dev' });
+            showMessage('Glitch storm ended.');
             return true;
         }
 
@@ -3550,7 +3577,9 @@
             const k = String(payload.kind || '');
             let applied = false;
             if (k === 'golden_orb_hunt') applied = !!startGoldenOrbHuntFromOwnerEvent();
-            else if (k === 'glitch_storm') applied = !!startGlitchStormFromOwnerEvent();
+            else if (k === 'golden_orb_hunt_off') applied = !!stopGoldenOrbHuntFromOwnerEvent();
+            else if (k === 'glitch_storm' || k === 'glitch_storm_on') applied = !!startGlitchStormFromOwnerEvent();
+            else if (k === 'glitch_storm_off') applied = !!stopGlitchStormFromOwnerEvent();
             else return;
             if (seq > 0 && applied) lastOwnerGameEventSeqApplied = seq;
         }
@@ -3588,6 +3617,9 @@
             if (hm) hm.style.display = 'none';
             state.hospitalAction = null;
             state.soloHospModalShown = false;
+            state.glitchStormActive = false;
+            state.glitchStormUntilFrame = 0;
+            state.glitchMobs = [];
             if (state.playMode === 'online') {
                 // If this was a solo auto-host, revert to 'solo' so the 1 PLAYER tab stays active in lobby
                 if (state.isSoloAutoHost) state.playMode = 'solo';
@@ -6083,9 +6115,9 @@
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
             
-            // Annihilate the City
+            // Annihilate the City (keep dealership usable during orb hunt / ash city)
             state.buildings.forEach(b => {
-                if (b.type === 'ben_hall' || b.type === 'invisible') return;
+                if (b.type === 'ben_hall' || b.type === 'invisible' || b.type === 'dealership') return;
                 b.type = 'ruins';
                 b.color = '#1f2937'; // Dark slate/ash color
             });
@@ -6158,6 +6190,7 @@
             state.orb = null;
             state.softOrbHunt = false;
             state.glitchStormUntilFrame = 0;
+            state.glitchStormActive = false;
             state.glitchMobs = [];
             state.remotePlayers = {};
             state.landmines = [];
@@ -7303,6 +7336,9 @@
                 state.bestStoreBonus = 10;
                 state.nextVehicleId = 1;
                 state.dealerBuyForFriendArmed = false;
+                state.glitchStormActive = false;
+                state.glitchStormUntilFrame = 0;
+                state.glitchMobs = [];
             }
             state.stamina = 100;
             state.vehicles = [];
@@ -8351,7 +8387,7 @@
             ctx.clearRect(0, 0, cw, ch);
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, cw, ch);
-            const glitchOn = state.glitchStormUntilFrame > state.frameCount && isInGame();
+            const glitchOn = state.glitchStormActive && isInGame();
             let shkx = 0;
             let shky = 0;
             if (glitchOn) {
@@ -9458,23 +9494,38 @@
                     setTimeout(() => { if (err) err.textContent = ''; }, 2000);
                 } else if (err) err.textContent = r.err || 'Failed';
             });
-            document.getElementById('owner-event-golden-orb')?.addEventListener('click', async () => {
+            const flashOwnerEventStatus = (errEl, okMsg) => {
+                if (!errEl) return;
+                errEl.textContent = okMsg;
+                setTimeout(() => { errEl.textContent = ''; }, 2200);
+            };
+            document.getElementById('owner-event-golden-orb-on')?.addEventListener('click', async () => {
                 const err = document.getElementById('owner-event-err');
                 if (err) err.textContent = '';
                 const r = await sendGlobalOwnerGameEvent('golden_orb_hunt');
-                if (r.ok) {
-                    if (err) err.textContent = 'Golden Orb Hunt broadcast.';
-                    setTimeout(() => { if (err) err.textContent = ''; }, 2200);
-                } else if (err) err.textContent = r.err || 'Failed';
+                if (r.ok) flashOwnerEventStatus(err, 'Golden Orb ON sent.');
+                else if (err) err.textContent = r.err || 'Failed';
             });
-            document.getElementById('owner-event-glitch-storm')?.addEventListener('click', async () => {
+            document.getElementById('owner-event-golden-orb-off')?.addEventListener('click', async () => {
                 const err = document.getElementById('owner-event-err');
                 if (err) err.textContent = '';
-                const r = await sendGlobalOwnerGameEvent('glitch_storm');
-                if (r.ok) {
-                    if (err) err.textContent = 'Glitch Storm broadcast.';
-                    setTimeout(() => { if (err) err.textContent = ''; }, 2200);
-                } else if (err) err.textContent = r.err || 'Failed';
+                const r = await sendGlobalOwnerGameEvent('golden_orb_hunt_off');
+                if (r.ok) flashOwnerEventStatus(err, 'Golden Orb OFF sent.');
+                else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('owner-event-glitch-on')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-event-err');
+                if (err) err.textContent = '';
+                const r = await sendGlobalOwnerGameEvent('glitch_storm_on');
+                if (r.ok) flashOwnerEventStatus(err, 'Glitch Storm ON sent.');
+                else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('owner-event-glitch-off')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-event-err');
+                if (err) err.textContent = '';
+                const r = await sendGlobalOwnerGameEvent('glitch_storm_off');
+                if (r.ok) flashOwnerEventStatus(err, 'Glitch Storm OFF sent.');
+                else if (err) err.textContent = r.err || 'Failed';
             });
             document.getElementById('admin-global-broadcast-dismiss')?.addEventListener('click', () => hideServerNoticeOverlay());
             document.getElementById('admin-global-broadcast')?.addEventListener('click', (e) => {
