@@ -947,7 +947,7 @@
             </div>
             <div id="bank-modal-0" class="modal interactive">
                 <h2 class="text-2xl font-bold mb-4 text-center text-yellow-400 uppercase">🏦 Bank</h2>
-                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(0)">Rob Vault ($500)</button>
+                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(0)">Rob Vault ($10,000)</button>
                 <button class="bg-slate-700 text-white w-full py-3 rounded-lg font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
             <div id="rob-modal-0" class="modal interactive">
@@ -1011,7 +1011,7 @@
             </div>
             <div id="bank-modal-1" class="modal interactive">
                 <h2 class="text-2xl font-bold mb-4 text-center text-yellow-400 uppercase">🏦 Bank</h2>
-                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(1)">Rob Vault ($500)</button>
+                <button class="bg-red-600 text-white w-full py-3 rounded-lg font-bold mb-4" onclick="window.robBank(1)">Rob Vault ($10,000)</button>
                 <button class="bg-slate-700 text-white w-full py-3 rounded-lg font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="rob-modal-1" class="modal interactive">
@@ -1159,6 +1159,10 @@
         <div id="jail-timer" class="text-3xl font-mono mb-4 text-yellow-500 text-center">10s</div>
         <div id="jail-default-actions" class="w-full max-w-sm mx-auto text-center">
             <button id="pay-bail-btn" class="bg-yellow-500 text-black px-8 py-3 rounded-lg font-black interactive w-full">Pay Bail</button>
+            <div id="jail-vault-arrest-row" class="hidden mt-3 space-y-2 text-left">
+                <p id="jail-vault-arrest-sub" class="text-xs text-amber-200 leading-snug"></p>
+                <button type="button" id="jail-vault-bankrupt-btn" class="bg-rose-700 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm w-full interactive">Go bankrupt</button>
+            </div>
         </div>
         <div id="jail-school-block" class="jail-school-block hidden mt-4 p-3 rounded-xl border border-amber-600/50 bg-slate-900/95 text-left max-h-[60vh] overflow-y-auto">
             <p class="text-[10px] font-bold text-amber-300 uppercase mb-1">Classroom consequence</p>
@@ -1490,6 +1494,13 @@
         const JAIL_FRAMES_PER_SEC = 60;
         const jailFramesPolice = () => (15 + Math.floor(Math.random() * 6)) * JAIL_FRAMES_PER_SEC; // 15-20s
         const JAIL_FRAMES_SLASH_CMD = 30 * JAIL_FRAMES_PER_SEC;
+        /** Bank vault heist (not house spin robbery) */
+        const VAULT_HEIST_PAYOUT = 10000;
+        const VAULT_ARREST_FINE = 10000;
+        const POLICE_TOP_SPEED_HOUSE = 14;
+        /** Faster chase during vault wanted only — fixed speed, does not stack per robbery */
+        const POLICE_TOP_SPEED_VAULT = 21;
+        const VAULT_ARREST_JAIL_FRAMES = 15 * JAIL_FRAMES_PER_SEC;
         /** Persisted when toggled via ?schoolSafe= / ?school= or build flag; read on load. */
         const LS_SCHOOL_SAFE = 'pixelCitySchoolSafe';
         /** Lobby "School mode" — math/writing jobs + school jail (separate from schoolSafe scaffold). */
@@ -1970,7 +1981,14 @@
             seizureDeathUntilFrame: 0,
             seizureDeathWaveSeq: 0,
             seizureDeathExemptUid: null,
-            seizureDeathExemptLocalPIdx: null
+            seizureDeathExemptLocalPIdx: null,
+            /** True while fleeing after bank vault — police use POLICE_TOP_SPEED_VAULT (not house speed) */
+            vaultChaseActive: false,
+            /** Loot that can be seized on arrest (matches last vault take) */
+            pendingVaultLoot: 0,
+            /** Remaining vault fine after auto-taking all cash on hand (non-school: jail timer or bankrupt) */
+            vaultArrestOwe: 0,
+            jailVaultChoiceMode: false
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -3709,6 +3727,8 @@
             if (sb) sb.classList.remove('open');
             document.getElementById('game-over-overlay').style.display = 'none';
             document.getElementById('jail-overlay').style.display = 'none';
+            document.getElementById('jail-vault-arrest-row')?.classList.add('hidden');
+            document.getElementById('pay-bail-btn')?.classList.remove('hidden');
             const hm = document.getElementById('hospital-modal');
             if (hm) hm.style.display = 'none';
             state.hospitalAction = null;
@@ -3717,6 +3737,13 @@
             state.glitchStormUntilFrame = 0;
             state.glitchMobs = [];
             clearSeizureDeathState();
+            state.vaultChaseActive = false;
+            state.pendingVaultLoot = 0;
+            state.vaultArrestOwe = 0;
+            state.jailVaultChoiceMode = false;
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            state.police = [];
             if (state.playMode === 'online') {
                 // If this was a solo auto-host, revert to 'solo' so the 1 PLAYER tab stays active in lobby
                 if (state.isSoloAutoHost) state.playMode = 'solo';
@@ -4673,6 +4700,8 @@
             state.jailLineCount = 0;
             state.jailBailMathSolved = false;
             state.jailReleasePhase = false;
+            state.jailVaultChoiceMode = false;
+            state.vaultArrestOwe = 0;
             const jo = document.getElementById('jail-overlay');
             if (jo) jo.style.display = 'none';
             const def = document.getElementById('jail-default-actions');
@@ -4681,6 +4710,10 @@
             if (school) school.classList.add('hidden');
             const jsub = document.getElementById('jail-sub');
             if (jsub) jsub.textContent = 'Jail';
+            const row = document.getElementById('jail-vault-arrest-row');
+            const bailBtn = document.getElementById('pay-bail-btn');
+            if (row) row.classList.add('hidden');
+            if (bailBtn) bailBtn.classList.remove('hidden');
         }
 
         function putPlayerInJail(frames, releaseMsg) {
@@ -4689,7 +4722,15 @@
             state.police = [];
             state.wantedLevel = 0;
             state.policeDelay = 0;
+            const ws = document.getElementById('wanted-stars');
+            if (ws) ws.classList.add('hidden');
             state.jailReleasePhase = false;
+            if (!state.jailVaultChoiceMode) {
+                const vRow = document.getElementById('jail-vault-arrest-row');
+                const bailVis = document.getElementById('pay-bail-btn');
+                if (vRow) vRow.classList.add('hidden');
+                if (bailVis) bailVis.classList.remove('hidden');
+            }
             window.closePlayerModal(0);
             if (state.players[1]) window.closePlayerModal(1);
             state.players.forEach((p, i) => {
@@ -4728,10 +4769,11 @@
                 if (def) def.classList.remove('hidden');
                 if (schoolB) schoolB.classList.add('hidden');
                 if (jsub) jsub.textContent = 'Jail';
-                // Cap at 20s if player has less than $500
-                const cappedFrames = (state.money < 500)
-                    ? Math.min(Math.floor(frames), 20 * JAIL_FRAMES_PER_SEC)
-                    : Math.floor(frames);
+                const cappedFrames = state.jailVaultChoiceMode
+                    ? Math.floor(frames)
+                    : (state.money < 500)
+                        ? Math.min(Math.floor(frames), 20 * JAIL_FRAMES_PER_SEC)
+                        : Math.floor(frames);
                 state.jailTime = Math.max(1, cappedFrames);
                 if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
             }
@@ -4744,6 +4786,81 @@
             } else if (releaseMsg) {
                 showMessage(releaseMsg);
             }
+        }
+
+        function releaseAfterVaultArrestPaidFull() {
+            applyJailReleaseCommon();
+            const h = state.buildings.find(b => b.type === 'home');
+            state.players.forEach((p, i) => {
+                if (!p) return;
+                if (h) { p.x = h.x + (h.w / 2) + (i * 20); p.y = h.y + h.h + 30; }
+                else { p.x = 2000 + i * 40; p.y = 2200; }
+            });
+            state.policeDelay = 3600;
+            state.wantedLevel = 0;
+            const stars = document.getElementById('wanted-stars');
+            if (stars) stars.classList.add('hidden');
+        }
+
+        /** Returns remaining vault fine not covered by cash on hand (after loot forfeit). */
+        function applyVaultArrestFinancialAndOwe() {
+            if (state.pendingVaultLoot < VAULT_HEIST_PAYOUT) return 0;
+            state.money -= VAULT_HEIST_PAYOUT;
+            state.pendingVaultLoot = 0;
+            state.vaultChaseActive = false;
+            const second = Math.min(VAULT_ARREST_FINE, Math.max(0, state.money));
+            state.money -= second;
+            const owe = VAULT_ARREST_FINE - second;
+            updateMoneyUI();
+            return owe;
+        }
+
+        function resolvePoliceCatch(pIdx) {
+            state.arrestCount++;
+            state.bailPrice = state.arrestCount * 100;
+            state.police = [];
+            window.closePlayerModal(0);
+            if (state.players[1]) window.closePlayerModal(1);
+
+            const hadVaultLoot = state.pendingVaultLoot >= VAULT_HEIST_PAYOUT;
+            if (!hadVaultLoot) {
+                state.jailVaultChoiceMode = false;
+                state.vaultArrestOwe = 0;
+                putPlayerInJail(jailFramesPolice(), 'BUSTED!');
+                return;
+            }
+
+            if (state.schoolGameMode) {
+                const owe = applyVaultArrestFinancialAndOwe();
+                if (owe > 0) {
+                    state.money -= owe;
+                    updateMoneyUI();
+                    showMessage(`Vault bust — $${VAULT_HEIST_PAYOUT.toLocaleString()} loot seized + fine; $${owe.toLocaleString()} taken from debt (can go negative).`);
+                } else {
+                    showMessage(`Vault bust — $${VAULT_HEIST_PAYOUT.toLocaleString()} loot seized + $${VAULT_ARREST_FINE.toLocaleString()} fine paid.`);
+                }
+                putPlayerInJail(jailFramesPolice(), 'BUSTED (vault)!');
+                return;
+            }
+
+            const owe = applyVaultArrestFinancialAndOwe();
+            if (owe <= 0) {
+                showMessage(`Vault bust — $${VAULT_HEIST_PAYOUT.toLocaleString()} loot seized + $${VAULT_ARREST_FINE.toLocaleString()} fine paid.`);
+                releaseAfterVaultArrestPaidFull();
+                return;
+            }
+
+            state.vaultArrestOwe = owe;
+            state.jailVaultChoiceMode = true;
+            putPlayerInJail(VAULT_ARREST_JAIL_FRAMES, 'VAULT BUST — loot seized. Wait 15s or go bankrupt.');
+            const row = document.getElementById('jail-vault-arrest-row');
+            const bailBtn = document.getElementById('pay-bail-btn');
+            const sub = document.getElementById('jail-vault-arrest-sub');
+            const bankruptBtn = document.getElementById('jail-vault-bankrupt-btn');
+            if (row) row.classList.remove('hidden');
+            if (bailBtn) bailBtn.classList.add('hidden');
+            if (sub) sub.textContent = `You owe $${owe.toLocaleString()} more from the vault fine (not enough cash left). Wait 15s to clear it, or go bankrupt and pay the rest into negative balance.`;
+            if (bankruptBtn) bankruptBtn.textContent = `Go bankrupt (−$${owe.toLocaleString()})`;
         }
 
         function subscribeToSessionChannel(code) {
@@ -6267,6 +6384,10 @@
             state.policeDelay = 0;
             state.arrestCount = 0;
             state.police = [];
+            state.vaultChaseActive = false;
+            state.pendingVaultLoot = 0;
+            state.vaultArrestOwe = 0;
+            state.jailVaultChoiceMode = false;
             state.civilians = [];
             state.vehicles = [];
             state.nextVehicleId = 1;
@@ -6281,6 +6402,8 @@
             if (jo) jo.style.display = 'none';
             document.getElementById('jail-default-actions')?.classList.remove('hidden');
             document.getElementById('jail-school-block')?.classList.add('hidden');
+            document.getElementById('jail-vault-arrest-row')?.classList.add('hidden');
+            document.getElementById('pay-bail-btn')?.classList.remove('hidden');
             state.cityNuked = false;
             state.orbHuntActive = false;
             state.orbCollected = false;
@@ -6711,11 +6834,17 @@
                 window.closePlayerModal(pIdx);
                 return;
             }
-            state.money += 500; updateMoneyUI(); state.wantedLevel = 1; state.policeDelay = 180; // 3 seconds
+            state.money += VAULT_HEIST_PAYOUT;
+            state.pendingVaultLoot = VAULT_HEIST_PAYOUT;
+            state.vaultChaseActive = true;
+            state.police.forEach(v => { if (v && v.type) v.type.topSpeed = POLICE_TOP_SPEED_VAULT; });
+            updateMoneyUI();
+            state.wantedLevel = 1;
+            state.policeDelay = 180; // 3 seconds
             const stars = document.getElementById('wanted-stars');
             if(stars) stars.classList.remove('hidden'); 
             window.closePlayerModal(pIdx);
-            showMessage("BANK HEIST! RUN!"); 
+            showMessage(`VAULT HEIST +$${VAULT_HEIST_PAYOUT.toLocaleString()}! Police are faster — run!`); 
         };
 
         function handleInteraction(pIdx) {
@@ -6808,6 +6937,8 @@
                 else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'home' && state.wantedLevel > 0) { 
                     state.wantedLevel = 0; state.police = []; 
+                    state.vaultChaseActive = false;
+                    state.pendingVaultLoot = 0;
                     const stars = document.getElementById('wanted-stars');
                     if(stars) stars.classList.add('hidden'); 
                     showMessage("SAFE HOUSE REACHED!"); 
@@ -7439,6 +7570,10 @@
                 state.glitchStormUntilFrame = 0;
                 state.glitchMobs = [];
                 clearSeizureDeathState();
+                state.vaultChaseActive = false;
+                state.pendingVaultLoot = 0;
+                state.vaultArrestOwe = 0;
+                state.jailVaultChoiceMode = false;
             }
             state.stamina = 100;
             state.vehicles = [];
@@ -7559,6 +7694,13 @@
         function initGameLoop() {
             generateCity();
             state.benCodeOkThisRun = false;
+            state.wantedLevel = 0;
+            state.policeDelay = 0;
+            state.police = [];
+            state.vaultChaseActive = false;
+            state.pendingVaultLoot = 0;
+            state.vaultArrestOwe = 0;
+            state.jailVaultChoiceMode = false;
             hideBenCodeModal();
             updateMoneyUI();
 
@@ -7946,15 +8088,18 @@
                     if (state.police.length < 6) {
                         // Spawn from police station (bottom-left corner) with slight spread
                         const stationX = 200, stationY = 3800;
+                        const topSpd = state.vaultChaseActive ? POLICE_TOP_SPEED_VAULT : POLICE_TOP_SPEED_HOUSE;
                         for (let i = 0; i < 4; i++) {
-                            state.police.push({ x: stationX + (i%2)*60, y: stationY - Math.floor(i/2)*60, angle: 0, speed: 0, type: { topSpeed: 14 }, stunUntil: 0 });
+                            state.police.push({ x: stationX + (i%2)*60, y: stationY - Math.floor(i/2)*60, angle: 0, speed: 0, type: { topSpeed: topSpd }, stunUntil: 0 });
                         }
                     }
+                    let policeCaught = false;
                     state.police.forEach(v => {
                         if (v.stunUntil > state.frameCount) {
                             v.speed = 0;
                             return;
                         }
+                        if (policeCaught) return;
                         const alive = state.players.filter(p => p && !p.dead);
                         if (alive.length === 0) return;
                         const target = alive[Math.floor(Math.random() * alive.length)];
@@ -7963,11 +8108,11 @@
                         let diff = angle - v.angle; while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
                         v.angle += diff * 0.05; v.speed = v.type.topSpeed;
                         v.x += Math.cos(v.angle) * v.speed; v.y += Math.sin(v.angle) * v.speed;
-                        state.players.forEach((p, pIdx) => { 
+                        state.players.forEach((p, pIdx) => {
+                            if (policeCaught) return;
                             if (p && dist(v.x, v.y, p.x, p.y) < 40) {
-                                state.arrestCount++; state.bailPrice = state.arrestCount * 100;
-                                state.police = []; window.closePlayerModal(pIdx);
-                                putPlayerInJail(jailFramesPolice(), 'BUSTED!');
+                                policeCaught = true;
+                                resolvePoliceCatch(pIdx);
                             }
                         });
                     });
@@ -7997,14 +8142,15 @@
                     const jt = document.getElementById('jail-timer');
                     if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
                     if (state.jailTime <= 0) {
-                        state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
+                        applyJailReleaseCommon();
                         const h = state.buildings.find(b => b.type === 'home');
                         state.players.forEach((p, i) => {
                             if (!p) return;
                             if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
                             else { p.x = 2000 + i * 40; p.y = 2200; }
                         });
-                        state.policeDelay = 3600; showMessage("RELEASED.");
+                        state.policeDelay = 3600;
+                        showMessage("RELEASED.");
                     }
                 }
             }
@@ -10043,7 +10189,7 @@
             const godMoney = document.getElementById('god-money-btn');
             if (godMoney) godMoney.onclick = () => { state.money += 1000000; updateMoneyUI(); showMessage("GOD GAVE YOU $1M!"); };
             const godCops = document.getElementById('god-cops-btn');
-            if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
+            if (godCops) godCops.onclick = () => { state.wantedLevel = 0; state.policeDelay = 0; state.police = []; state.vaultChaseActive = false; state.pendingVaultLoot = 0; const stars = document.getElementById('wanted-stars'); if(stars) stars.classList.add('hidden'); showMessage("POLICE ERASED!"); };
 
             document.getElementById('join-btn').onclick = () => { void joinRoom(); };
             document.getElementById('load-world-btn')?.addEventListener('click', () => {
@@ -10061,6 +10207,10 @@
             const orbDismiss = document.getElementById('orb-hunt-dismiss');
             if (orbDismiss) orbDismiss.onclick = () => hideOrbHuntIntro();
             document.getElementById('pay-bail-btn').onclick = () => {
+                if (state.jailVaultChoiceMode) {
+                    showMessage('Vault fine: wait 15s or use Go bankrupt — bail does not apply.');
+                    return;
+                }
                 if (state.schoolGameMode && state.isJailed) {
                     if (!canLeaveSchoolJail()) {
                         showMessage(`Finish ${JAIL_LINE_TIMES} lines and the math problem first.`);
@@ -10081,6 +10231,25 @@
                     showMessage('Bail paid — released.');
                 } else showMessage('Not enough money!');
             };
+            document.getElementById('jail-vault-bankrupt-btn')?.addEventListener('click', () => {
+                if (!state.isJailed || !state.jailVaultChoiceMode) return;
+                const owe = Number(state.vaultArrestOwe) || 0;
+                if (owe <= 0) return;
+                state.money -= owe;
+                state.vaultArrestOwe = 0;
+                state.jailVaultChoiceMode = false;
+                state.jailTime = 0;
+                updateMoneyUI();
+                applyJailReleaseCommon();
+                const h = state.buildings.find(b => b.type === 'home');
+                state.players.forEach((p, i) => {
+                    if (!p) return;
+                    if (h) { p.x = h.x + (h.w / 2) + (i * 20); p.y = h.y + h.h + 30; }
+                    else { p.x = 2000 + i * 40; p.y = 2200; }
+                });
+                state.policeDelay = 3600;
+                showMessage('Bankrupt — vault debt cleared. You may be negative on cash.');
+            });
             document.getElementById('jail-line-submit')?.addEventListener('click', handleJailLineSubmit);
             document.getElementById('jail-line-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleJailLineSubmit(); });
             document.getElementById('jail-bail-verify')?.addEventListener('click', checkJailBailMathFromInput);
