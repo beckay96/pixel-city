@@ -667,7 +667,7 @@
                 <h2 id="job-title-0" class="text-xl font-bold mb-2 text-green-400 text-center uppercase">Working...</h2>
                 <div id="work-tap-area-0">
                 <button class="bg-green-600 active:bg-green-500 w-full py-8 rounded-xl text-center border-b-4 border-green-800" onclick="window.handleWork(0)">
-                    <div class="text-2xl font-black text-white uppercase">Tap for $10</div>
+                    <div id="work-tap-cashline-0" class="text-2xl font-black text-white uppercase">Tap for $10</div>
                     <div id="job-count-0" class="text-xs text-green-200 mt-2">0 taps this shift</div>
                 </button>
                 <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint work-e-hint">Or tap E repeatedly</div>
@@ -711,6 +711,12 @@
                 <div class="weapon-list-0 job-list space-y-2 mb-2"></div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
+            <div id="pet-modal-0" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-2 text-pink-300 text-center uppercase">Pet Shop</h2>
+                <p class="text-[9px] text-slate-400 mb-2">Pets multiply your <b class="text-white">store job $/tap</b> (stacking). Each pet can only be bought once. Combined multiplier caps at <b class="text-white">×30</b>.</p>
+                <div class="pet-list-0 job-list space-y-2 mb-2"></div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
+            </div>
             <div id="prompt-0" class="absolute bottom-[35%] left-1/4 -translate-x-1/2 text-center pointer-events-none opacity-0 transition-opacity">
                 <div class="font-bold text-white mb-1 text-sm prompt-lbl">Press E</div>
                 <div id="prompt-sub-0" class="text-[10px] text-blue-300 uppercase font-bold"></div>
@@ -729,7 +735,7 @@
                 <h2 id="job-title-1" class="text-xl font-bold mb-2 text-green-400 text-center uppercase">Working...</h2>
                 <div id="work-tap-area-1">
                 <button class="bg-green-600 active:bg-green-500 w-full py-8 rounded-xl text-center border-b-4 border-green-800" onclick="window.handleWork(1)">
-                    <div class="text-2xl font-black text-white uppercase">Tap for $10</div>
+                    <div id="work-tap-cashline-1" class="text-2xl font-black text-white uppercase">Tap for $10</div>
                     <div id="job-count-1" class="text-xs text-green-200 mt-2">0 taps this shift</div>
                 </button>
                 <div class="text-[10px] text-slate-400 text-center uppercase mt-4 nav-hint work-e-hint">Or tap SHIFT repeatedly</div>
@@ -771,6 +777,12 @@
                 <h2 class="text-lg font-bold mb-2 text-rose-300 text-center uppercase">Warden Arms</h2>
                 <p class="text-[9px] text-slate-400 mb-2"><b class="text-rose-300">F</b> to fire. PvP nuke does not end the game.</p>
                 <div class="weapon-list-1 job-list space-y-2 mb-2"></div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
+            </div>
+            <div id="pet-modal-1" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
+                <h2 class="text-lg font-bold mb-2 text-pink-300 text-center uppercase">Pet Shop</h2>
+                <p class="text-[9px] text-slate-400 mb-2">Pets multiply store <b class="text-white">$/tap</b>. One of each. Max <b class="text-white">×30</b> combined.</p>
+                <div class="pet-list-1 job-list space-y-2 mb-2"></div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="prompt-1" class="absolute bottom-[35%] left-3/4 -translate-x-1/2 text-center pointer-events-none opacity-0 transition-opacity">
@@ -1237,7 +1249,7 @@
         const PVP_NUKE_COOLDOWN_FRAMES = 5 * 60 * 60; // 5 minutes at 60fps
         const GADGET_ITEMS = [
             { id: 'ion_link', name: 'Ion link pad kit', price: 18000, blurb: '2 pads · Q to place · walk in = warp' },
-            { id: 'landmine', name: 'Landmine', price: 8000, blurb: 'Q to place — invisible on the ground, explodes on contact' },
+            { id: 'landmine', name: 'Landmine', price: 200000, blurb: 'Q to place — invisible on the ground, explodes on contact' },
             { id: 'cam_ipad', name: 'Camera iPad', price: 14000, blurb: 'Pro tablet with camera — flex in selfies' },
             { id: 'cam_pocket', name: 'Pocket camera', price: 9500, blurb: 'Point-and-shoot, fits in a pocket' },
             { id: 'dash_cell', name: 'Dash cell pack', price: 22000, blurb: 'Sprint +10% 30s (flavor, see message)' },
@@ -1255,6 +1267,28 @@
             { id: 'rockets', name: 'Lock rockets', price: 24000, kind: 'rocket' },
             { id: 'nukette', name: 'Micro nuke (PvP)', price: 50000, kind: 'nuke' }
         ];
+        /** Pet Shop — each pet multiplies store job $/tap (stacking, capped). */
+        const PET_SHOP_ITEMS = [
+            { id: 'pup', name: 'Loyal Pup', price: 50000, mult: 2 },
+            { id: 'buddy', name: 'Park Buddy', price: 100000, mult: 1.5 },
+            { id: 'champ', name: 'Champion Setter', price: 200000, mult: 1.5 },
+            { id: 'vip', name: 'VIP Companion', price: 500000, mult: 1.4 },
+            { id: 'platinum', name: 'Platinum Furball', price: 999000, mult: 1.35 },
+            { id: 'legend', name: 'Legend Best Friend', price: 2000000, mult: 1.5 },
+        ];
+        const PET_EARN_MULT_CAP = 30;
+        function getPetById(id) {
+            return PET_SHOP_ITEMS.find(x => x.id === id) || null;
+        }
+        function getPetEarningsMultiplier() {
+            let m = 1;
+            const ids = state.ownedPetIds || [];
+            for (let i = 0; i < ids.length; i++) {
+                const pet = getPetById(ids[i]);
+                if (pet) m *= pet.mult;
+            }
+            return Math.min(PET_EARN_MULT_CAP, Math.max(1, m));
+        }
 
         /** One space between words, trim, compare to canonical school jail line */
         function normalizeJailLineInput(s) {
@@ -1366,6 +1400,8 @@
             /** Pauses update loop (WASTED overlay, etc.) */
             gamePaused: false,
             landmines: [],
+            /** Pet Shop purchases — ids from PET_SHOP_ITEMS; stack multipliers on store $/tap */
+            ownedPetIds: [],
             sessionSettings: { infiniteRevive: false, friendlyFire: false },
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
@@ -1446,6 +1482,7 @@
             if (t === 'ben_hall') return "BEN'S";
             if (t === 'shop_g') return 'GIZ';
             if (t === 'shop_w') return 'GUN';
+            if (t === 'pet_shop') return 'PET';
             if (t === 'invisible') return '';
             if (t === 'school' || (t === 'store' && state.schoolGameMode)) return 'SCHOOL';
             if (t === 'home') return 'HOME';
@@ -1473,7 +1510,8 @@
             { id: 'jail', name: 'Police Station' },
             { id: 'dealership', name: 'Dealership' },
             { id: 'gadget', name: 'Gizmo & gadgets' },
-            { id: 'weapons', name: 'Warden arms' }
+            { id: 'weapons', name: 'Warden arms' },
+            { id: 'pets', name: 'Pet shop' }
         ];
 
         function clearGpsRoute() {
@@ -1494,6 +1532,7 @@
             if (gpsId === 'dealership') return t === 'dealership';
             if (gpsId === 'gadget') return t === 'shop_g';
             if (gpsId === 'weapons') return t === 'shop_w';
+            if (gpsId === 'pets') return t === 'pet_shop';
             if (gpsId === 'home') {
                 return t === 'home' || (t === 'ruins' && b.x === HOME_LOT_X && b.y === HOME_LOT_Y);
             }
@@ -2098,6 +2137,7 @@
             if (p.menuType === 'dealer') return VEHICLE_TYPES.length - 1;
             if (p.menuType === 'gadget') return GADGET_ITEMS.length - 1;
             if (p.menuType === 'weapon') return WEAPON_ITEMS.length - 1;
+            if (p.menuType === 'pet') return PET_SHOP_ITEMS.length - 1;
             return 0;
         }
         function openGadgetModal(pIdx) {
@@ -2114,6 +2154,15 @@
             p.menuType = 'weapon';
             p.menuSelection = 0;
             document.getElementById(`weapon-modal-${pIdx}`).style.display = 'block';
+            updateMenuUI(pIdx);
+        }
+        function openPetShopModal(pIdx) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            p.menuType = 'pet';
+            p.menuSelection = 0;
+            const el = document.getElementById(`pet-modal-${pIdx}`);
+            if (el) el.style.display = 'block';
             updateMenuUI(pIdx);
         }
         function processTeleporterPads() {
@@ -2941,7 +2990,7 @@
                     b.zombieBank = true;
                     b.type = 'ruins';
                     b.color = '#365314';
-                } else if (b.type === 'house' || b.type === 'home' || b.type === 'store' || b.type === 'school' || b.type === 'shop_g' || b.type === 'shop_w' || b.type === 'dealership') {
+                } else if (b.type === 'house' || b.type === 'home' || b.type === 'store' || b.type === 'school' || b.type === 'shop_g' || b.type === 'shop_w' || b.type === 'dealership' || b.type === 'pet_shop') {
                     const orig = b.type;
                     b.zombieOrigKind = orig;
                     b.type = 'ruins';
@@ -3028,6 +3077,7 @@
             { x: 3000, y: 2000, t: 'shop_w', c: '#be123c' },
             { x: 2000, y: 3000, t: 'shop_g', c: '#7c3aed' }
         ];
+        const PET_SHOP_LOT = { x: 1500, y: 1500, t: 'pet_shop', c: '#db2777' };
 
         function generateCity() {
             const rnd = rngForWorld();
@@ -3045,6 +3095,7 @@
                     for (const s of GADGET_WEAPON_SHOP_SLOTS) {
                         if (x === s.x && y === s.y) { type = s.t; color = s.c; break; }
                     }
+                    if (x === PET_SHOP_LOT.x && y === PET_SHOP_LOT.y) { type = PET_SHOP_LOT.t; color = PET_SHOP_LOT.c; }
                     if (x === 3000 && y === 3000 && !state.benHouseRobbed) {
                         type = 'ben_hall';
                         color = '#6d28d9';
@@ -4088,6 +4139,7 @@
             state.policeDelay = 0;
             state.arrestCount = 0;
             state.police = [];
+            state.ownedPetIds = [];
             state.civilians = [];
             state.vehicles = [];
             state.isPresident = false;
@@ -4192,9 +4244,21 @@
         };
 
         function getStoreEarningsPerTap() {
-            if (state.bestCarTier < 0) return 10;
-            const car = VEHICLE_TYPES.find(v => v.tier === state.bestCarTier);
-            return car ? car.storeBonus : 10;
+            let base = 10;
+            if (state.bestCarTier >= 0) {
+                const car = VEHICLE_TYPES.find(v => v.tier === state.bestCarTier);
+                if (car) base = car.storeBonus;
+            }
+            return Math.max(1, Math.floor(base * getPetEarningsMultiplier()));
+        }
+
+        function refreshWorkTapMoneyLabels() {
+            const e = getStoreEarningsPerTap();
+            const line = `Tap for $${e.toLocaleString()}`;
+            const a = document.getElementById('work-tap-cashline-0');
+            const b = document.getElementById('work-tap-cashline-1');
+            if (a) a.textContent = line;
+            if (b) b.textContent = line;
         }
 
         window.handleWork = (pIdx) => {
@@ -4207,6 +4271,7 @@
             updateMoneyUI();
             const cnt = document.getElementById(`job-count-${pIdx}`);
             if(cnt) cnt.innerText = `${p.jobClicksDone} taps — $${earn}/tap`;
+            refreshWorkTapMoneyLabels();
         };
 
         window.submitSchoolWork = (pIdx) => {
@@ -4323,6 +4388,7 @@
             const dealerList = document.querySelector(`#dealer-modal-${pIdx} .car-list`);
             const gList = document.querySelector(`.gadget-list-${pIdx}`);
             const wList = document.querySelector(`.weapon-list-${pIdx}`);
+            const petList = document.querySelector(`.pet-list-${pIdx}`);
             
             if (p.menuType === 'store' && storeList) {
                 storeList.innerHTML = '';
@@ -4345,6 +4411,7 @@
                     storeList.appendChild(btn);
                 });
                 }
+                refreshWorkTapMoneyLabels();
             } else if (p.menuType === 'dealer' && dealerList) {
                 dealerList.innerHTML = '';
                 VEHICLE_TYPES.forEach((v, i) => {
@@ -4372,6 +4439,17 @@
                     btn.onclick = () => { p.menuSelection = i; updateMenuUI(pIdx); };
                     wList.appendChild(btn);
                 });
+            } else if (p.menuType === 'pet' && petList) {
+                petList.innerHTML = '';
+                const mult = getPetEarningsMultiplier();
+                PET_SHOP_ITEMS.forEach((pet, i) => {
+                    const owned = state.ownedPetIds.includes(pet.id);
+                    const btn = document.createElement('div');
+                    btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''} ${owned ? 'opacity-50 pointer-events-none' : ''}`;
+                    btn.innerHTML = `<div class="font-bold uppercase text-sm text-pink-100">${pet.name}${owned ? ' (owned)' : ''}</div><div class="text-pink-300 font-bold text-xs">$${pet.price.toLocaleString()} · ×${pet.mult} on total pet stack</div><div class="text-slate-500 text-[8px]">Current combined pet mult: ×${mult.toFixed(2)} (cap ×${PET_EARN_MULT_CAP})</div>`;
+                    btn.onclick = () => { if (!owned) { p.menuSelection = i; updateMenuUI(pIdx); } };
+                    petList.appendChild(btn);
+                });
             }
         }
 
@@ -4381,6 +4459,20 @@
             if (isZombieSecretActive() && p.menuType === 'rob') {
                 showMessage('Zombie mode: go to a house ruin and press E (no wheel).');
                 window.closePlayerModal(pIdx);
+                return;
+            }
+
+            if (p.menuType === 'pet') {
+                const pet = PET_SHOP_ITEMS[p.menuSelection];
+                if (!pet) return;
+                if (state.ownedPetIds.includes(pet.id)) { showMessage('You already own that pet.'); return; }
+                if (state.money < pet.price) { showMessage('Not enough money'); return; }
+                state.money -= pet.price;
+                state.ownedPetIds.push(pet.id);
+                updateMoneyUI();
+                refreshWorkTapMoneyLabels();
+                showMessage(`${pet.name} joined you! Store job pay is now ×${getPetEarningsMultiplier().toFixed(2)} (pets cap at ×${PET_EARN_MULT_CAP}).`);
+                updateMenuUI(pIdx);
                 return;
             }
 
@@ -4440,6 +4532,7 @@
                     startSchoolWork(pIdx);
                 } else {
                     syncWorkModalLayout(pIdx);
+                    refreshWorkTapMoneyLabels();
                 }
             } else if (p.menuType === 'dealer') {
                 const car = VEHICLE_TYPES[p.menuSelection];
@@ -4563,6 +4656,7 @@
                 } else if (bNear.type === 'store' || bNear.type === 'school') { p.menuType = 'store'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`store-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'shop_g') { openGadgetModal(pIdx); }
                 else if (bNear.type === 'shop_w') { openWeaponModal(pIdx); }
+                else if (bNear.type === 'pet_shop') { openPetShopModal(pIdx); }
                 else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
@@ -4613,6 +4707,7 @@
                 skin: getSavedPlayerSkin(),
                 activeSecrets: state.activeSecrets.slice(),
                 schoolGameMode: state.schoolGameMode,
+                ownedPetIds: (state.ownedPetIds || []).slice(),
                 savedAt: Date.now()
             };
             try { localStorage.setItem(LS_SAVED_PROGRESS, JSON.stringify(data)); } catch (_) {}
@@ -4639,6 +4734,7 @@
                 worldSeed: state.worldSeed,
                 activeSecrets: state.activeSecrets.slice(),
                 schoolGameMode: state.schoolGameMode,
+                ownedPetIds: (state.ownedPetIds || []).slice(),
                 skin: getSavedPlayerSkin(),
                 cityNuked: state.cityNuked,
                 benHouseRobbed: state.benHouseRobbed,
@@ -4671,6 +4767,7 @@
             }
             if (save.worldSeed != null) state.worldSeed = save.worldSeed;
             if (Array.isArray(save.activeSecrets)) state.activeSecrets = save.activeSecrets;
+            if (Array.isArray(save.ownedPetIds)) state.ownedPetIds = save.ownedPetIds.filter(id => typeof id === 'string');
             if (save.schoolGameMode != null) setSchoolGameMode(!!save.schoolGameMode);
             if (save.cityNuked) state.cityNuked = true;
             if (save.benHouseRobbed) state.benHouseRobbed = true;
@@ -4722,6 +4819,7 @@
                 if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
             }
             if (Array.isArray(p.activeSecrets)) state.activeSecrets = p.activeSecrets;
+            if (Array.isArray(p.ownedPetIds)) state.ownedPetIds = p.ownedPetIds.filter(id => typeof id === 'string');
             if (p.schoolGameMode != null) setSchoolGameMode(!!p.schoolGameMode);
             return true;
         }
@@ -5355,6 +5453,7 @@
                                 else if (bNear.type === 'school' || (bNear.type === 'store' && state.schoolGameMode)) subEl.innerText = 'school';
                                 else if (bNear.type === 'shop_g') subEl.innerText = 'gadget row';
                                 else if (bNear.type === 'shop_w') subEl.innerText = 'weapon row';
+                                else if (bNear.type === 'pet_shop') subEl.innerText = 'pet shop';
                                 else if (isZombieSecretActive() && bNear.zombieBank && bNear.type === 'ruins' && !state.zombieBankRobbed) subEl.innerText = 'bank ruins — E to loot $2000 (once)';
                                 else if (isZombieSecretActive() && bNear.type === 'ruins' && bNear.zombieHouseLooted === false) subEl.innerText = 'house ruin — E to loot $1000 (this lot once)';
                                 else if (bNear.type === 'hospital') subEl.innerText = 'hospital';
@@ -5534,17 +5633,17 @@
                 c.restore();
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
-                let short = b.type === 'hospital' ? 'Hospital' : b.type === 'jail' ? 'Police Station' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type))));
+                let short = b.type === 'hospital' ? 'Hospital' : b.type === 'jail' ? 'Police Station' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : b.type === 'pet_shop' ? 'Pet shop' : buildingTypeLabel(b.type))));
                 if (isZombieSecretActive() && b.type === 'ruins' && b.zombieBank) short = 'BANK (ruin)';
                 else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'house' && b.zombieHouseLooted === false) short = 'HOUSE (ruin)';
                 else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'home' && b.zombieHouseLooted === false) short = 'HOME (ruin)';
                 c.save();
-                c.font = (b.type === 'hospital' || b.type === 'admin_hall' || b.type === 'ben_hall' || b.type === 'shop_g' || b.type === 'shop_w' || (isZombieSecretActive() && b.type === 'ruins' && (b.zombieBank || b.zombieHouseLooted === false))) ? 'bold 9px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
+                c.font = (b.type === 'hospital' || b.type === 'admin_hall' || b.type === 'ben_hall' || b.type === 'shop_g' || b.type === 'shop_w' || b.type === 'pet_shop' || (isZombieSecretActive() && b.type === 'ruins' && (b.zombieBank || b.zombieHouseLooted === false))) ? 'bold 9px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
                 c.textAlign = 'center';
                 c.textBaseline = 'middle';
                 c.lineWidth = 3;
                 c.strokeStyle = 'rgba(0,0,0,0.85)';
-                c.fillStyle = b.type === 'hospital' ? '#5eead4' : b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'shop_w' ? '#fecdd3' : (b.zombieBank ? '#facc15' : (b.zombieHouseLooted === false && b.zombieOrigKind && (b.zombieOrigKind === 'house' || b.zombieOrigKind === 'home') ? '#86efac' : '#e2e8f0'))));
+                c.fillStyle = b.type === 'hospital' ? '#5eead4' : b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'pet_shop' ? '#fbcfe8' : (b.type === 'shop_w' ? '#fecdd3' : (b.zombieBank ? '#facc15' : (b.zombieHouseLooted === false && b.zombieOrigKind && (b.zombieOrigKind === 'house' || b.zombieOrigKind === 'home') ? '#86efac' : '#e2e8f0')))));
                 c.strokeText(b.type === 'hospital' ? 'HOSP' : short, cx, cy);
                 c.fillText(b.type === 'hospital' ? 'HOSP' : short, cx, cy);
                 c.restore();
@@ -5850,7 +5949,7 @@
             state.buildings.forEach(b => {
                 if (b.type === 'invisible') return;
                 if (b.w * s < 3 || b.h * s < 2) return;
-                const full = b.type === 'ben_hall' ? "Ben" : (b.type === 'shop_g' ? 'Gad' : b.type === 'shop_w' ? 'Wpn' : buildingTypeLabel(b.type));
+                const full = b.type === 'ben_hall' ? "Ben" : (b.type === 'shop_g' ? 'Gad' : b.type === 'shop_w' ? 'Wpn' : b.type === 'pet_shop' ? 'Pet' : buildingTypeLabel(b.type));
                 const short = (b.w * s < 12) ? (full.length > 3 ? full.slice(0, 3) : full) : full;
                 ms.save();
                 ms.font = (b.w * s < 12) ? '600 3px system-ui,Segoe UI,sans-serif' : '600 4px system-ui,Segoe UI,sans-serif';
