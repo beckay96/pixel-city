@@ -347,6 +347,14 @@
             background: rgba(0,0,0,0.9); padding: 16px; pointer-events: auto;
         }
         #deep-creator-mode-overlay.open { display: flex; }
+        /** When the lab is opened from PixelPhone, the overlay is reparented under .phone-bezel */
+        #deep-creator-mode-overlay.phone-in-device {
+            position: absolute;
+            inset: 0;
+            z-index: 80;
+            padding: 6px;
+            background: rgba(0,0,0,0.93);
+        }
 
         #lobby-bottom-bar {
             position: sticky;
@@ -821,8 +829,15 @@
                         <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
                     </button>
                 </label>
-                <p id="lobby-settings-creator-hint" class="text-[8px] text-slate-500 leading-snug">When on, you can post what you make to the Creator board (saved on this device).</p>
-                <button type="button" id="lobby-open-creator-board" class="w-full bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs font-black py-2.5 rounded-xl interactive border border-fuchsia-500/60">Open Creator board</button>
+                <p id="lobby-settings-creator-hint" class="text-[8px] text-slate-500 leading-snug">When on, open PixelPhone in-game and use the Creator app. Deep tools need Deep Creator mode.</p>
+                <label class="flex items-center justify-between gap-3 cursor-pointer interactive mb-2 opacity-50" id="lobby-deep-creator-mode-row">
+                    <span id="lobby-settings-creator-deep-label" class="text-[11px] text-slate-200 font-bold">Deep Creator mode</span>
+                    <button type="button" id="lobby-toggle-creator-deep-mode" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false" disabled>
+                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                    </button>
+                </label>
+                <p id="lobby-settings-creator-deep-hint" class="text-[8px] text-slate-500 leading-snug mb-2">Unlocks Mod Mods on your phone and the full Creator lab (still local-only).</p>
+                <button type="button" id="lobby-open-creator-board" class="w-full bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs font-black py-2.5 rounded-xl interactive border border-fuchsia-500/60">Creator hub</button>
             </div>
         </div>
     </div>
@@ -833,17 +848,12 @@
                 <h2 id="creator-mode-title" class="text-fuchsia-300 font-black text-sm uppercase tracking-widest">Pixel City Creator</h2>
                 <button type="button" id="creator-mode-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
             </div>
-            <p id="creator-mode-body" class="text-[10px] text-slate-500 mb-3 leading-snug">Share tips, builds, or secrets you found. Posts stay in this browser only (great for a class device).</p>
-            <button type="button" id="creator-open-deep" class="w-full mb-3 bg-violet-800 hover:bg-violet-700 text-white text-xs font-black py-2.5 rounded-xl interactive border border-violet-500/50 opacity-50 cursor-not-allowed" disabled>Deep Creator…</button>
-            <p id="creator-post-disabled-hint" class="hidden text-[10px] text-amber-300 mb-2 leading-snug">Turn on Creator mode in Lobby settings to post.</p>
-            <label id="creator-post-title-label" for="creator-post-title" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Title (optional)</label>
-            <input id="creator-post-title" type="text" maxlength="120" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive" placeholder="My vault route…" />
-            <label id="creator-post-body-label" for="creator-post-body" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">What you made</label>
-            <textarea id="creator-post-body" rows="4" maxlength="1500" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive resize-y min-h-[88px]" placeholder="Describe your creation or discovery…"></textarea>
-            <button type="button" id="creator-post-submit" class="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black py-2.5 rounded-xl interactive text-sm mb-2">Post</button>
-            <p id="creator-post-msg" class="text-[10px] text-center min-h-[1.25rem] mb-3"></p>
-            <p id="creator-posts-heading" class="text-[9px] text-slate-500 uppercase font-bold mb-1">Recent posts</p>
-            <ul id="creator-posts-list" class="text-xs text-slate-200 space-y-2 list-none pl-0"></ul>
+            <p id="creator-mode-body" class="text-[10px] text-slate-500 mb-3 leading-snug">While playing, open your phone and tap Creator. Turn on Deep Creator mode in Lobby settings for Mod Mods and the full lab.</p>
+            <details class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
+                <summary id="creator-hub-projects-summary" class="text-[11px] text-violet-300 font-black cursor-pointer interactive">Projects on this device</summary>
+                <p id="creator-hub-projects-empty" class="text-[10px] text-slate-500 italic mt-2">No projects yet — create one in the Creator lab from your phone.</p>
+                <ul id="creator-hub-projects-list" class="text-xs text-slate-200 space-y-1 list-none pl-0 mt-2 max-h-32 overflow-y-auto hidden"></ul>
+            </details>
         </div>
     </div>
 
@@ -854,6 +864,19 @@
                 <button type="button" id="deep-creator-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
             </div>
             <p id="deep-creator-body" class="text-[10px] text-slate-500 mb-3 leading-snug">Design Item, NPC, Player, or Menu ideas with notes and safe test actions. Blueprints stay on this device only.</p>
+            <div id="deep-creator-project-bar" class="border border-slate-700 rounded-lg p-2 mb-3 bg-slate-950/70 space-y-2">
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div class="flex-1 min-w-[140px]">
+                        <label id="deep-creator-project-label" for="deep-creator-project-pick" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Project</label>
+                        <select id="deep-creator-project-pick" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-2 px-2 interactive"></select>
+                    </div>
+                    <div class="flex-1 min-w-[120px]">
+                        <label id="deep-creator-new-project-label" for="deep-creator-new-project-name" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">New project</label>
+                        <input id="deep-creator-new-project-name" type="text" maxlength="48" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-2 px-2 interactive" placeholder="Name…" />
+                    </div>
+                    <button type="button" id="deep-creator-new-project-btn" class="bg-violet-700 hover:bg-violet-600 text-white text-[10px] font-black px-3 py-2 rounded-lg interactive shrink-0">+</button>
+                </div>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 <div>
                     <label id="deep-creator-kind-label" for="deep-creator-kind" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Type</label>
@@ -1396,8 +1419,46 @@
                         <span class="w-12 h-12 rounded-2xl bg-lime-600 flex items-center justify-center text-xl">🧭</span>
                         <span class="text-[9px] text-slate-300 font-bold">GPS</span>
                     </button>
+                    <button type="button" id="phone-app-btn-creator" class="phone-app-btn hidden flex flex-col items-center gap-1 interactive" data-phone-app="creator">
+                        <span class="w-12 h-12 rounded-2xl bg-fuchsia-700 flex items-center justify-center text-xl">✨</span>
+                        <span id="phone-app-creator-label" class="text-[9px] text-slate-300 font-bold">Creator</span>
+                    </button>
+                    <button type="button" id="phone-app-btn-modmods" class="phone-app-btn hidden flex flex-col items-center gap-1 interactive" data-phone-app="modmods">
+                        <span class="w-12 h-12 rounded-2xl bg-amber-800 flex items-center justify-center text-xl">🧩</span>
+                        <span id="phone-app-modmods-label" class="text-[9px] text-slate-300 font-bold">Mod Mods</span>
+                    </button>
+                    <button type="button" id="phone-app-btn-community" class="phone-app-btn hidden flex flex-col items-center gap-1 interactive" data-phone-app="community">
+                        <span class="w-12 h-12 rounded-2xl bg-cyan-700 flex items-center justify-center text-xl">🌐</span>
+                        <span id="phone-app-community-label" class="text-[9px] text-slate-300 font-bold">Community</span>
+                    </button>
                 </div>
                 <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web opens in a new tab. GPS draws a route on the world (Player 1) after you close the phone.</p>
+            </div>
+            <div id="phone-view-creator" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center justify-between gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span id="phone-view-creator-title" class="text-white font-bold text-sm">Creator</span>
+                    <button type="button" id="phone-creator-play-btn" class="text-[10px] font-black bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 rounded-lg interactive shrink-0">Play</button>
+                </div>
+                <div class="phone-body-scroll flex-1 p-3 space-y-3 min-h-0">
+                    <p id="phone-creator-intro" class="text-[10px] text-slate-400 leading-snug">Deep Creator mode unlocks the lab and Mod Mods. Use Play for a calm test run (no police heat).</p>
+                    <button type="button" id="phone-creator-open-lab" class="w-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-black py-2.5 rounded-xl interactive">Open Creator lab</button>
+                    <p id="phone-creator-lab-locked" class="hidden text-[10px] text-amber-300">Turn on Deep Creator mode in Lobby settings to open the lab.</p>
+                </div>
+            </div>
+            <div id="phone-view-modmods" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span id="phone-view-modmods-title" class="text-white font-bold text-sm">Mod Mods</span>
+                </div>
+                <div id="phone-modmods-body" class="phone-body-scroll flex-1 p-3 text-[10px] text-slate-300 space-y-2"></div>
+            </div>
+            <div id="phone-view-community" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span id="phone-view-community-title" class="text-white font-bold text-sm">Community</span>
+                </div>
+                <div id="phone-community-body" class="phone-body-scroll flex-1 p-3 text-[10px] text-slate-300"></div>
             </div>
             <div id="phone-view-messages" class="phone-body-scroll hidden flex flex-col bg-slate-950 h-full">
                 <div class="flex items-center gap-2 p-3 border-b border-slate-800 bg-slate-900">
@@ -1786,6 +1847,10 @@
         const LS_CREATOR_POSTS = 'pixelCityCreatorPosts';
         const LS_CREATOR_BLUEPRINTS = 'pixelCityDeepCreatorBlueprints';
         const DEEP_CREATOR_BLUEPRINTS_MAX = 48;
+        const LS_CREATOR_DEEP_MODE = 'pixelCityDeepCreatorMode';
+        const LS_CREATOR_PROJECTS = 'pixelCityCreatorProjects';
+        const CREATOR_PROJECTS_MAX = 32;
+        let deepCreatorOverlaySavedParent = null;
         const CREATOR_POSTS_MAX = 50;
         const LS_BETA_3D = 'pixelCityBeta3d';
         /** 0–100; maps to Beta 3D ray column cap (performance vs sharpness). */
@@ -2440,6 +2505,8 @@
             hudModalPlayerIdx: 0,
             /** friendlyFireOff: when true, PvP weapon hits do not damage remote players (host toggles in menu). */
             sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
+            /** Creator app: calm test — clears wanted/police each frame while on */
+            creatorPlaytest: false,
             /** Highest car tier bought this run (progression / saves). */
             bestCarTier: -1,
             /** Best store $/tap from any car purchased this run — never lowered by buying a cheaper car */
@@ -4001,6 +4068,7 @@
                 if (label) label.classList.add('hidden');
                 if (btn) btn.classList.add('hidden');
             }
+            syncPhoneCreatorAppsVisibility();
         }
 
         function showLobbyFromSignIn() {
@@ -4146,6 +4214,9 @@
             clearGpsRoute();
             const sb = document.getElementById('smartphone-overlay');
             if (sb) sb.classList.remove('open');
+            closeDeepCreatorModeOverlay();
+            mountDeepCreatorOverlayInPhone(false);
+            state.creatorPlaytest = false;
             document.getElementById('game-over-overlay').style.display = 'none';
             document.getElementById('jail-overlay').style.display = 'none';
             document.getElementById('jail-vault-arrest-row')?.classList.add('hidden');
@@ -6000,10 +6071,15 @@
                 duoLockedTitle: '2 Local — Xbox only',
                 duoLockedHint: 'Pick XBOX under Select device to unlock couch co-op.',
                 creatorModeLabel: 'Creator mode',
-                creatorModeHint: 'When on, you can post to the Creator board (saved in this browser only).',
-                creatorBoardBtn: 'Open Creator board',
+                creatorModeHint: 'When on, use the Creator app on PixelPhone while playing. Deep Creator mode unlocks Mod Mods and the full lab.',
+                creatorBoardBtn: 'Creator hub',
+                creatorDeepModeLabel: 'Deep Creator mode',
+                creatorDeepModeHint: 'Unlocks Mod Mods and the Creator lab on your phone (still local-only).',
+                creatorHubProjectsTitle: 'Projects on this device',
+                creatorLabUsePhone: 'Open PixelPhone → Creator while playing.',
+                creatorLabNeedDeepMode: 'Turn on Deep Creator mode in Lobby settings first.',
                 creatorOverlayTitle: 'Pixel City Creator',
-                creatorOverlayBody: 'Share tips, builds, or secrets you found. Posts stay on this device only (great for a class computer).',
+                creatorOverlayBody: 'While playing, open PixelPhone and tap Creator. Deep Creator mode adds the lab and Mod Mods.',
                 creatorPostTitleLabel: 'Title (optional)',
                 creatorPostBodyLabel: 'What you made',
                 creatorPostTitlePh: 'My vault route…',
@@ -6042,7 +6118,30 @@
                 deepCreatorSaved: 'Blueprint saved.',
                 deepCreatorNeedName: 'Enter a name first.',
                 deepCreatorMenuTitle: 'Creator blueprints',
-                deepCreatorMenuHint: 'Safe previews only (in-game messages). Design in Lobby → Creator board → Deep Creator.'
+                deepCreatorMenuHint: 'Safe previews in the 🌍 menu when Deep Creator mode is on. Design in PixelPhone → Creator.',
+                deepCreatorProjectLabel: 'Project',
+                deepCreatorNewProjectLabel: 'New project',
+                deepCreatorNewProjectPh: 'Name…',
+                phoneCreatorIntro: 'Deep Creator mode unlocks the lab and Mod Mods. Play starts a calm test (no police heat).',
+                phoneCreatorPlayStart: 'Play',
+                phoneCreatorPlayStop: 'Stop',
+                phoneModModsEmpty: 'No projects yet.',
+                phoneModModsBlueprints: 'blueprints',
+                phoneModModsFoot: 'Placeholder lots, vault-only maps, and publishing are planned next.',
+                phoneCommunityNeedSignIn: 'Sign in from the lobby to browse community projects.',
+                phoneCommunitySignedIn: 'You are signed in.',
+                phoneCommunityEmpty: 'No shared community projects yet — server uploads are not wired in this build.',
+                phoneAppCreatorLabel: 'Creator',
+                phoneAppModmodsLabel: 'Mod Mods',
+                phoneAppCommunityLabel: 'Community',
+                phoneCreatorOpenLab: 'Open Creator lab',
+                phoneModModsTitle: 'Mod Mods',
+                phoneCommunityTitle: 'Community',
+                phoneCreatorPlaytestOn: 'Creator playtest on — no police heat. Vault-only map editor is planned.',
+                phoneCreatorPlaytestOff: 'Creator playtest off.',
+                deepCreatorNeedProjectName: 'Enter a project name first.',
+                deepCreatorProjectListFull: 'Too many projects — remove one from storage or merge.',
+                deepCreatorProjectAdded: 'Project added.',
             },
             es: {
                 character: 'Personaje',
@@ -6179,6 +6278,10 @@
             if (cHint) cHint.textContent = getUiLabel('creatorModeHint');
             const cOpen = document.getElementById('lobby-open-creator-board');
             if (cOpen) cOpen.textContent = getUiLabel('creatorBoardBtn');
+            const dLab = document.getElementById('lobby-settings-creator-deep-label');
+            if (dLab) dLab.textContent = getUiLabel('creatorDeepModeLabel');
+            const dHint = document.getElementById('lobby-settings-creator-deep-hint');
+            if (dHint) dHint.textContent = getUiLabel('creatorDeepModeHint');
             const sel = document.getElementById('lobby-settings-lang');
             if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
             updateBeta3dQualityReadout();
@@ -6260,6 +6363,7 @@
             syncLobbyBarLabels();
             syncCreatorModeToggleUI();
             updateBeta3dQualityReadout();
+            syncPhoneCreatorAppsVisibility();
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
         }
@@ -6285,6 +6389,193 @@
                 const knob = btn.querySelector('span');
                 if (knob) knob.style.transform = on ? 'translateX(1.5rem)' : '';
             }
+            syncCreatorDeepLobbyRow();
+        }
+
+        function isDeepCreatorModeOn() {
+            try { return localStorage.getItem(LS_CREATOR_DEEP_MODE) === '1'; } catch (_) { return false; }
+        }
+
+        function syncDeepCreatorModeToggleUI() {
+            const on = isDeepCreatorModeOn();
+            const btn = document.getElementById('lobby-toggle-creator-deep-mode');
+            if (btn) {
+                btn.setAttribute('aria-checked', on ? 'true' : 'false');
+                btn.classList.toggle('bg-emerald-600', on);
+                btn.classList.toggle('border-emerald-400', on);
+                const knob = btn.querySelector('span');
+                if (knob) knob.style.transform = on ? 'translateX(1.5rem)' : '';
+            }
+        }
+
+        function syncCreatorDeepLobbyRow() {
+            const creatorOn = isCreatorModeOn();
+            const row = document.getElementById('lobby-deep-creator-mode-row');
+            const deepBtn = document.getElementById('lobby-toggle-creator-deep-mode');
+            if (row) row.classList.toggle('opacity-50', !creatorOn);
+            if (deepBtn) {
+                deepBtn.disabled = !creatorOn;
+                deepBtn.classList.toggle('opacity-50', !creatorOn);
+                deepBtn.classList.toggle('cursor-not-allowed', !creatorOn);
+            }
+            if (!creatorOn) {
+                try { localStorage.setItem(LS_CREATOR_DEEP_MODE, '0'); } catch (_) { /* */ }
+            }
+            syncDeepCreatorModeToggleUI();
+        }
+
+        function loadCreatorProjects() {
+            try {
+                const raw = localStorage.getItem(LS_CREATOR_PROJECTS);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (_) {
+                return [];
+            }
+        }
+
+        function saveCreatorProjects(arr) {
+            try { localStorage.setItem(LS_CREATOR_PROJECTS, JSON.stringify(arr)); } catch (_) { /* */ }
+        }
+
+        function ensureDefaultCreatorProjects() {
+            let projects = loadCreatorProjects();
+            if (!projects.length) {
+                projects = [{ id: 'pr_default', name: 'Default', t: Date.now() }];
+                saveCreatorProjects(projects);
+            }
+            const bps = loadDeepBlueprints();
+            let changed = false;
+            const defId = projects[0].id;
+            bps.forEach((b) => {
+                if (!b.projectId) {
+                    b.projectId = defId;
+                    changed = true;
+                }
+            });
+            if (changed) saveDeepBlueprints(bps);
+        }
+
+        function fillDeepCreatorProjectPick() {
+            ensureDefaultCreatorProjects();
+            const sel = document.getElementById('deep-creator-project-pick');
+            if (!sel) return;
+            const projects = loadCreatorProjects();
+            const cur = sel.value;
+            sel.innerHTML = '';
+            projects.forEach((p) => {
+                const o = document.createElement('option');
+                o.value = String(p.id);
+                o.textContent = String(p.name || 'Untitled');
+                sel.appendChild(o);
+            });
+            const still = projects.some((p) => String(p.id) === cur);
+            sel.value = still ? cur : String(projects[0].id);
+        }
+
+        function mountDeepCreatorOverlayInPhone(mount) {
+            const el = document.getElementById('deep-creator-mode-overlay');
+            const bezel = document.querySelector('#smartphone-overlay .phone-bezel');
+            if (!el || !bezel) return;
+            if (mount) {
+                if (el.classList.contains('phone-in-device')) return;
+                deepCreatorOverlaySavedParent = el.parentNode;
+                bezel.appendChild(el);
+                el.classList.add('phone-in-device');
+            } else {
+                if (!el.classList.contains('phone-in-device')) return;
+                el.classList.remove('phone-in-device');
+                const p = deepCreatorOverlaySavedParent || document.body;
+                deepCreatorOverlaySavedParent = null;
+                p.appendChild(el);
+            }
+        }
+
+        function renderCreatorHubProjects() {
+            const ul = document.getElementById('creator-hub-projects-list');
+            const empty = document.getElementById('creator-hub-projects-empty');
+            if (!ul || !empty) return;
+            ensureDefaultCreatorProjects();
+            const projects = loadCreatorProjects();
+            const bps = loadDeepBlueprints();
+            if (!projects.length) {
+                empty.classList.remove('hidden');
+                ul.classList.add('hidden');
+                ul.innerHTML = '';
+                return;
+            }
+            empty.classList.add('hidden');
+            ul.classList.remove('hidden');
+            ul.innerHTML = '';
+            projects.forEach((pr) => {
+                const n = bps.filter((b) => String(b.projectId || '') === String(pr.id)).length;
+                const li = document.createElement('li');
+                li.textContent = `${String(pr.name || 'Untitled')} (${n})`;
+                ul.appendChild(li);
+            });
+        }
+
+        function syncPhoneCreatorAppsVisibility() {
+            const ing = isInGame();
+            const cOn = isCreatorModeOn();
+            const dOn = isDeepCreatorModeOn();
+            const signed = !!(state && state.supabaseUserId);
+            const cBtn = document.getElementById('phone-app-btn-creator');
+            const mBtn = document.getElementById('phone-app-btn-modmods');
+            const coBtn = document.getElementById('phone-app-btn-community');
+            if (cBtn) cBtn.classList.toggle('hidden', !(ing && cOn));
+            if (mBtn) mBtn.classList.toggle('hidden', !(ing && cOn && dOn));
+            if (coBtn) coBtn.classList.toggle('hidden', !(ing && signed));
+        }
+
+        function refreshPhoneCreatorScreen() {
+            const labBtn = document.getElementById('phone-creator-open-lab');
+            const lock = document.getElementById('phone-creator-lab-locked');
+            const play = document.getElementById('phone-creator-play-btn');
+            const deepOn = isDeepCreatorModeOn();
+            if (labBtn) labBtn.classList.toggle('hidden', !deepOn);
+            if (lock) lock.classList.toggle('hidden', deepOn);
+            if (play) {
+                play.textContent = state.creatorPlaytest ? getUiLabel('phoneCreatorPlayStop') : getUiLabel('phoneCreatorPlayStart');
+            }
+        }
+
+        function refreshPhoneModMods() {
+            const body = document.getElementById('phone-modmods-body');
+            if (!body) return;
+            ensureDefaultCreatorProjects();
+            const projects = loadCreatorProjects();
+            const bps = loadDeepBlueprints();
+            body.innerHTML = '';
+            if (!projects.length) {
+                body.innerHTML = `<p class="text-slate-500">${escapeCreatorHtml(getUiLabel('phoneModModsEmpty'))}</p>`;
+                return;
+            }
+            projects.forEach((pr) => {
+                const n = bps.filter((b) => String(b.projectId || '') === String(pr.id)).length;
+                const row = document.createElement('div');
+                row.className = 'border border-slate-700 rounded-lg p-2 mb-2 bg-slate-900/80';
+                row.innerHTML = `<div class="font-bold text-amber-200 text-xs">${escapeCreatorHtml(String(pr.name || ''))}</div><div class="text-[9px] text-slate-500">${n} ${escapeCreatorHtml(getUiLabel('phoneModModsBlueprints'))}</div>`;
+                body.appendChild(row);
+            });
+            const foot = document.createElement('p');
+            foot.className = 'text-[9px] text-slate-500 mt-2';
+            foot.textContent = getUiLabel('phoneModModsFoot');
+            body.appendChild(foot);
+        }
+
+        function refreshPhoneCommunity() {
+            const body = document.getElementById('phone-community-body');
+            if (!body) return;
+            if (!state.supabaseUserId) {
+                body.innerHTML = `<p class="text-slate-400">${escapeCreatorHtml(getUiLabel('phoneCommunityNeedSignIn'))}</p>`;
+                return;
+            }
+            body.innerHTML = `<p class="text-slate-300 mb-2">${escapeCreatorHtml(getUiLabel('phoneCommunitySignedIn'))}</p><p class="text-slate-500">${escapeCreatorHtml(getUiLabel('phoneCommunityEmpty'))}</p>`;
+        }
+
+        function openDeepCreatorFromPhone() {
+            openDeepCreatorModeOverlay({ fromPhone: true });
         }
 
         function loadCreatorPosts() {
@@ -6335,25 +6626,7 @@
         }
 
         function updateCreatorPostFormAvailability() {
-            const on = isCreatorModeOn();
-            const hint = document.getElementById('creator-post-disabled-hint');
-            const sub = document.getElementById('creator-post-submit');
-            const title = document.getElementById('creator-post-title');
-            const body = document.getElementById('creator-post-body');
-            if (hint) hint.classList.toggle('hidden', on);
-            if (sub) {
-                sub.disabled = !on;
-                sub.classList.toggle('opacity-50', !on);
-                sub.classList.toggle('cursor-not-allowed', !on);
-            }
-            if (title) title.disabled = !on;
-            if (body) body.disabled = !on;
-            const deepOpen = document.getElementById('creator-open-deep');
-            if (deepOpen) {
-                deepOpen.disabled = !on;
-                deepOpen.classList.toggle('opacity-50', !on);
-                deepOpen.classList.toggle('cursor-not-allowed', !on);
-            }
+            syncCreatorDeepLobbyRow();
         }
 
         function syncDeepPrimaryFields() {
@@ -6462,13 +6735,21 @@
             const pmEl = document.getElementById('deep-creator-primary-msg');
             const kindRaw = kindEl && kindEl.value ? String(kindEl.value) : 'item';
             const k = ['item', 'npc', 'player', 'menu'].indexOf(kindRaw) >= 0 ? kindRaw : 'item';
+            const pp = document.getElementById('deep-creator-project-pick');
+            let projectId = pp && pp.value ? String(pp.value) : '';
+            if (!projectId) {
+                ensureDefaultCreatorProjects();
+                const pr = loadCreatorProjects();
+                projectId = pr[0] ? String(pr[0].id) : '';
+            }
             return {
                 kind: k,
                 name: nameEl ? String(nameEl.value).trim() : '',
                 notes: notesEl ? String(notesEl.value).trim() : '',
                 primaryAction: paEl && paEl.value === 'message' ? 'message' : 'none',
                 primaryMsg: pmEl ? String(pmEl.value).trim() : '',
-                extraButtons: collectDeepExtraButtons()
+                extraButtons: collectDeepExtraButtons(),
+                projectId
             };
         }
 
@@ -6528,6 +6809,7 @@
                     const next = loadDeepBlueprints().filter((x) => String(x.id) !== id);
                     saveDeepBlueprints(next);
                     renderDeepBlueprintList();
+                    renderCreatorHubProjects();
                     populateIngameMenuCreatorBlueprints();
                 });
             });
@@ -6552,6 +6834,8 @@
             const pairs = [
                 ['deep-creator-title', 'deepCreatorTitle'],
                 ['deep-creator-body', 'deepCreatorBody'],
+                ['deep-creator-project-label', 'deepCreatorProjectLabel'],
+                ['deep-creator-new-project-label', 'deepCreatorNewProjectLabel'],
                 ['deep-creator-kind-label', 'deepCreatorKindLabel'],
                 ['deep-creator-name-label', 'deepCreatorNameLabel'],
                 ['deep-creator-notes-label', 'deepCreatorNotesLabel'],
@@ -6587,6 +6871,10 @@
             }
             const addBtn = document.getElementById('deep-creator-add-btn-row');
             if (addBtn) addBtn.textContent = getUiLabel('deepCreatorAddBtnRow');
+            const npName = document.getElementById('deep-creator-new-project-name');
+            if (npName) npName.setAttribute('placeholder', getUiLabel('deepCreatorNewProjectPh'));
+            const npBtn = document.getElementById('deep-creator-new-project-btn');
+            if (npBtn) npBtn.textContent = '+';
             refreshDeepExtraRowI18n();
         }
 
@@ -6596,7 +6884,7 @@
             const hint = document.getElementById('menu-deep-creator-hint');
             const btns = document.getElementById('menu-deep-creator-buttons');
             if (!block || !btns) return;
-            const show = isCreatorModeOn() && isInGame();
+            const show = isCreatorModeOn() && isInGame() && isDeepCreatorModeOn();
             block.classList.toggle('hidden', !show);
             if (title) title.textContent = getUiLabel('deepCreatorMenuTitle');
             if (hint) hint.textContent = getUiLabel('deepCreatorMenuHint');
@@ -6639,11 +6927,23 @@
             });
         }
 
-        function openDeepCreatorModeOverlay() {
+        function openDeepCreatorModeOverlay(opts) {
+            const fromPhone = !!(opts && opts.fromPhone);
             if (!isCreatorModeOn()) return;
+            if (!fromPhone) {
+                showMessage(getUiLabel('creatorLabUsePhone'));
+                return;
+            }
+            if (!isInGame()) return;
+            if (!isDeepCreatorModeOn()) {
+                showMessage(getUiLabel('creatorLabNeedDeepMode'));
+                return;
+            }
+            mountDeepCreatorOverlayInPhone(true);
             const o = document.getElementById('deep-creator-mode-overlay');
             if (!o) return;
             applyDeepCreatorOverlayLanguage();
+            fillDeepCreatorProjectPick();
             syncDeepPrimaryFields();
             renderDeepBlueprintList();
             const msg = document.getElementById('deep-creator-msg');
@@ -6657,6 +6957,7 @@
             if (!o) return;
             o.classList.remove('open');
             o.setAttribute('aria-hidden', 'true');
+            mountDeepCreatorOverlayInPhone(false);
         }
 
         function applyCreatorOverlayLanguage() {
@@ -6664,23 +6965,26 @@
             if (t) t.textContent = getUiLabel('creatorOverlayTitle');
             const b = document.getElementById('creator-mode-body');
             if (b) b.textContent = getUiLabel('creatorOverlayBody');
-            const tl = document.getElementById('creator-post-title-label');
-            if (tl) tl.textContent = getUiLabel('creatorPostTitleLabel');
-            const bl = document.getElementById('creator-post-body-label');
-            if (bl) bl.textContent = getUiLabel('creatorPostBodyLabel');
-            const ti = document.getElementById('creator-post-title');
-            if (ti) ti.setAttribute('placeholder', getUiLabel('creatorPostTitlePh'));
-            const bo = document.getElementById('creator-post-body');
-            if (bo) bo.setAttribute('placeholder', getUiLabel('creatorPostBodyPh'));
-            const sub = document.getElementById('creator-post-submit');
-            if (sub) sub.textContent = getUiLabel('creatorPostBtn');
-            const h = document.getElementById('creator-posts-heading');
-            if (h) h.textContent = getUiLabel('creatorPostsHeading');
-            const dh = document.getElementById('creator-post-disabled-hint');
-            if (dh) dh.textContent = getUiLabel('creatorPostDisabledHint');
-            const deepBtn = document.getElementById('creator-open-deep');
-            if (deepBtn) deepBtn.textContent = getUiLabel('creatorDeepBtn');
+            const sum = document.getElementById('creator-hub-projects-summary');
+            if (sum) sum.textContent = getUiLabel('creatorHubProjectsTitle');
+            const lab = document.getElementById('phone-app-creator-label');
+            if (lab) lab.textContent = getUiLabel('phoneAppCreatorLabel');
+            const mm = document.getElementById('phone-app-modmods-label');
+            if (mm) mm.textContent = getUiLabel('phoneAppModmodsLabel');
+            const co = document.getElementById('phone-app-community-label');
+            if (co) co.textContent = getUiLabel('phoneAppCommunityLabel');
+            const pct = document.getElementById('phone-view-creator-title');
+            if (pct) pct.textContent = getUiLabel('phoneAppCreatorLabel');
+            const pIntro = document.getElementById('phone-creator-intro');
+            if (pIntro) pIntro.textContent = getUiLabel('phoneCreatorIntro');
+            const openLab = document.getElementById('phone-creator-open-lab');
+            if (openLab) openLab.textContent = getUiLabel('phoneCreatorOpenLab');
+            const pmm = document.getElementById('phone-view-modmods-title');
+            if (pmm) pmm.textContent = getUiLabel('phoneModModsTitle');
+            const pcm = document.getElementById('phone-view-community-title');
+            if (pcm) pcm.textContent = getUiLabel('phoneCommunityTitle');
             applyDeepCreatorOverlayLanguage();
+            refreshPhoneCreatorScreen();
         }
 
         function openCreatorModeOverlay() {
@@ -6689,9 +6993,7 @@
             applyCreatorOverlayLanguage();
             syncCreatorModeToggleUI();
             updateCreatorPostFormAvailability();
-            renderCreatorPostsList();
-            const msg = document.getElementById('creator-post-msg');
-            if (msg) msg.textContent = '';
+            renderCreatorHubProjects();
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
         }
@@ -6711,7 +7013,7 @@
             syncLobbyBarLabels();
             if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) {
                 applyCreatorOverlayLanguage();
-                renderCreatorPostsList();
+                renderCreatorHubProjects();
             }
             if (document.getElementById('deep-creator-mode-overlay')?.classList.contains('open')) {
                 applyDeepCreatorOverlayLanguage();
@@ -7351,6 +7653,7 @@
             state.policeDelay = 0;
             state.arrestCount = 0;
             state.police = [];
+            state.creatorPlaytest = false;
             state.vaultChaseActive = false;
             state.pendingVaultLoot = 0;
             state.vaultArrestOwe = 0;
@@ -9088,6 +9391,12 @@
             }
 
             // Handle Police Chases
+            if (state.creatorPlaytest) {
+                state.wantedLevel = 0;
+                state.policeDelay = 0;
+                state.police = [];
+                state.vaultChaseActive = false;
+            }
             if (state.wantedLevel > 0 && !state.isPresident && !state.cityNuked) {
                 if (state.policeDelay > 0) { state.policeDelay--; state.police = []; }
                 else {
@@ -9945,21 +10254,23 @@
             const mb = document.getElementById('ingame-menu-btn');
             if (mb) mb.style.display = show ? 'flex' : 'none';
             if (show) populateIngameMenuCreatorBlueprints();
+            syncPhoneCreatorAppsVisibility();
             updateOwnerDashboardFabVisibility();
         }
 
         function phoneShowView(name) {
-            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-gps', 'phone-view-game'].forEach(id => {
+            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-gps', 'phone-view-game', 'phone-view-creator', 'phone-view-modmods', 'phone-view-community'].forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
                 const show = id === `phone-view-${name}`;
                 el.classList.toggle('hidden', !show);
-                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-gps' || id === 'phone-view-game'));
+                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-gps' || id === 'phone-view-game' || id === 'phone-view-creator' || id === 'phone-view-modmods' || id === 'phone-view-community'));
             });
         }
 
         function phoneGoHome() {
             stopMiniGames();
+            closeDeepCreatorModeOverlay();
             phoneShowView('home');
         }
 
@@ -10522,17 +10833,21 @@
                 if (!overlay) return;
                 overlay.classList.add('open');
                 phoneGoHome();
+                syncPhoneCreatorAppsVisibility();
+                applyCreatorOverlayLanguage();
             };
             if (closeX) closeX.onclick = () => {
                 if (overlay) overlay.classList.remove('open');
                 stopMiniGames();
                 teardownPhoneChatChannel();
+                closeDeepCreatorModeOverlay();
             };
             overlay?.addEventListener('click', (e) => {
                 if (e.target === overlay) {
                     overlay.classList.remove('open');
                     stopMiniGames();
                     teardownPhoneChatChannel();
+                    closeDeepCreatorModeOverlay();
                 }
             });
 
@@ -10557,10 +10872,54 @@
                         initPhoneGpsUI();
                         phoneShowView('gps');
                         syncPhoneGpsHint();
+                    } else if (app === 'creator') {
+                        phoneShowView('creator');
+                        refreshPhoneCreatorScreen();
+                    } else if (app === 'modmods') {
+                        refreshPhoneModMods();
+                        phoneShowView('modmods');
+                    } else if (app === 'community') {
+                        refreshPhoneCommunity();
+                        phoneShowView('community');
                     }
                 };
             });
 
+            document.getElementById('phone-creator-open-lab')?.addEventListener('click', () => openDeepCreatorFromPhone());
+            document.getElementById('phone-creator-play-btn')?.addEventListener('click', () => {
+                state.creatorPlaytest = !state.creatorPlaytest;
+                if (state.creatorPlaytest) {
+                    state.wantedLevel = 0;
+                    state.policeDelay = 0;
+                    state.police = [];
+                    state.vaultChaseActive = false;
+                    showMessage(getUiLabel('phoneCreatorPlaytestOn'));
+                } else {
+                    showMessage(getUiLabel('phoneCreatorPlaytestOff'));
+                }
+                refreshPhoneCreatorScreen();
+            });
+            document.getElementById('deep-creator-new-project-btn')?.addEventListener('click', () => {
+                const inp = document.getElementById('deep-creator-new-project-name');
+                const raw = inp && inp.value ? String(inp.value).trim() : '';
+                if (!raw) {
+                    showMessage(getUiLabel('deepCreatorNeedProjectName'));
+                    return;
+                }
+                let projects = loadCreatorProjects();
+                if (projects.length >= CREATOR_PROJECTS_MAX) {
+                    showMessage(getUiLabel('deepCreatorProjectListFull'));
+                    return;
+                }
+                const id = 'pr_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                projects.push({ id, name: raw.slice(0, 48), t: Date.now() });
+                saveCreatorProjects(projects);
+                fillDeepCreatorProjectPick();
+                if (inp) inp.value = '';
+                renderCreatorHubProjects();
+                refreshPhoneModMods();
+                showMessage(getUiLabel('deepCreatorProjectAdded'));
+            });
             document.querySelectorAll('.phone-back').forEach(btn => {
                 btn.onclick = () => phoneGoHome();
             });
@@ -10841,40 +11200,20 @@
                 if (!isCreatorModeOn()) closeDeepCreatorModeOverlay();
                 if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) updateCreatorPostFormAvailability();
                 populateIngameMenuCreatorBlueprints();
+                syncPhoneCreatorAppsVisibility();
+            });
+            document.getElementById('lobby-toggle-creator-deep-mode')?.addEventListener('click', () => {
+                if (!isCreatorModeOn()) return;
+                try { localStorage.setItem(LS_CREATOR_DEEP_MODE, isDeepCreatorModeOn() ? '0' : '1'); } catch (_) { /* */ }
+                syncDeepCreatorModeToggleUI();
+                if (!isDeepCreatorModeOn()) closeDeepCreatorModeOverlay();
+                syncPhoneCreatorAppsVisibility();
+                populateIngameMenuCreatorBlueprints();
             });
             document.getElementById('lobby-open-creator-board')?.addEventListener('click', () => { openCreatorModeOverlay(); });
             document.getElementById('creator-mode-close')?.addEventListener('click', () => closeCreatorModeOverlay());
             document.getElementById('creator-mode-overlay')?.addEventListener('click', (e) => {
                 if (e.target && e.target.id === 'creator-mode-overlay') closeCreatorModeOverlay();
-            });
-            document.getElementById('creator-post-submit')?.addEventListener('click', () => {
-                const msg = document.getElementById('creator-post-msg');
-                if (!isCreatorModeOn()) {
-                    if (msg) msg.textContent = getUiLabel('creatorPostDisabledHint');
-                    return;
-                }
-                const bodyEl = document.getElementById('creator-post-body');
-                const body = (bodyEl && bodyEl.value) ? String(bodyEl.value).trim() : '';
-                if (!body) {
-                    if (msg) msg.textContent = 'Write something first.';
-                    return;
-                }
-                const titleEl = document.getElementById('creator-post-title');
-                const title = (titleEl && titleEl.value) ? String(titleEl.value).trim() : '';
-                const id = `c${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
-                let posts = loadCreatorPosts();
-                posts.unshift({ id, title: title.slice(0, 120), body: body.slice(0, 1500), t: Date.now() });
-                if (posts.length > CREATOR_POSTS_MAX) posts = posts.slice(0, CREATOR_POSTS_MAX);
-                saveCreatorPosts(posts);
-                renderCreatorPostsList();
-                if (bodyEl) bodyEl.value = '';
-                if (titleEl) titleEl.value = '';
-                if (msg) msg.textContent = 'Posted!';
-                setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
-            });
-            document.getElementById('creator-open-deep')?.addEventListener('click', () => {
-                if (!isCreatorModeOn()) return;
-                openDeepCreatorModeOverlay();
             });
             document.getElementById('deep-creator-close')?.addEventListener('click', () => closeDeepCreatorModeOverlay());
             document.getElementById('deep-creator-mode-overlay')?.addEventListener('click', (e) => {
@@ -10906,11 +11245,13 @@
                     notes: draft.notes.slice(0, 4000),
                     primaryAction: draft.primaryAction,
                     primaryMsg: draft.primaryMsg.slice(0, 300),
-                    extraButtons: draft.extraButtons
+                    extraButtons: draft.extraButtons,
+                    projectId: draft.projectId || (loadCreatorProjects()[0] && loadCreatorProjects()[0].id) || ''
                 });
                 if (list.length > DEEP_CREATOR_BLUEPRINTS_MAX) list = list.slice(0, DEEP_CREATOR_BLUEPRINTS_MAX);
                 saveDeepBlueprints(list);
                 renderDeepBlueprintList();
+                renderCreatorHubProjects();
                 populateIngameMenuCreatorBlueprints();
                 clearDeepCreatorForm();
                 if (msg) {
@@ -11458,6 +11799,7 @@
                 updateFriendsListUIAsync();
             }
             updateLobbyStatsFabVisibility();
+            syncPhoneCreatorAppsVisibility();
             updateSignedInUI();
         }
         startApp();
