@@ -695,12 +695,12 @@
                 <div class="auth-char-pick" role="radiogroup" aria-label="Character">
                     <button type="button" id="auth-char-boy" class="auth-char-btn interactive selected" data-char="boy" aria-checked="true" role="radio">
                         <canvas id="auth-preview-boy" width="44" height="44" class="auth-char-preview" aria-hidden="true"></canvas>
-                        <span class="text-[11px] font-black text-sky-200">Alex</span>
+                        <span class="text-[11px] font-black text-sky-200">Boy</span>
                         <span class="block text-[8px] text-slate-500">Boy</span>
                     </button>
                     <button type="button" id="auth-char-girl" class="auth-char-btn interactive" data-char="girl" aria-checked="false" role="radio">
                         <canvas id="auth-preview-girl" width="44" height="44" class="auth-char-preview" aria-hidden="true"></canvas>
-                        <span class="text-[11px] font-black text-pink-200">Maya</span>
+                        <span class="text-[11px] font-black text-pink-200">Girl</span>
                         <span class="block text-[8px] text-slate-500">Girl</span>
                     </button>
                 </div>
@@ -1440,8 +1440,8 @@
                 <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. The big swatch shows the active skin.</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Shape</p>
                 <div class="flex gap-2 justify-center mb-3">
-                    <button type="button" id="lobby-char-boy" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-200">Alex</button>
-                    <button type="button" id="lobby-char-girl" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-200">Maya</button>
+                    <button type="button" id="lobby-char-boy" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-200">Boy</button>
+                    <button type="button" id="lobby-char-girl" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-200">Girl</button>
                     <button type="button" id="lobby-char-circle" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-slate-200">Dot</button>
                 </div>
                 <div id="admin-skin-active-preview" class="mx-auto w-20 h-20 rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3" style="background:#2563eb"></div>
@@ -2085,7 +2085,7 @@
             { id: 'wanted_drop', label: 'How do I lose stars fast?', answer: () => 'Stop committing crimes, hide at HOME, or put distance between you and cruisers until the meter cools.' },
             { id: 'autosave', label: 'Autosave timing?', answer: () => 'World autosaves on an interval while you play — still manual-save before risky vault runs.' },
             { id: 'disconnect', label: 'Multiplayer disconnections?', answer: () => 'Game retries Realtime with backoff — check Wi‑Fi, stay signed in, and avoid refreshing mid-session.' },
-            { id: 'character', label: 'Character appearance?', answer: () => 'Pick Alex or Maya when you create an account (or before Play offline). The lobby Character button can switch shape (Alex, Maya, or classic dot) and recolor your trail.' },
+            { id: 'character', label: 'Character appearance?', answer: () => 'Pick Boy or Girl when you create an account (or before Play offline). The lobby Character button can switch shape (Boy, Girl, or classic dot) and recolor your trail.' },
             { id: 'coupe', label: 'Sports coupe tier?', answer: () => 'Dealership “Sports Coupe” is $50,000 between the Porsche 911 and the Lambo — strong mid milestone before the six-figure hypercars.' }
         ];
 
@@ -2285,10 +2285,10 @@
         }
 
         /**
-         * Alex — compact Pixel City–style side sprite (~22px), sheet identity: spiky hair, open blue hoodie + tee,
-         * straps + pack, dark pants, blue sneakers w/ white sole. Idle / walk / run / jump / attack; pass null → idle.
+         * Boy-style avatar — compact Pixel City–style side sprite (~22px): spiky hair, open hoodie + tee,
+         * straps + pack, dark pants, sneakers w/ white sole. Idle / walk / run / jump / attack; pass null → idle.
          */
-        function drawAlexBoyAvatar(ctx, p, col) {
+        function drawBoyStyleAvatar(ctx, p, col) {
             const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
             const smooth0 = ctx.imageSmoothingEnabled;
             ctx.imageSmoothingEnabled = false;
@@ -2430,10 +2430,10 @@
             ctx.restore();
         }
 
-        /** Maya (girl) — Pixel City sheet style: leaner proportions, ponytail + scrunchie, jacket/skirt/sneakers, pack behind. */
-        function drawAlexMayaPixelAvatar(ctx, kind, col) {
+        /** Girl-style avatar — Pixel City sheet style: leaner proportions, ponytail + scrunchie, jacket/skirt/sneakers, pack behind. */
+        function drawHumanPixelAvatar(ctx, kind, col) {
             if (kind === 'boy') {
-                drawAlexBoyAvatar(ctx, null, col);
+                drawBoyStyleAvatar(ctx, null, col);
                 return;
             }
             const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
@@ -2523,7 +2523,7 @@
                 g.fillRect(0, 0, w, h);
                 g.translate(w / 2, h - 4);
                 g.scale(kind === 'boy' ? 1.9 : 1.48, kind === 'boy' ? 1.9 : 1.48);
-                drawAlexMayaPixelAvatar(g, kind, '#38bdf8');
+                drawHumanPixelAvatar(g, kind, '#38bdf8');
                 g.restore();
             };
             go('auth-preview-boy', 'boy');
@@ -10533,7 +10533,7 @@
 
             state.vehicles.forEach(v => { drawCartoonCar(c, v); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#f8fafc'; c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.beginPath(); c.moveTo(-26, -14); c.lineTo(26, -14); c.quadraticCurveTo(30, 0, 26, 14); c.lineTo(-26, 14); c.quadraticCurveTo(-30, 0, -26, -14); c.closePath(); c.fill(); c.stroke(); const flash = Math.floor(state.frameCount / 5) % 2 === 0; c.fillStyle = flash ? '#ef4444' : '#2563eb'; c.fillRect(2, -12, 10, 24); c.fillStyle = 'rgba(254,252,232,0.95)'; c.beginPath(); c.arc(22, -8, 2.5, 0, Math.PI * 2); c.arc(22, 8, 2.5, 0, Math.PI * 2); c.fill(); c.fillStyle = '#fecaca'; c.beginPath(); c.arc(-22, -8, 2.2, 0, Math.PI * 2); c.arc(-22, 8, 2.2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#0f172a'; c.beginPath(); c.arc(12, 16, 5, 0, Math.PI * 2); c.arc(-12, 16, 5, 0, Math.PI * 2); c.arc(12, -16, 5, 0, Math.PI * 2); c.arc(-12, -16, 5, 0, Math.PI * 2); c.fill(); c.restore(); });
-            // Draw Alex / Maya / classic dot from characterType ('boy', 'girl', 'circle')
+            // Draw boy / girl / classic dot from characterType ('boy', 'girl', 'circle')
             function drawPlayerAvatar(ctx, charType, color, p) {
                 const col = color || DEFAULT_PLAYER_COLOR;
                 ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
@@ -10541,7 +10541,7 @@
                     ctx.shadowBlur = 3;
                     ctx.save();
                     ctx.scale(1.52, 1.52);
-                    drawAlexBoyAvatar(ctx, p || null, col);
+                    drawBoyStyleAvatar(ctx, p || null, col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
                 } else if (charType === 'girl') {
@@ -10549,7 +10549,7 @@
                     ctx.save();
                     ctx.scale(1.5, 1.5);
                     if (p) ctx.translate(0, Math.sin((state.frameCount || 0) * 0.12) * 0.28);
-                    drawAlexMayaPixelAvatar(ctx, 'girl', col);
+                    drawHumanPixelAvatar(ctx, 'girl', col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
                 } else {
