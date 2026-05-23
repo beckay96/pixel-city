@@ -374,6 +374,39 @@
             transition: transform 0.08s ease, filter 0.12s ease;
         }
         #lobby-bottom-bar button:active { transform: scale(0.97); }
+        .auth-char-pick {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .auth-char-btn {
+            border-radius: 12px;
+            border: 2px solid rgba(71, 85, 105, 0.9);
+            background: rgba(15, 23, 42, 0.85);
+            padding: 8px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+        }
+        .auth-char-btn.selected {
+            border-color: rgba(56, 189, 248, 0.95);
+            box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35);
+            background: rgba(30, 58, 138, 0.55);
+        }
+        .auth-char-btn:focus-visible {
+            outline: 2px solid #38bdf8;
+            outline-offset: 2px;
+        }
+        .auth-char-preview {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 4px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            border-radius: 8px;
+            background: repeating-linear-gradient(0deg, #0f172a, #0f172a 2px, #1e293b 2px, #1e293b 4px);
+            position: relative;
+        }
         #lobby-character-btn {
             background: linear-gradient(180deg, #38bdf8, #0284c7);
             color: #f8fafc;
@@ -559,6 +592,23 @@
             <div>
                 <label for="auth-username-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Username</label>
                 <input type="text" id="auth-username-input" autocomplete="username" placeholder="Your username" class="bg-slate-900 border border-slate-600 p-3 rounded-lg text-white text-base w-full interactive">
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Character</p>
+                <p class="text-[8px] text-slate-500 mb-2 leading-snug">Pick for new accounts — saved on this device. You can change later in Character (lobby).</p>
+                <div class="auth-char-pick" role="radiogroup" aria-label="Character">
+                    <button type="button" id="auth-char-boy" class="auth-char-btn interactive selected" data-char="boy" aria-checked="true" role="radio">
+                        <canvas id="auth-preview-boy" width="44" height="44" class="auth-char-preview" aria-hidden="true"></canvas>
+                        <span class="text-[11px] font-black text-sky-200">Alex</span>
+                        <span class="block text-[8px] text-slate-500">Boy</span>
+                    </button>
+                    <button type="button" id="auth-char-girl" class="auth-char-btn interactive" data-char="girl" aria-checked="false" role="radio">
+                        <canvas id="auth-preview-girl" width="44" height="44" class="auth-char-preview" aria-hidden="true"></canvas>
+                        <span class="text-[11px] font-black text-pink-200">Maya</span>
+                        <span class="block text-[8px] text-slate-500">Girl</span>
+                    </button>
+                </div>
+                <input type="hidden" id="auth-char-value" value="boy" />
             </div>
             <div>
                 <label for="auth-password-input" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Password</label>
@@ -1156,6 +1206,12 @@
             <div class="w-full max-w-sm bg-slate-900 border-2 border-cyan-500 rounded-2xl p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <h2 class="text-xl font-black text-cyan-400 text-center mb-1 uppercase">Admin house</h2>
                 <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. The big swatch shows the active skin.</p>
+                <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Shape</p>
+                <div class="flex gap-2 justify-center mb-3">
+                    <button type="button" id="lobby-char-boy" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-200">Alex</button>
+                    <button type="button" id="lobby-char-girl" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-200">Maya</button>
+                    <button type="button" id="lobby-char-circle" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-slate-200">Dot</button>
+                </div>
                 <div id="admin-skin-active-preview" class="mx-auto w-20 h-20 rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3" style="background:#2563eb"></div>
                 <p id="admin-skin-active-label" class="text-center text-sm font-bold text-cyan-200 mb-2">Current: Blue</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Presets</p>
@@ -1748,7 +1804,7 @@
             { id: 'wanted_drop', label: 'How do I lose stars fast?', answer: () => 'Stop committing crimes, hide at HOME, or put distance between you and cruisers until the meter cools.' },
             { id: 'autosave', label: 'Autosave timing?', answer: () => 'World autosaves on an interval while you play — still manual-save before risky vault runs.' },
             { id: 'disconnect', label: 'Multiplayer disconnections?', answer: () => 'Game retries Realtime with backoff — check Wi‑Fi, stay signed in, and avoid refreshing mid-session.' },
-            { id: 'character', label: 'Character appearance?', answer: () => 'Everyone plays as the neon dot — use Character in the lobby to recolor your trail.' },
+            { id: 'character', label: 'Character appearance?', answer: () => 'Pick Alex or Maya when you create an account (or before Play offline). The lobby Character button can switch shape (Alex, Maya, or classic dot) and recolor your trail.' },
             { id: 'coupe', label: 'Sports coupe tier?', answer: () => 'Dealership “Sports Coupe” is $50,000 between the Porsche 911 and the Lambo — strong mid milestone before the six-figure hypercars.' }
         ];
 
@@ -1932,6 +1988,134 @@
             if (L === 'es' || L === 'ja' || L === 'en') initialUiLang = L;
         } catch (_) { /* */ }
 
+        function loadCharacterTypeFromStorage() {
+            try {
+                const v = localStorage.getItem(LS_CHARACTER_TYPE);
+                if (v === 'boy' || v === 'girl' || v === 'circle') return v;
+            } catch (_) { /* */ }
+            return 'boy';
+        }
+
+        function persistCharacterType(t) {
+            const v = (t === 'boy' || t === 'girl' || t === 'circle') ? t : 'circle';
+            state.characterType = v;
+            try { localStorage.setItem(LS_CHARACTER_TYPE, v); } catch (_) { /* */ }
+            syncLobbyCharacterShapeButtons();
+        }
+
+        /** Alex (boy) / Maya (girl) — chunky pixel silhouette, feet near y≈16 in local space, facing +x. */
+        function drawAlexMayaPixelAvatar(ctx, kind, col) {
+            const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
+            const smooth0 = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            const R = (x, y, w, h, fill) => {
+                ctx.fillStyle = fill;
+                ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+            };
+            const skin = '#fcd9b8';
+            const outline = '#0f172a';
+            if (kind === 'boy') {
+                const hair = '#4a3728';
+                const hood = '#2563eb';
+                const hoodD = '#1e40af';
+                const tee = '#f8fafc';
+                const pant = '#334155';
+                const shoe = '#1e3a8a';
+                R(-2, -17, 10, 3, hair); R(-3, -15, 4, 4, hair); R(4, -16, 4, 3, hair);
+                R(-4, -12, 8, 7, skin);
+                ctx.strokeStyle = outline; ctx.lineWidth = 1;
+                ctx.strokeRect(-4.5, -12.5, 9, 8);
+                R(-2, -10, 2, 2, '#1e293b'); R(2, -10, 2, 2, '#1e293b');
+                R(-7, -7, 5, 4, hood); R(3, -7, 5, 4, hoodD);
+                R(-5, -5, 11, 3, hood);
+                R(-3, -4, 7, 6, tee);
+                R(-8, -3, 3, 7, hood); R(6, -3, 3, 7, hoodD);
+                R(-9, -4, 2, 5, '#475569');
+                R(-4, 2, 9, 6, pant);
+                R(-4, 8, 3, 5, pant); R(2, 8, 3, 5, pant);
+                R(-4, 13, 3, 2, shoe); R(2, 13, 3, 2, shoe);
+                R(-4, 15, 3, 1, accent); R(2, 15, 3, 1, '#f8fafc');
+            } else {
+                const hair = '#5c4033';
+                const pink = '#f472b6';
+                const pinkD = '#db2777';
+                const skirt = '#1d4ed8';
+                R(4, -16, 4, 10, hair); R(3, -13, 2, 2, '#f9a8d4');
+                R(-4, -12, 8, 7, skin);
+                ctx.strokeStyle = outline; ctx.lineWidth = 1;
+                ctx.strokeRect(-4.5, -12.5, 9, 8);
+                R(-2, -10, 2, 2, '#1e293b'); R(1, -10, 2, 2, '#1e293b');
+                R(-7, -5, 15, 4, pink);
+                R(-5, -3, 11, 8, pinkD);
+                R(-3, -2, 7, 6, '#fff1f2');
+                R(-5, 3, 11, 5, skirt);
+                ctx.strokeStyle = outline; ctx.strokeRect(-5.5, 3.5, 12, 5);
+                R(-3, 8, 3, 5, skin); R(1, 8, 3, 5, skin);
+                R(-3, 13, 3, 2, pink); R(1, 13, 3, 2, pink);
+                R(-3, 15, 3, 1, accent); R(1, 15, 3, 1, '#fff');
+            }
+            ctx.imageSmoothingEnabled = smooth0;
+        }
+
+        function paintAuthCharacterPreviews() {
+            const go = (id, kind) => {
+                const cvs = document.getElementById(id);
+                if (!cvs || !cvs.getContext) return;
+                const g = cvs.getContext('2d');
+                if (!g) return;
+                const w = cvs.width;
+                const h = cvs.height;
+                g.save();
+                g.clearRect(0, 0, w, h);
+                g.fillStyle = '#0f172a';
+                g.fillRect(0, 0, w, h);
+                g.translate(w / 2, h - 6);
+                g.scale(1.35, 1.35);
+                drawAlexMayaPixelAvatar(g, kind, '#38bdf8');
+                g.restore();
+            };
+            go('auth-preview-boy', 'boy');
+            go('auth-preview-girl', 'girl');
+        }
+
+        function getAuthCharacterPick() {
+            const hid = document.getElementById('auth-char-value');
+            return hid && hid.value === 'girl' ? 'girl' : 'boy';
+        }
+
+        function syncAuthCharacterPickerUI() {
+            const v = getAuthCharacterPick();
+            const b = document.getElementById('auth-char-boy');
+            const g = document.getElementById('auth-char-girl');
+            if (b) { b.classList.toggle('selected', v === 'boy'); b.setAttribute('aria-checked', v === 'boy' ? 'true' : 'false'); }
+            if (g) { g.classList.toggle('selected', v === 'girl'); g.setAttribute('aria-checked', v === 'girl' ? 'true' : 'false'); }
+        }
+
+        function applyStoredCharacterToAuthPicker() {
+            const st = loadCharacterTypeFromStorage();
+            const hid = document.getElementById('auth-char-value');
+            if (!hid) return;
+            hid.value = st === 'girl' ? 'girl' : 'boy';
+            syncAuthCharacterPickerUI();
+        }
+
+        function syncLobbyCharacterShapeButtons() {
+            ['lobby-char-boy', 'lobby-char-girl', 'lobby-char-circle'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const k = id === 'lobby-char-girl' ? 'girl' : id === 'lobby-char-circle' ? 'circle' : 'boy';
+                const on = state.characterType === k;
+                el.classList.toggle('border-cyan-400', on);
+                el.classList.toggle('bg-cyan-950', on);
+                el.classList.toggle('ring-2', on);
+                el.classList.toggle('ring-cyan-400/60', on);
+                el.classList.toggle('border-slate-600', !on);
+                el.classList.toggle('bg-slate-800', !on);
+            });
+        }
+
+        const initialCharacterType = loadCharacterTypeFromStorage();
+
         const state = {
             money: 0, 
             bailPrice: 100,
@@ -2028,7 +2212,7 @@
             dealerBuyForFriendArmed: false,
             dealerFriendConfirmStep: 0,
             /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
-            characterType: 'circle',
+            characterType: initialCharacterType,
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
             stamina: 100,
             /** Lobby "Load progress" stores full save here until joinRoom creates players. */
@@ -3501,7 +3685,7 @@
         }
 
         function applyAdminCharBtnStyles() {
-            /* Avatar is always the dot (circle); character picker removed from UI. */
+            syncLobbyCharacterShapeButtons();
         }
 
         function openAdminSkinModal() {
@@ -8720,40 +8904,18 @@
 
             state.vehicles.forEach(v => { drawCartoonCar(c, v); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#f8fafc'; c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.beginPath(); c.moveTo(-26, -14); c.lineTo(26, -14); c.quadraticCurveTo(30, 0, 26, 14); c.lineTo(-26, 14); c.quadraticCurveTo(-30, 0, -26, -14); c.closePath(); c.fill(); c.stroke(); const flash = Math.floor(state.frameCount / 5) % 2 === 0; c.fillStyle = flash ? '#ef4444' : '#2563eb'; c.fillRect(2, -12, 10, 24); c.fillStyle = 'rgba(254,252,232,0.95)'; c.beginPath(); c.arc(22, -8, 2.5, 0, Math.PI * 2); c.arc(22, 8, 2.5, 0, Math.PI * 2); c.fill(); c.fillStyle = '#fecaca'; c.beginPath(); c.arc(-22, -8, 2.2, 0, Math.PI * 2); c.arc(-22, 8, 2.2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#0f172a'; c.beginPath(); c.arc(12, 16, 5, 0, Math.PI * 2); c.arc(-12, 16, 5, 0, Math.PI * 2); c.arc(12, -16, 5, 0, Math.PI * 2); c.arc(-12, -16, 5, 0, Math.PI * 2); c.fill(); c.restore(); });
-            // Draw a pixel-art avatar based on characterType ('boy', 'girl', 'circle')
+            // Draw Alex / Maya / classic dot from characterType ('boy', 'girl', 'circle')
             function drawPlayerAvatar(ctx, charType, color) {
                 const col = color || DEFAULT_PLAYER_COLOR;
                 ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
-                if (charType === 'boy') {
-                    // Head
-                    ctx.fillStyle = col;
-                    ctx.beginPath(); ctx.arc(0, -10, 5, 0, Math.PI * 2); ctx.fill();
-                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
-                    // Body
+                if (charType === 'boy' || charType === 'girl') {
+                    ctx.shadowBlur = 4;
+                    ctx.save();
+                    ctx.scale(1.7, 1.7);
+                    drawAlexMayaPixelAvatar(ctx, charType, col);
+                    ctx.restore();
                     ctx.shadowBlur = 0;
-                    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 4); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
-                    // Arms
-                    ctx.beginPath(); ctx.moveTo(-7, -2); ctx.lineTo(7, -2); ctx.lineWidth = 2.5; ctx.stroke();
-                    // Left leg
-                    ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(-5, 13); ctx.lineWidth = 2.5; ctx.stroke();
-                    // Right leg
-                    ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(5, 13); ctx.lineWidth = 2.5; ctx.stroke();
-                } else if (charType === 'girl') {
-                    // Head
-                    ctx.fillStyle = col;
-                    ctx.beginPath(); ctx.arc(0, -11, 5, 0, Math.PI * 2); ctx.fill();
-                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
-                    // Body / torso
-                    ctx.shadowBlur = 0;
-                    ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 2); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
-                    // Arms
-                    ctx.beginPath(); ctx.moveTo(-7, -3); ctx.lineTo(7, -3); ctx.lineWidth = 2.5; ctx.stroke();
-                    // Dress / skirt (triangle)
-                    ctx.fillStyle = col;
-                    ctx.beginPath(); ctx.moveTo(-7, 2); ctx.lineTo(7, 2); ctx.lineTo(9, 13); ctx.lineTo(-9, 13); ctx.closePath(); ctx.fill();
-                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.stroke();
                 } else {
-                    // circle (default)
                     ctx.fillStyle = col;
                     ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
                     ctx.shadowBlur = 0;
@@ -9872,8 +10034,16 @@
             if (userInput) userInput.addEventListener('input', clearSignInMsg);
             if (passInput) passInput.addEventListener('input', clearSignInMsg);
 
-            state.characterType = 'circle';
-            try { localStorage.removeItem(LS_CHARACTER_TYPE); } catch (_) {}
+            paintAuthCharacterPreviews();
+            applyStoredCharacterToAuthPicker();
+            const authCharHid = document.getElementById('auth-char-value');
+            const setAuthCharPick = (which) => {
+                if (!authCharHid) return;
+                authCharHid.value = which === 'girl' ? 'girl' : 'boy';
+                syncAuthCharacterPickerUI();
+            };
+            document.getElementById('auth-char-boy')?.addEventListener('click', () => setAuthCharPick('boy'));
+            document.getElementById('auth-char-girl')?.addEventListener('click', () => setAuthCharPick('girl'));
 
             const passToggleBtn = document.getElementById('auth-password-toggle');
             if (passToggleBtn && passInput) {
@@ -9886,13 +10056,14 @@
                 });
             }
 
-            const finishAuth = (userId, username) => {
+            const finishAuth = (userId, username, didCreateAccount) => {
                 state.supabaseUserId = userId;
                 state.profileUsername = username;
                 state.playerName = username;
                 saveSession(userId, username);
                 recomputeIsAdmin();
                 startPresenceLoop();
+                if (didCreateAccount) persistCharacterType(getAuthCharacterPick());
                 if (signInMsg) signInMsg.textContent = '';
                 const netMsgEl = document.getElementById('friends-network-msg');
                 if (netMsgEl) netMsgEl.classList.add('hidden');
@@ -9911,6 +10082,7 @@
                 if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
                 const btn = document.getElementById('auth-signin-btn');
                 if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+                let didCreateAccount = false;
                 try {
                     let r = await supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password });
                     if (r.error) { pcDebug('error', 'auth_signin_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
@@ -9919,12 +10091,13 @@
                         r = await supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password });
                         if (r.error) { pcDebug('error', 'auth_signup_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
                         if (!r.data.ok) { pcDebug('warn', 'auth_signup_rejected', { error: r.data.error }); if (signInMsg) signInMsg.textContent = r.data.error || 'Could not create account.'; return; }
+                        didCreateAccount = true;
                     } else if (!r.data.ok) {
                         pcDebug('warn', 'auth_signin_rejected', { error: r.data.error });
                         if (signInMsg) signInMsg.textContent = r.data.error || 'Sign-in failed.';
                         return;
                     }
-                    finishAuth(r.data.user_id, r.data.username);
+                    finishAuth(r.data.user_id, r.data.username, didCreateAccount);
                 } catch (e) {
                     pcDebug('error', 'auth_signin_exception', { message: String(e && e.message) });
                     if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
@@ -9943,6 +10116,7 @@
                 state.worldSeed = null;
                 teardownOnlineRealtime();
                 clearSession();
+                persistCharacterType(getAuthCharacterPick());
                 if (signInMsg) signInMsg.textContent = '';
                 showLobbyFromSignIn();
                 applyModeButtonStyles();
@@ -10041,6 +10215,9 @@
             document.getElementById('lobby-character-btn')?.addEventListener('click', () => {
                 openAdminSkinModal();
             });
+            document.getElementById('lobby-char-boy')?.addEventListener('click', () => persistCharacterType('boy'));
+            document.getElementById('lobby-char-girl')?.addEventListener('click', () => persistCharacterType('girl'));
+            document.getElementById('lobby-char-circle')?.addEventListener('click', () => persistCharacterType('circle'));
 
             document.getElementById('owner-dashboard-fab')?.addEventListener('click', () => openOwnerDashboard());
             document.getElementById('owner-dashboard-close')?.addEventListener('click', () => closeOwnerDashboard());
