@@ -363,6 +363,10 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
+        .deep-creator-pixel-canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
 
         #creator-studio-bar {
             position: fixed;
@@ -970,8 +974,49 @@
                     <input id="deep-creator-name" type="text" maxlength="80" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive" placeholder="My gadget…" />
                 </div>
             </div>
+            <div id="deep-creator-appearance-wrap" class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
+                <div class="flex flex-wrap items-start gap-2 mb-2">
+                    <div>
+                        <p id="deep-creator-hold-preview-label" class="text-[9px] text-slate-500 uppercase font-bold mb-1">Hold preview</p>
+                        <p id="deep-creator-hold-preview-hint" class="text-[8px] text-slate-500 leading-snug max-w-[11rem]">Tiny in-hand mock. Pick a pixel color, or switch to code in notes.</p>
+                    </div>
+                    <button type="button" id="deep-creator-skip-pixel-btn" class="ml-auto text-[9px] font-black uppercase text-amber-300 hover:text-amber-200 interactive shrink-0">Use code</button>
+                </div>
+                <div class="flex flex-wrap gap-3 items-center">
+                    <canvas id="deep-creator-hold-preview" width="80" height="64" class="rounded border border-slate-600 bg-slate-950 shrink-0 deep-creator-pixel-canvas"></canvas>
+                    <div class="flex flex-col gap-2 flex-1 min-w-[10rem]">
+                        <span id="deep-creator-pixel-picker-label" class="text-[9px] text-slate-400 uppercase font-bold">Pixel color</span>
+                        <div class="flex flex-wrap gap-1.5 items-center">
+                            <input type="color" id="deep-creator-pixel-color" value="#c4b5fd" class="h-9 w-11 cursor-pointer interactive rounded border border-slate-600 bg-slate-800 p-0.5" title="Pick color" />
+                            <button type="button" class="deep-pixel-swatch w-7 h-7 rounded border-2 border-slate-500 interactive shrink-0" data-hex="#f472b6" style="background:#f472b6" title="Pink"></button>
+                            <button type="button" class="deep-pixel-swatch w-7 h-7 rounded border-2 border-slate-500 interactive shrink-0" data-hex="#38bdf8" style="background:#38bdf8" title="Sky"></button>
+                            <button type="button" class="deep-pixel-swatch w-7 h-7 rounded border-2 border-slate-500 interactive shrink-0" data-hex="#4ade80" style="background:#4ade80" title="Green"></button>
+                            <button type="button" class="deep-pixel-swatch w-7 h-7 rounded border-2 border-slate-500 interactive shrink-0" data-hex="#fbbf24" style="background:#fbbf24" title="Amber"></button>
+                            <button type="button" class="deep-pixel-swatch w-7 h-7 rounded border-2 border-slate-500 interactive shrink-0" data-hex="#e2e8f0" style="background:#e2e8f0" title="Light"></button>
+                            <button type="button" class="deep-pixel-swatch w-7 h-7 rounded border-2 border-slate-500 interactive shrink-0" data-hex="#1e293b" style="background:#1e293b" title="Dark"></button>
+                        </div>
+                        <p id="deep-creator-skip-pixel-hint" class="hidden text-[8px] text-amber-200/90 leading-snug">Color skipped — describe the look in your code / notes tab.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2 mb-1 items-center flex-wrap">
+                <span id="deep-creator-design-mode-label" class="text-[9px] text-slate-500 uppercase font-bold mr-1">Design</span>
+                <button type="button" id="deep-creator-mode-code" class="text-[9px] font-black uppercase px-2.5 py-1 rounded-lg interactive bg-violet-600 text-white border border-violet-400/60">Code</button>
+                <button type="button" id="deep-creator-mode-scratch" class="text-[9px] font-black uppercase px-2.5 py-1 rounded-lg interactive bg-slate-700 text-slate-200 border border-slate-500">Scratch</button>
+            </div>
+            <div id="deep-creator-code-panel">
             <label id="deep-creator-notes-label" for="deep-creator-notes" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">What it does (notes / pseudo-code)</label>
             <textarea id="deep-creator-notes" rows="4" maxlength="4000" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive resize-y min-h-[72px]" placeholder="Describe behavior, stats, UI flow…"></textarea>
+            </div>
+            <div id="deep-creator-scratch-panel" class="hidden border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/80">
+                <p id="deep-creator-scratch-hint" class="text-[9px] text-slate-400 mb-2 leading-snug">Scratch mode: paint a 16×16 idea with the pixel color above (no typing). Code tab keeps rules and pseudo-code.</p>
+                <div class="flex flex-wrap gap-2 items-center mb-2">
+                    <button type="button" id="deep-creator-scratch-paint" class="text-[9px] font-bold px-2 py-1 rounded interactive bg-violet-700 text-white">Paint</button>
+                    <button type="button" id="deep-creator-scratch-erase" class="text-[9px] font-bold px-2 py-1 rounded interactive bg-slate-700 text-slate-200">Erase</button>
+                    <button type="button" id="deep-creator-scratch-clear" class="text-[9px] font-bold px-2 py-1 rounded interactive bg-slate-800 text-slate-300 border border-slate-600">Clear grid</button>
+                </div>
+                <canvas id="deep-creator-scratch-canvas" width="160" height="160" class="rounded border border-slate-600 bg-slate-900 deep-creator-pixel-canvas touch-none interactive"></canvas>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 <div>
                     <label id="deep-creator-primary-label" for="deep-creator-primary-action" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Primary behavior</label>
@@ -1946,6 +1991,11 @@
         const LS_CREATOR_POSTS = 'pixelCityCreatorPosts';
         const LS_CREATOR_BLUEPRINTS = 'pixelCityDeepCreatorBlueprints';
         const DEEP_CREATOR_BLUEPRINTS_MAX = 48;
+        const DEEP_SCRATCH_GRID = 16;
+        let deepCreatorPixelSkipped = false;
+        let deepCreatorDesignMode = 'code';
+        let deepCreatorScratchTool = 'paint';
+        let deepCreatorScratchCells = Array(DEEP_SCRATCH_GRID * DEEP_SCRATCH_GRID).fill(null);
         const LS_CREATOR_DEEP_MODE = 'pixelCityDeepCreatorMode';
         const LS_CREATOR_PROJECTS = 'pixelCityCreatorProjects';
         const CREATOR_PROJECTS_MAX = 32;
@@ -6246,6 +6296,20 @@
                 deepCreatorNeedProjectName: 'Enter a project name first.',
                 deepCreatorProjectListFull: 'Too many projects — remove one from storage or merge.',
                 deepCreatorProjectAdded: 'Project added.',
+                deepCreatorHoldPreviewLabel: 'Hold preview',
+                deepCreatorHoldPreviewHint: 'Tiny in-hand mock. Pick a pixel color, or tap Use code so colors live only in your notes.',
+                deepCreatorPixelPickerLabel: 'Pixel color',
+                deepCreatorPixelUseCode: 'Use code',
+                deepCreatorPixelPickAgain: 'Pick color',
+                deepCreatorDesignModeLabel: 'Design',
+                deepCreatorModeCode: 'Code',
+                deepCreatorModeScratch: 'Scratch',
+                deepCreatorScratchHint: 'Scratch mode: paint a 16×16 doodle with the pixel color (no typing). Use Code for rules and pseudo-code.',
+                deepCreatorScratchPaint: 'Paint',
+                deepCreatorScratchErase: 'Erase',
+                deepCreatorScratchClear: 'Clear grid',
+                deepCreatorBpCodeTag: 'code',
+                deepCreatorBpScratchTag: 'scratch',
                 creatorStudioTitle: 'Creator studio',
                 creatorStudioHub: 'Hub',
                 creatorStudioLab: 'Lab',
@@ -6292,6 +6356,20 @@
                 creatorPostDisabledHint: 'Activa Creator mode en Ajustes del lobby para publicar.',
                 creatorDeleteBtn: 'Quitar',
                 creatorPostsEmpty: 'Aún no hay publicaciones.',
+                deepCreatorHoldPreviewLabel: 'Vista en mano',
+                deepCreatorHoldPreviewHint: 'Miniatura en píxeles. Elige color o toca Usar código para describir solo en notas.',
+                deepCreatorPixelPickerLabel: 'Color píxel',
+                deepCreatorPixelUseCode: 'Usar código',
+                deepCreatorPixelPickAgain: 'Elegir color',
+                deepCreatorDesignModeLabel: 'Diseño',
+                deepCreatorModeCode: 'Código',
+                deepCreatorModeScratch: 'Scratch',
+                deepCreatorScratchHint: 'Modo scratch: dibuja 16×16 con el color (sin teclado). Código = reglas.',
+                deepCreatorScratchPaint: 'Pintar',
+                deepCreatorScratchErase: 'Borrar',
+                deepCreatorScratchClear: 'Vaciar',
+                deepCreatorBpCodeTag: 'código',
+                deepCreatorBpScratchTag: 'scratch',
                 creatorStudioTitle: 'Estudio Creator',
                 creatorStudioHub: 'Hub',
                 creatorStudioLab: 'Laboratorio',
@@ -6338,6 +6416,20 @@
                 creatorPostDisabledHint: '投稿するにはロビー設定でクリエイターモードをオンにしてください。',
                 creatorDeleteBtn: '削除',
                 creatorPostsEmpty: 'まだ投稿がありません。',
+                deepCreatorHoldPreviewLabel: '持った見た目',
+                deepCreatorHoldPreviewHint: '手に持った小さいプレビュー。色を選ぶか「コード」で色はメモだけに。',
+                deepCreatorPixelPickerLabel: 'ピクセル色',
+                deepCreatorPixelUseCode: 'コードで',
+                deepCreatorPixelPickAgain: '色を選ぶ',
+                deepCreatorDesignModeLabel: '設計',
+                deepCreatorModeCode: 'コード',
+                deepCreatorModeScratch: 'スクラッチ',
+                deepCreatorScratchHint: 'スクラッチ：16×16を色で描く（キー不要）。ルールはコード側へ。',
+                deepCreatorScratchPaint: '描く',
+                deepCreatorScratchErase: '消す',
+                deepCreatorScratchClear: '全消去',
+                deepCreatorBpCodeTag: 'code',
+                deepCreatorBpScratchTag: 'scratch',
                 creatorStudioTitle: 'クリエイター作業台',
                 creatorStudioHub: 'ハブ',
                 creatorStudioLab: 'ラボ',
@@ -6903,6 +6995,268 @@
             wrap.classList.toggle('hidden', sel.value !== 'message');
         }
 
+        function resetDeepCreatorScratchGrid() {
+            deepCreatorScratchCells = Array(DEEP_SCRATCH_GRID * DEEP_SCRATCH_GRID).fill(null);
+            redrawDeepCreatorScratchCanvas();
+        }
+
+        function getDeepCreatorKindValue() {
+            const kindEl = document.getElementById('deep-creator-kind');
+            const kindRaw = kindEl && kindEl.value ? String(kindEl.value) : 'item';
+            return ['item', 'npc', 'player', 'menu'].indexOf(kindRaw) >= 0 ? kindRaw : 'item';
+        }
+
+        function getDeepCreatorAppearanceHex() {
+            if (deepCreatorPixelSkipped) return null;
+            const el = document.getElementById('deep-creator-pixel-color');
+            const v = el && el.value ? String(el.value).trim() : '';
+            if (!v || !/^#[0-9a-fA-F]{6}$/.test(v)) return '#94a3b8';
+            return v.toLowerCase();
+        }
+
+        function redrawDeepCreatorHoldPreview() {
+            const c = document.getElementById('deep-creator-hold-preview');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            if (!ctx) return;
+            const w = c.width;
+            const h = c.height;
+            ctx.imageSmoothingEnabled = false;
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, w, h);
+            const col = getDeepCreatorAppearanceHex() || '#64748b';
+            const kind = getDeepCreatorKindValue();
+            const px = (x, y, cw, ch) => {
+                ctx.fillStyle = col;
+                ctx.fillRect(x, y, cw, ch);
+            };
+            const sleeve = '#475569';
+            const skin = '#fca5a5';
+            ctx.fillStyle = sleeve;
+            ctx.fillRect(4, 28, 22, 8);
+            ctx.fillRect(2, 32, 8, 20);
+            ctx.fillStyle = skin;
+            ctx.fillRect(8, 30, 14, 12);
+            ctx.fillRect(18, 34, 10, 8);
+            let iw = 18;
+            let ih = 22;
+            let ix = 44;
+            let iy = 22;
+            if (kind === 'npc') { iw = 16; ih = 28; iy = 16; }
+            if (kind === 'player') {
+                ctx.fillStyle = col;
+                ctx.beginPath();
+                ctx.arc(52, 32, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(50, 38, 4, 3);
+                return;
+            }
+            if (kind === 'menu') { iw = 28; ih = 18; ix = 38; iy = 26; }
+            px(ix, iy, iw, ih);
+            ctx.fillStyle = 'rgba(15,23,42,0.35)';
+            ctx.fillRect(ix + 2, iy + 3, iw - 4, 3);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(ix + 4, iy + ih - 5, iw - 8, 2);
+        }
+
+        function redrawDeepCreatorScratchCanvas() {
+            const c = document.getElementById('deep-creator-scratch-canvas');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            if (!ctx) return;
+            const cell = Math.floor(c.width / DEEP_SCRATCH_GRID);
+            ctx.imageSmoothingEnabled = false;
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, c.width, c.height);
+            const ink = getDeepCreatorAppearanceHex() || '#a78bfa';
+            for (let y = 0; y < DEEP_SCRATCH_GRID; y++) {
+                for (let x = 0; x < DEEP_SCRATCH_GRID; x++) {
+                    const i = y * DEEP_SCRATCH_GRID + x;
+                    const v = deepCreatorScratchCells[i];
+                    if (v) {
+                        ctx.fillStyle = v;
+                        ctx.fillRect(x * cell, y * cell, cell - 1, cell - 1);
+                    }
+                }
+            }
+            ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+            for (let g = 0; g <= DEEP_SCRATCH_GRID; g++) {
+                ctx.beginPath();
+                ctx.moveTo(g * cell, 0);
+                ctx.lineTo(g * cell, c.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, g * cell);
+                ctx.lineTo(c.width, g * cell);
+                ctx.stroke();
+            }
+        }
+
+        function scratchCanvasToCell(ev) {
+            const c = document.getElementById('deep-creator-scratch-canvas');
+            if (!c) return null;
+            const r = c.getBoundingClientRect();
+            const mx = ((ev.clientX != null ? ev.clientX : (ev.touches && ev.touches[0] ? ev.touches[0].clientX : 0)) - r.left) * (c.width / r.width);
+            const my = ((ev.clientY != null ? ev.clientY : (ev.touches && ev.touches[0] ? ev.touches[0].clientY : 0)) - r.top) * (c.height / r.height);
+            const cell = c.width / DEEP_SCRATCH_GRID;
+            const cx = Math.floor(mx / cell);
+            const cy = Math.floor(my / cell);
+            if (cx < 0 || cy < 0 || cx >= DEEP_SCRATCH_GRID || cy >= DEEP_SCRATCH_GRID) return null;
+            return cy * DEEP_SCRATCH_GRID + cx;
+        }
+
+        function applyScratchAtIndex(idx) {
+            if (idx == null || idx < 0) return;
+            if (deepCreatorScratchTool === 'erase') deepCreatorScratchCells[idx] = null;
+            else {
+                const hex = getDeepCreatorAppearanceHex() || '#c4b5fd';
+                deepCreatorScratchCells[idx] = hex;
+            }
+            redrawDeepCreatorScratchCanvas();
+        }
+
+        function setDeepCreatorDesignMode(mode) {
+            deepCreatorDesignMode = mode === 'scratch' ? 'scratch' : 'code';
+            const codeBtn = document.getElementById('deep-creator-mode-code');
+            const scrBtn = document.getElementById('deep-creator-mode-scratch');
+            const codePanel = document.getElementById('deep-creator-code-panel');
+            const scrPanel = document.getElementById('deep-creator-scratch-panel');
+            if (codeBtn && scrBtn) {
+                const onCode = deepCreatorDesignMode === 'code';
+                codeBtn.classList.toggle('bg-violet-600', onCode);
+                codeBtn.classList.toggle('text-white', onCode);
+                codeBtn.classList.toggle('bg-slate-700', !onCode);
+                codeBtn.classList.toggle('text-slate-200', !onCode);
+                scrBtn.classList.toggle('bg-violet-600', !onCode);
+                scrBtn.classList.toggle('text-white', !onCode);
+                scrBtn.classList.toggle('bg-slate-700', onCode);
+                scrBtn.classList.toggle('text-slate-200', onCode);
+            }
+            if (codePanel) codePanel.classList.toggle('hidden', deepCreatorDesignMode !== 'code');
+            if (scrPanel) scrPanel.classList.toggle('hidden', deepCreatorDesignMode !== 'scratch');
+            if (deepCreatorDesignMode === 'scratch') redrawDeepCreatorScratchCanvas();
+            syncScratchToolButtons();
+        }
+
+        function syncScratchToolButtons() {
+            const paintB = document.getElementById('deep-creator-scratch-paint');
+            const eraseB = document.getElementById('deep-creator-scratch-erase');
+            if (!paintB || !eraseB) return;
+            const p = deepCreatorScratchTool === 'paint';
+            paintB.classList.toggle('bg-violet-700', p);
+            paintB.classList.toggle('text-white', p);
+            paintB.classList.toggle('bg-slate-700', !p);
+            paintB.classList.toggle('text-slate-200', !p);
+            eraseB.classList.toggle('bg-violet-700', !p);
+            eraseB.classList.toggle('text-white', !p);
+            eraseB.classList.toggle('bg-slate-700', p);
+            eraseB.classList.toggle('text-slate-200', p);
+        }
+
+        function syncDeepCreatorSkipPixelUI() {
+            const hint = document.getElementById('deep-creator-skip-pixel-hint');
+            const btn = document.getElementById('deep-creator-skip-pixel-btn');
+            const picker = document.getElementById('deep-creator-pixel-color');
+            const sw = document.querySelectorAll('.deep-pixel-swatch');
+            if (hint) hint.classList.toggle('hidden', !deepCreatorPixelSkipped);
+            if (btn) btn.textContent = deepCreatorPixelSkipped ? getUiLabel('deepCreatorPixelPickAgain') : getUiLabel('deepCreatorPixelUseCode');
+            if (picker) picker.disabled = !!deepCreatorPixelSkipped;
+            sw.forEach((b) => { b.disabled = !!deepCreatorPixelSkipped; b.classList.toggle('opacity-40', !!deepCreatorPixelSkipped); });
+            redrawDeepCreatorHoldPreview();
+        }
+
+        function toggleDeepCreatorPixelSkipped() {
+            deepCreatorPixelSkipped = !deepCreatorPixelSkipped;
+            const notes = document.getElementById('deep-creator-notes');
+            const tag = '[Appearance in code — pixel color skipped]';
+            if (deepCreatorPixelSkipped && notes && !String(notes.value).includes(tag)) {
+                notes.value = (String(notes.value).trim() ? String(notes.value).trim() + '\n' : '') + tag + '\n';
+            }
+            syncDeepCreatorSkipPixelUI();
+        }
+
+        function initDeepCreatorAppearanceUI() {
+            const colorEl = document.getElementById('deep-creator-pixel-color');
+            if (colorEl && !colorEl.dataset.bound) {
+                colorEl.dataset.bound = '1';
+                colorEl.addEventListener('input', () => { redrawDeepCreatorHoldPreview(); redrawDeepCreatorScratchCanvas(); });
+            }
+            document.querySelectorAll('.deep-pixel-swatch').forEach((b) => {
+                if (b.dataset.bound) return;
+                b.dataset.bound = '1';
+                b.addEventListener('click', () => {
+                    const hex = b.getAttribute('data-hex');
+                    const inp = document.getElementById('deep-creator-pixel-color');
+                    if (hex && inp) inp.value = hex;
+                    deepCreatorPixelSkipped = false;
+                    syncDeepCreatorSkipPixelUI();
+                    redrawDeepCreatorScratchCanvas();
+                });
+            });
+            const skipBtn = document.getElementById('deep-creator-skip-pixel-btn');
+            if (skipBtn && !skipBtn.dataset.bound) {
+                skipBtn.dataset.bound = '1';
+                skipBtn.addEventListener('click', () => toggleDeepCreatorPixelSkipped());
+            }
+            const kindEl = document.getElementById('deep-creator-kind');
+            if (kindEl && !kindEl.dataset.appearanceBound) {
+                kindEl.dataset.appearanceBound = '1';
+                kindEl.addEventListener('change', () => redrawDeepCreatorHoldPreview());
+            }
+            const codeM = document.getElementById('deep-creator-mode-code');
+            const scrM = document.getElementById('deep-creator-mode-scratch');
+            if (codeM && !codeM.dataset.bound) {
+                codeM.dataset.bound = '1';
+                codeM.addEventListener('click', () => setDeepCreatorDesignMode('code'));
+            }
+            if (scrM && !scrM.dataset.bound) {
+                scrM.dataset.bound = '1';
+                scrM.addEventListener('click', () => setDeepCreatorDesignMode('scratch'));
+            }
+            const paintB = document.getElementById('deep-creator-scratch-paint');
+            const eraseB = document.getElementById('deep-creator-scratch-erase');
+            const clearB = document.getElementById('deep-creator-scratch-clear');
+            if (paintB && !paintB.dataset.bound) {
+                paintB.dataset.bound = '1';
+                paintB.addEventListener('click', () => {
+                    deepCreatorScratchTool = 'paint';
+                    syncScratchToolButtons();
+                });
+            }
+            if (eraseB && !eraseB.dataset.bound) {
+                eraseB.dataset.bound = '1';
+                eraseB.addEventListener('click', () => {
+                    deepCreatorScratchTool = 'erase';
+                    syncScratchToolButtons();
+                });
+            }
+            if (clearB && !clearB.dataset.bound) {
+                clearB.dataset.bound = '1';
+                clearB.addEventListener('click', () => resetDeepCreatorScratchGrid());
+            }
+            const sc = document.getElementById('deep-creator-scratch-canvas');
+            if (sc && !sc.dataset.paintBound) {
+                sc.dataset.paintBound = '1';
+                let painting = false;
+                const paintEv = (e) => {
+                    if (!painting) return;
+                    e.preventDefault();
+                    const idx = scratchCanvasToCell(e);
+                    applyScratchAtIndex(idx);
+                };
+                sc.addEventListener('mousedown', (e) => { if (deepCreatorDesignMode !== 'scratch') return; painting = true; paintEv(e); });
+                window.addEventListener('mouseup', () => { painting = false; });
+                sc.addEventListener('mousemove', paintEv);
+                sc.addEventListener('touchstart', (e) => { if (deepCreatorDesignMode !== 'scratch') return; painting = true; paintEv(e); }, { passive: false });
+                sc.addEventListener('touchmove', paintEv, { passive: false });
+                sc.addEventListener('touchend', () => { painting = false; });
+            }
+            syncDeepCreatorSkipPixelUI();
+            setDeepCreatorDesignMode(deepCreatorDesignMode);
+            syncScratchToolButtons();
+        }
+
         function clearDeepCreatorForm() {
             const kind = document.getElementById('deep-creator-kind');
             if (kind) kind.value = 'item';
@@ -6916,7 +7270,16 @@
             if (pm) pm.value = '';
             const extra = document.getElementById('deep-creator-extra-rows');
             if (extra) extra.innerHTML = '';
+            const pc = document.getElementById('deep-creator-pixel-color');
+            if (pc) pc.value = '#c4b5fd';
+            deepCreatorPixelSkipped = false;
+            deepCreatorDesignMode = 'code';
+            deepCreatorScratchTool = 'paint';
+            resetDeepCreatorScratchGrid();
+            syncDeepCreatorSkipPixelUI();
+            setDeepCreatorDesignMode('code');
             syncDeepPrimaryFields();
+            syncScratchToolButtons();
         }
 
         function addDeepExtraButtonRow(data) {
@@ -7016,7 +7379,17 @@
                 primaryAction: paEl && paEl.value === 'message' ? 'message' : 'none',
                 primaryMsg: pmEl ? String(pmEl.value).trim() : '',
                 extraButtons: collectDeepExtraButtons(),
-                projectId
+                projectId,
+                appearanceColor: getDeepCreatorAppearanceHex(),
+                pixelSkipped: !!deepCreatorPixelSkipped,
+                designMode: deepCreatorDesignMode === 'scratch' ? 'scratch' : 'code',
+                scratchCellsJson: deepCreatorDesignMode === 'scratch' ? (() => {
+                    try {
+                        if (!deepCreatorScratchCells.some((x) => !!x)) return '';
+                        const s = JSON.stringify(deepCreatorScratchCells);
+                        return s.length > 12000 ? s.slice(0, 12000) : s;
+                    } catch (_) { return ''; }
+                })() : ''
             };
         }
 
@@ -7056,7 +7429,17 @@
                 const kind = escapeCreatorHtml(String(bp.kind || ''));
                 const nm = escapeCreatorHtml(String(bp.name || 'Untitled'));
                 const idEnc = encodeURIComponent(String(bp.id || ''));
-                li.innerHTML = '<div class="text-violet-300 text-[10px] font-black uppercase">' + kind + '</div><div class="text-slate-100 text-xs font-bold">' + nm + '</div>'
+                let sw = '';
+                const ac = bp.appearanceColor && !bp.pixelSkipped && typeof bp.appearanceColor === 'string' && /^#[0-9a-fA-F]{6}$/i.test(bp.appearanceColor)
+                    ? String(bp.appearanceColor).toLowerCase() : '';
+                if (ac) {
+                    sw = '<span class="inline-block w-4 h-4 rounded border border-slate-500 shrink-0" style="background:' + escapeCreatorHtml(ac) + '" title=""></span>';
+                } else if (bp.pixelSkipped) {
+                    sw = '<span class="text-[8px] text-amber-300/90 font-bold uppercase">' + escapeCreatorHtml(getUiLabel('deepCreatorBpCodeTag')) + '</span>';
+                }
+                const scr = bp.designMode === 'scratch' ? '<span class="text-[8px] text-cyan-300 font-bold uppercase">' + escapeCreatorHtml(getUiLabel('deepCreatorBpScratchTag')) + '</span>' : '';
+                li.innerHTML = '<div class="text-violet-300 text-[10px] font-black uppercase">' + kind + '</div>'
+                    + '<div class="flex items-center gap-2 flex-wrap mt-0.5"><span class="text-slate-100 text-xs font-bold">' + nm + '</span>' + sw + scr + '</div>'
                     + '<div class="flex gap-2 mt-2 flex-wrap">'
                     + '<button type="button" class="deep-bp-test text-[10px] text-sky-300 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(testL) + '</button>'
                     + '<button type="button" class="deep-bp-del text-[10px] text-red-400 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(delL) + '</button>'
@@ -7106,6 +7489,16 @@
                 ['deep-creator-kind-label', 'deepCreatorKindLabel'],
                 ['deep-creator-name-label', 'deepCreatorNameLabel'],
                 ['deep-creator-notes-label', 'deepCreatorNotesLabel'],
+                ['deep-creator-hold-preview-label', 'deepCreatorHoldPreviewLabel'],
+                ['deep-creator-hold-preview-hint', 'deepCreatorHoldPreviewHint'],
+                ['deep-creator-pixel-picker-label', 'deepCreatorPixelPickerLabel'],
+                ['deep-creator-design-mode-label', 'deepCreatorDesignModeLabel'],
+                ['deep-creator-mode-code', 'deepCreatorModeCode'],
+                ['deep-creator-mode-scratch', 'deepCreatorModeScratch'],
+                ['deep-creator-scratch-hint', 'deepCreatorScratchHint'],
+                ['deep-creator-scratch-paint', 'deepCreatorScratchPaint'],
+                ['deep-creator-scratch-erase', 'deepCreatorScratchErase'],
+                ['deep-creator-scratch-clear', 'deepCreatorScratchClear'],
                 ['deep-creator-primary-label', 'deepCreatorPrimaryLabel'],
                 ['deep-creator-primary-msg-label', 'deepCreatorPrimaryMsgLabel'],
                 ['deep-creator-extra-heading', 'deepCreatorExtraHeading'],
@@ -7143,6 +7536,9 @@
             const npBtn = document.getElementById('deep-creator-new-project-btn');
             if (npBtn) npBtn.textContent = '+';
             refreshDeepExtraRowI18n();
+            syncDeepCreatorSkipPixelUI();
+            redrawDeepCreatorHoldPreview();
+            setDeepCreatorDesignMode(deepCreatorDesignMode);
         }
 
         function populateIngameMenuCreatorBlueprints() {
@@ -7167,8 +7563,17 @@
                 kindTag.className = 'text-[9px] text-violet-400 font-bold uppercase';
                 kindTag.textContent = String(bp.kind || '');
                 const nameRow = document.createElement('div');
-                nameRow.className = 'text-[10px] text-slate-200 font-bold mb-1';
-                nameRow.textContent = String(bp.name || 'Untitled');
+                nameRow.className = 'text-[10px] text-slate-200 font-bold mb-1 flex items-center gap-1.5 flex-wrap';
+                nameRow.appendChild(document.createTextNode(String(bp.name || 'Untitled')));
+                const acM = bp.appearanceColor && !bp.pixelSkipped && typeof bp.appearanceColor === 'string' && /^#[0-9a-fA-F]{6}$/i.test(bp.appearanceColor)
+                    ? String(bp.appearanceColor).toLowerCase() : '';
+                if (acM) {
+                    const sw = document.createElement('span');
+                    sw.className = 'inline-block w-3 h-3 rounded border border-slate-500 shrink-0';
+                    sw.style.background = acM;
+                    sw.title = acM;
+                    nameRow.appendChild(sw);
+                }
                 wrap.appendChild(kindTag);
                 wrap.appendChild(nameRow);
                 const row = document.createElement('div');
@@ -7223,6 +7628,9 @@
             if (msg) msg.textContent = '';
             el.classList.add('open');
             el.setAttribute('aria-hidden', 'false');
+            initDeepCreatorAppearanceUI();
+            redrawDeepCreatorHoldPreview();
+            redrawDeepCreatorScratchCanvas();
         }
 
         function closeDeepCreatorModeOverlay() {
@@ -11528,7 +11936,11 @@
                     primaryAction: draft.primaryAction,
                     primaryMsg: draft.primaryMsg.slice(0, 300),
                     extraButtons: draft.extraButtons,
-                    projectId: draft.projectId || (loadCreatorProjects()[0] && loadCreatorProjects()[0].id) || ''
+                    projectId: draft.projectId || (loadCreatorProjects()[0] && loadCreatorProjects()[0].id) || '',
+                    appearanceColor: draft.appearanceColor || null,
+                    pixelSkipped: !!draft.pixelSkipped,
+                    designMode: draft.designMode === 'scratch' ? 'scratch' : 'code',
+                    scratchCellsJson: draft.scratchCellsJson ? String(draft.scratchCellsJson).slice(0, 12000) : ''
                 });
                 if (list.length > DEEP_CREATOR_BLUEPRINTS_MAX) list = list.slice(0, DEEP_CREATOR_BLUEPRINTS_MAX);
                 saveDeepBlueprints(list);
