@@ -4188,13 +4188,39 @@
             return 'Online play isn’t available in this build. Use Play offline, or try again later on another device or network.';
         }
 
+        /** Safari / Chrome often surface blocked or flaky networks as these messages. */
+        function isLikelySupabaseNetworkFailure(err) {
+            if (!err) return false;
+            const msg = String(err.message != null ? err.message : err);
+            const lower = msg.toLowerCase();
+            const code = err.code != null ? String(err.code) : '';
+            if (code === 'ECONNABORTED' || err.name === 'AbortError') return true;
+            if (msg.includes('Load failed') || msg === 'Failed to fetch' || msg.includes('NetworkError')) return true;
+            if (lower.includes('networkerror') || lower.includes('failed to fetch')) return true;
+            if (lower.includes('network request failed')) return true;
+            if (lower.includes('internet connection') && lower.includes('offline')) return true;
+            if (lower.includes('err_internet_disconnected') || lower.includes('err_network_changed')) return true;
+            if (lower.includes('terminated') && lower.includes('fetch')) return true;
+            return false;
+        }
+
         /** Safari often reports failed fetches as TypeError: Load failed */
         function formatSupabaseNetworkError(err) {
             const msg = err && err.message ? String(err.message) : String(err);
-            if (msg.includes('Load failed') || msg === 'Failed to fetch' || msg.includes('NetworkError')) {
-                return 'Connection failed. Check your network, try disabling blockers, or use Play offline. A strict firewall or school network may block the game’s online service.';
+            if (isLikelySupabaseNetworkFailure(err)) {
+                return 'Connection failed — please try again in a moment. If it keeps failing: tap Play offline (no account), try cellular or another Wi‑Fi, pause ad blockers, or ask IT to allow traffic to *.supabase.co (school networks often block it).';
             }
             return msg;
+        }
+
+        /** One automatic retry helps flaky Wi‑Fi / brief TLS hiccups. */
+        async function supabaseRpcRetryOnceOnNetwork(rpcFn, logLabel) {
+            let r = await rpcFn();
+            if (!r.error) return r;
+            if (!isLikelySupabaseNetworkFailure(r.error)) return r;
+            pcDebug('warn', logLabel + '_network_retry', { message: r.error.message, code: r.error.code });
+            await new Promise(res => setTimeout(res, 500));
+            return await rpcFn();
         }
 
         function normalizeUsername(s) {
@@ -10295,11 +10321,17 @@
                 if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
                 let didCreateAccount = false;
                 try {
-                    let r = await supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password });
+                    let r = await supabaseRpcRetryOnceOnNetwork(
+                        () => supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password }),
+                        'auth_signin'
+                    );
                     if (r.error) { pcDebug('error', 'auth_signin_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
                     if (!r.data.ok && r.data.error === 'User not found') {
                         if (btn) btn.textContent = 'Creating account…';
-                        r = await supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password });
+                        r = await supabaseRpcRetryOnceOnNetwork(
+                            () => supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password }),
+                            'auth_signup'
+                        );
                         if (r.error) { pcDebug('error', 'auth_signup_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
                         if (!r.data.ok) { pcDebug('warn', 'auth_signup_rejected', { error: r.data.error }); if (signInMsg) signInMsg.textContent = r.data.error || 'Could not create account.'; return; }
                         didCreateAccount = true;
