@@ -2149,7 +2149,7 @@
             ctx.restore();
         }
 
-        /** Maya (girl) — chunky pixel silhouette, feet near y≈16 in local space, facing +x. */
+        /** Maya (girl) — Pixel City sheet style: leaner proportions, ponytail + scrunchie, jacket/skirt/sneakers, pack behind. */
         function drawAlexMayaPixelAvatar(ctx, kind, col) {
             if (kind === 'boy') {
                 drawAlexBoyAvatar(ctx, null, col);
@@ -2162,25 +2162,69 @@
                 ctx.fillStyle = fill;
                 ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
             };
-            const skin = '#fcd9b8';
+            const skin = '#f5cba8';
+            const skinS = '#e8b596';
             const outline = '#0f172a';
             const hair = '#5c4033';
-            const pink = '#f472b6';
-            const pinkD = '#db2777';
-            const skirt = '#1d4ed8';
-            R(4, -16, 4, 10, hair); R(3, -13, 2, 2, '#f9a8d4');
-            R(-4, -12, 8, 7, skin);
-            ctx.strokeStyle = outline; ctx.lineWidth = 1;
-            ctx.strokeRect(-4.5, -12.5, 9, 8);
-            R(-2, -10, 2, 2, '#1e293b'); R(1, -10, 2, 2, '#1e293b');
-            R(-7, -5, 15, 4, pink);
-            R(-5, -3, 11, 8, pinkD);
-            R(-3, -2, 7, 6, '#fff1f2');
-            R(-5, 3, 11, 5, skirt);
-            ctx.strokeStyle = outline; ctx.strokeRect(-5.5, 3.5, 12, 5);
-            R(-3, 8, 3, 5, skin); R(1, 8, 3, 5, skin);
-            R(-3, 13, 3, 2, pink); R(1, 13, 3, 2, pink);
-            R(-3, 15, 3, 1, accent); R(1, 15, 3, 1, '#fff');
+            const hairHi = '#6d4c36';
+            const scrunch = '#f472b6';
+            const scrunchHi = '#fbcfe8';
+            const jacket = '#f472b6';
+            const jacketSh = '#db2777';
+            const tee = '#ffffff';
+            const skirt = '#2563eb';
+            const skirtHi = '#1d4ed8';
+            const shoe = '#ec4899';
+            const sole = '#f8fafc';
+            const bp = '#5c4033';
+            const bpHi = '#3f2e22';
+
+            R(-7, -3, 2, 11, bp);
+            R(-7, -2, 1, 9, bpHi);
+            ctx.strokeStyle = outline;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-7.5, -3.5, 3, 12);
+            R(-6, -5, 1, 3, bpHi);
+
+            R(-4, 1, 10, 4, skirt);
+            R(-3, 2, 8, 1, skirtHi);
+            ctx.strokeRect(-4.5, 1.5, 11, 4);
+
+            R(-2, 4, 2, 5, skin);
+            R(1, 4, 2, 5, skin);
+            R(-2, 4, 2, 1, skinS);
+            R(1, 4, 2, 1, skinS);
+            R(-2, 9, 2, 1, shoe);
+            R(1, 9, 2, 1, shoe);
+            R(-2, 10, 2, 1, sole);
+            R(1, 10, 2, 1, sole);
+            R(-2, 9, 1, 1, '#fff');
+            R(2, 9, 1, 1, '#fff');
+            R(-2, 10, 1, 1, accent);
+            R(2, 10, 1, 1, accent);
+
+            R(-5, -5, 2, 7, jacketSh);
+            R(4, -5, 2, 7, jacketSh);
+            R(-4, -5, 9, 6, jacket);
+            R(-4, -4, 9, 1, jacketSh);
+            R(-1, -4, 3, 5, tee);
+            ctx.strokeStyle = outline;
+            ctx.strokeRect(-4.5, -5.5, 10, 7);
+
+            R(-1, -6, 3, 2, skin);
+
+            R(-3, -11, 7, 6, skin);
+            ctx.strokeRect(-3.5, -11.5, 8, 7);
+            R(-3, -11, 7, 2, hair);
+            R(-2, -9, 4, 1, hair);
+            R(-2, -8, 2, 2, outline);
+            R(1, -8, 2, 2, outline);
+
+            R(3, -14, 3, 7, hair);
+            R(4, -15, 2, 2, scrunch);
+            R(3, -16, 3, 2, scrunchHi);
+            R(5, -13, 2, 4, hairHi);
+
             ctx.imageSmoothingEnabled = smooth0;
         }
 
@@ -2197,7 +2241,7 @@
                 g.fillStyle = '#0f172a';
                 g.fillRect(0, 0, w, h);
                 g.translate(w / 2, h - 4);
-                g.scale(kind === 'boy' ? 1.75 : 1.35, kind === 'boy' ? 1.75 : 1.35);
+                g.scale(kind === 'boy' ? 1.9 : 1.48, kind === 'boy' ? 1.9 : 1.48);
                 drawAlexMayaPixelAvatar(g, kind, '#38bdf8');
                 g.restore();
             };
@@ -9063,15 +9107,15 @@
                 if (charType === 'boy') {
                     ctx.shadowBlur = 3;
                     ctx.save();
-                    ctx.scale(1.38, 1.38);
+                    ctx.scale(1.52, 1.52);
                     drawAlexBoyAvatar(ctx, p || null, col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
                 } else if (charType === 'girl') {
                     ctx.shadowBlur = 4;
                     ctx.save();
-                    ctx.scale(1.7, 1.7);
-                    if (p) ctx.translate(0, Math.sin((state.frameCount || 0) * 0.12) * 0.35);
+                    ctx.scale(1.5, 1.5);
+                    if (p) ctx.translate(0, Math.sin((state.frameCount || 0) * 0.12) * 0.28);
                     drawAlexMayaPixelAvatar(ctx, 'girl', col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
