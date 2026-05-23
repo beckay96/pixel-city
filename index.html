@@ -2003,8 +2003,11 @@
             syncLobbyCharacterShapeButtons();
         }
 
-        /** Alex (boy) / Maya (girl) — chunky pixel silhouette, feet near y≈16 in local space, facing +x. */
-        function drawAlexMayaPixelAvatar(ctx, kind, col) {
+        /**
+         * Alex — side-view pixel figure (idle / walk / run / jump / attack), feet near y≈17, drawn facing +x.
+         * `p` holds animation phase; pass null for lobby/auth previews (idle).
+         */
+        function drawAlexBoyAvatar(ctx, p, col) {
             const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
             const smooth0 = ctx.imageSmoothingEnabled;
             ctx.imageSmoothingEnabled = false;
@@ -2014,46 +2017,163 @@
             };
             const skin = '#fcd9b8';
             const outline = '#0f172a';
-            if (kind === 'boy') {
-                const hair = '#4a3728';
-                const hood = '#2563eb';
-                const hoodD = '#1e40af';
-                const tee = '#f8fafc';
-                const pant = '#334155';
-                const shoe = '#1e3a8a';
-                R(-2, -17, 10, 3, hair); R(-3, -15, 4, 4, hair); R(4, -16, 4, 3, hair);
-                R(-4, -12, 8, 7, skin);
-                ctx.strokeStyle = outline; ctx.lineWidth = 1;
-                ctx.strokeRect(-4.5, -12.5, 9, 8);
-                R(-2, -10, 2, 2, '#1e293b'); R(2, -10, 2, 2, '#1e293b');
-                R(-7, -7, 5, 4, hood); R(3, -7, 5, 4, hoodD);
-                R(-5, -5, 11, 3, hood);
-                R(-3, -4, 7, 6, tee);
-                R(-8, -3, 3, 7, hood); R(6, -3, 3, 7, hoodD);
-                R(-9, -4, 2, 5, '#475569');
-                R(-4, 2, 9, 6, pant);
-                R(-4, 8, 3, 5, pant); R(2, 8, 3, 5, pant);
-                R(-4, 13, 3, 2, shoe); R(2, 13, 3, 2, shoe);
-                R(-4, 15, 3, 1, accent); R(2, 15, 3, 1, '#f8fafc');
+            const hair = '#453224';
+            const hairHi = '#5c4332';
+            const hood = '#1d4ed8';
+            const hoodArm = '#2563eb';
+            const hoodDark = '#172554';
+            const tee = '#f8fafc';
+            const pant = '#1e293b';
+            const pantHi = '#334155';
+            const shoe = '#1e3a8a';
+            const shoeTip = '#f1f5f9';
+            const bp = '#3f4f63';
+            const bpEdge = '#1e293b';
+
+            let mode = 'idle';
+            let fi = 0;
+            let bobY = 0;
+            let lean = 0;
+            let legL = 0;
+            let legR = 0;
+            let armBoost = 0;
+            if (p && p.avatarFxT > 0) {
+                if (p.avatarFxKind === 'attack') {
+                    mode = 'attack';
+                    fi = Math.min(2, Math.max(0, Math.floor((12 - p.avatarFxT) / 3)));
+                    armBoost = fi * 2;
+                } else if (p.avatarFxKind === 'jump') {
+                    mode = 'jump';
+                    fi = Math.min(3, Math.max(0, Math.floor((17 - p.avatarFxT) / 4)));
+                }
+            } else if (p && (p._pedSpd || 0) > 0.45) {
+                const ph = Math.floor(p.animWalkPhase || 0);
+                if (p._pedSprinting) {
+                    mode = 'run';
+                    fi = ph % 6;
+                    lean = 2.2;
+                    const s = [0, 1.1, 1.6, 1.1, 0, -1.1][fi];
+                    legL = -s * 1.1;
+                    legR = s * 1.1;
+                } else {
+                    mode = 'walk';
+                    fi = ph % 6;
+                    const s = [0, 0.9, 1.2, 0, -1.2, -0.9][fi];
+                    legL = -s;
+                    legR = s;
+                }
             } else {
-                const hair = '#5c4033';
-                const pink = '#f472b6';
-                const pinkD = '#db2777';
-                const skirt = '#1d4ed8';
-                R(4, -16, 4, 10, hair); R(3, -13, 2, 2, '#f9a8d4');
-                R(-4, -12, 8, 7, skin);
-                ctx.strokeStyle = outline; ctx.lineWidth = 1;
-                ctx.strokeRect(-4.5, -12.5, 9, 8);
-                R(-2, -10, 2, 2, '#1e293b'); R(1, -10, 2, 2, '#1e293b');
-                R(-7, -5, 15, 4, pink);
-                R(-5, -3, 11, 8, pinkD);
-                R(-3, -2, 7, 6, '#fff1f2');
-                R(-5, 3, 11, 5, skirt);
-                ctx.strokeStyle = outline; ctx.strokeRect(-5.5, 3.5, 12, 5);
-                R(-3, 8, 3, 5, skin); R(1, 8, 3, 5, skin);
-                R(-3, 13, 3, 2, pink); R(1, 13, 3, 2, pink);
-                R(-3, 15, 3, 1, accent); R(1, 15, 3, 1, '#fff');
+                fi = p ? Math.floor(p.animWalkPhase || 0) % 4 : 0;
+                bobY = Math.sin((state.frameCount || 0) * 0.12 + fi * 0.4) * 0.45;
             }
+
+            let jy = 0;
+            let jLift = 0;
+            if (mode === 'jump') {
+                jy = fi === 0 ? 2 : 0;
+                jLift = fi === 0 ? 0 : fi === 1 ? -4 : fi === 2 ? -6 : -1;
+                if (fi < 2) { legL = -1.2; legR = 1.2; }
+                else if (fi === 2) { legL = 0.4; legR = -0.4; }
+                else { legL = 0; legR = 0; }
+            }
+
+            ctx.save();
+            ctx.translate(lean, bobY + jLift);
+
+            R(-6, -19, 3, 3, hair); R(-3, -20, 4, 4, hairHi); R(0, -20, 5, 3, hair); R(4, -19, 3, 3, hairHi);
+            R(-5, -18, 10, 3, hair); R(-4, -16, 3, 2, hair);
+
+            R(-5, -15, 10, 9, skin);
+            ctx.strokeStyle = outline;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-5.5, -15.5, 11, 10);
+            R(-3, -13, 2, 2, '#0f172a');
+            R(3, -13, 2, 2, '#0f172a');
+
+            R(-9, -8, 5, 5, hoodArm);
+            R(5, -8, 5, 5, hoodDark);
+            R(-8, -7, 4, 7, hoodArm);
+            R(5, -7, 4, 7, hoodDark);
+            R(-5, -7, 11, 4, hood);
+            R(-4, -5, 9, 3, hoodArm);
+            R(-3, -4, 7, 8, tee);
+
+            if (mode === 'attack') {
+                if (fi === 0) {
+                    R(-8, -2, 3, 5, hoodArm);
+                    R(6, -1, 3, 4, hoodDark);
+                } else if (fi === 1) {
+                    R(-7, -2, 3, 5, hoodArm);
+                    R(7 + armBoost, -3, 5, 3, hoodArm);
+                    R(10 + armBoost, -2, 3, 3, skin);
+                } else {
+                    R(-7, -2, 3, 5, hoodArm);
+                    R(8, -4, 6, 3, hoodArm);
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.82)';
+                    ctx.beginPath();
+                    ctx.ellipse(12 + armBoost, -3, 9, 5, -0.35, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#e0f2fe';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            } else {
+                R(-8, -2, 3, 6, hoodArm);
+                R(6, -2, 3, 6, hoodDark);
+            }
+
+            R(-11, -7, 3, 12, bp);
+            R(-12, -5, 2, 8, bpEdge);
+            ctx.strokeStyle = outline;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-11.5, -7.5, 4, 13);
+
+            R(-5, 3 + jy, 11, 5, pant);
+            R(-4, 4 + jy, 9, 2, pantHi);
+
+            R(-4 + legL, 8 + jy, 4, 6, pant);
+            R(1 + legR, 8 + jy, 4, 6, pant);
+            R(-4 + legL, 14 + jy, 4, 2, shoe);
+            R(1 + legR, 14 + jy, 4, 2, shoe);
+            R(-4 + legL, 16 + jy, 4, 1, accent);
+            R(1 + legR, 16 + jy, 4, 1, shoeTip);
+
+            ctx.imageSmoothingEnabled = smooth0;
+            ctx.restore();
+        }
+
+        /** Maya (girl) — chunky pixel silhouette, feet near y≈16 in local space, facing +x. */
+        function drawAlexMayaPixelAvatar(ctx, kind, col) {
+            if (kind === 'boy') {
+                drawAlexBoyAvatar(ctx, null, col);
+                return;
+            }
+            const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
+            const smooth0 = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            const R = (x, y, w, h, fill) => {
+                ctx.fillStyle = fill;
+                ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+            };
+            const skin = '#fcd9b8';
+            const outline = '#0f172a';
+            const hair = '#5c4033';
+            const pink = '#f472b6';
+            const pinkD = '#db2777';
+            const skirt = '#1d4ed8';
+            R(4, -16, 4, 10, hair); R(3, -13, 2, 2, '#f9a8d4');
+            R(-4, -12, 8, 7, skin);
+            ctx.strokeStyle = outline; ctx.lineWidth = 1;
+            ctx.strokeRect(-4.5, -12.5, 9, 8);
+            R(-2, -10, 2, 2, '#1e293b'); R(1, -10, 2, 2, '#1e293b');
+            R(-7, -5, 15, 4, pink);
+            R(-5, -3, 11, 8, pinkD);
+            R(-3, -2, 7, 6, '#fff1f2');
+            R(-5, 3, 11, 5, skirt);
+            ctx.strokeStyle = outline; ctx.strokeRect(-5.5, 3.5, 12, 5);
+            R(-3, 8, 3, 5, skin); R(1, 8, 3, 5, skin);
+            R(-3, 13, 3, 2, pink); R(1, 13, 3, 2, pink);
+            R(-3, 15, 3, 1, accent); R(1, 15, 3, 1, '#fff');
             ctx.imageSmoothingEnabled = smooth0;
         }
 
@@ -3025,6 +3145,10 @@
             const q = p;
             ensurePlayerHealth(q);
             q.hp = Math.max(0, (q.hp || 0) - amount);
+            if (amount > 0 && !q.inVehicle) {
+                q.avatarFxKind = 'jump';
+                q.avatarFxT = 17;
+            }
             if (q.hp <= 0) startDownOrBleed(pIdx);
             updateHealthBars();
         }
@@ -3319,6 +3443,8 @@
             }
 
             p.loadout.lastWeaponFired = now;
+            p.avatarFxKind = 'attack';
+            p.avatarFxT = 12;
 
             if (def.kind === 'nuke') {
                 // Collect all targets in range
@@ -7981,7 +8107,7 @@
             state.nextPadId = 1;
             state.teleporterPads = [];
             state.pvpNukeBlasts = [];
-            const baseP = (id, c) => ({ id, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: c, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0, hp: PLAYER_MAX_HP, dead: false, downed: false, bleedFrames: 0, draggingPlayerIdx: null, corpseX: null, corpseY: null });
+            const baseP = (id, c) => ({ id, x: 2000, y: 2200, angle: 0, speed: 0, inVehicle: null, color: c, loadout: defaultLoadout(), activeJob: null, schoolTask: null, jobClicksDone: 0, menuType: null, menuSelection: 0, hp: PLAYER_MAX_HP, dead: false, downed: false, bleedFrames: 0, draggingPlayerIdx: null, corpseX: null, corpseY: null, avatarFaceLeft: false, avatarFxT: 0, avatarFxKind: 'attack', animWalkPhase: 0, _pedSpd: 0, _pedSprinting: false });
             state.players = [baseP(0, skin0)];
             const p0join = state.players[0];
             if (p0join) {
@@ -8362,7 +8488,11 @@
                     p.y = p.corpseY != null ? p.corpseY : p.y;
                     return;
                 }
-                if (p.activeJob || p.menuType || p.isRobbing || state.isJailed) return;
+                if (p.activeJob || p.menuType || p.isRobbing || state.isJailed) {
+                    p._pedSpd = 0;
+                    p._pedSprinting = false;
+                    return;
+                }
                 ensurePlayerLoadout(p);
                 const stunLock = p.loadout.stunUntil > state.frameCount;
                 const controls = idx === 0 ? { u:'w', d:'s', l:'a', r:'d' } : { u:'arrowup', d:'arrowdown', l:'arrowleft', r:'arrowright' };
@@ -8381,6 +8511,8 @@
                         if (!hitBuilding && (openWorld || getRoadAt(nextX, nextY))) { v.x = nextX; v.y = nextY; }
                     }
                     v.x = Math.max(20, Math.min(3980, v.x)); v.y = Math.max(20, Math.min(3980, v.y)); p.x = v.x; p.y = v.y; p.angle = v.angle;
+                    p._pedSpd = 0;
+                    p._pedSprinting = false;
                 } else if (!stunLock) {
                     let mx = 0;
                     let my = 0;
@@ -8413,7 +8545,19 @@
                         p.angle = state.beta3dYaw;
                     } else if (mx !== 0 || my !== 0) {
                         p.angle = Math.atan2(my, mx);
+                        if (Math.abs(mx) >= Math.abs(my)) p.avatarFaceLeft = mx < 0;
                     }
+                    const pedSpd = Math.hypot(mx, my);
+                    p._pedSpd = pedSpd;
+                    p._pedSprinting = !!isThisPlayerSprinting && pedSpd > 0;
+                    if (!(p.avatarFxT > 0)) {
+                        if (pedSpd > 0.01) p.animWalkPhase = (p.animWalkPhase || 0) + pedSpd * (p._pedSprinting ? 0.095 : 0.058);
+                        else p.animWalkPhase = (p.animWalkPhase || 0) + 0.04;
+                    }
+                } else {
+                    p._pedSpd = 0;
+                    p._pedSprinting = false;
+                    if (!(p.avatarFxT > 0)) p.animWalkPhase = (p.animWalkPhase || 0) + 0.04;
                 }
                 const pr = document.getElementById(`prompt-${idx}`); if (pr) {
                     const subEl = document.getElementById(`prompt-sub-${idx}`);
@@ -8573,6 +8717,7 @@
             
             // Apply Reality Visual Filter
             canvas.style.filter = state.activeSecrets.includes('REALITY') ? 'grayscale(80%) contrast(0.8)' : 'none';
+            state.players.forEach(p => { if (p && p.avatarFxT > 0) p.avatarFxT--; });
             updateHealthBars();
         }
 
@@ -8905,14 +9050,22 @@
             state.vehicles.forEach(v => { drawCartoonCar(c, v); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#f8fafc'; c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.beginPath(); c.moveTo(-26, -14); c.lineTo(26, -14); c.quadraticCurveTo(30, 0, 26, 14); c.lineTo(-26, 14); c.quadraticCurveTo(-30, 0, -26, -14); c.closePath(); c.fill(); c.stroke(); const flash = Math.floor(state.frameCount / 5) % 2 === 0; c.fillStyle = flash ? '#ef4444' : '#2563eb'; c.fillRect(2, -12, 10, 24); c.fillStyle = 'rgba(254,252,232,0.95)'; c.beginPath(); c.arc(22, -8, 2.5, 0, Math.PI * 2); c.arc(22, 8, 2.5, 0, Math.PI * 2); c.fill(); c.fillStyle = '#fecaca'; c.beginPath(); c.arc(-22, -8, 2.2, 0, Math.PI * 2); c.arc(-22, 8, 2.2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#0f172a'; c.beginPath(); c.arc(12, 16, 5, 0, Math.PI * 2); c.arc(-12, 16, 5, 0, Math.PI * 2); c.arc(12, -16, 5, 0, Math.PI * 2); c.arc(-12, -16, 5, 0, Math.PI * 2); c.fill(); c.restore(); });
             // Draw Alex / Maya / classic dot from characterType ('boy', 'girl', 'circle')
-            function drawPlayerAvatar(ctx, charType, color) {
+            function drawPlayerAvatar(ctx, charType, color, p) {
                 const col = color || DEFAULT_PLAYER_COLOR;
                 ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
-                if (charType === 'boy' || charType === 'girl') {
+                if (charType === 'boy') {
                     ctx.shadowBlur = 4;
                     ctx.save();
                     ctx.scale(1.7, 1.7);
-                    drawAlexMayaPixelAvatar(ctx, charType, col);
+                    drawAlexBoyAvatar(ctx, p || null, col);
+                    ctx.restore();
+                    ctx.shadowBlur = 0;
+                } else if (charType === 'girl') {
+                    ctx.shadowBlur = 4;
+                    ctx.save();
+                    ctx.scale(1.7, 1.7);
+                    if (p) ctx.translate(0, Math.sin((state.frameCount || 0) * 0.12) * 0.35);
+                    drawAlexMayaPixelAvatar(ctx, 'girl', col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
                 } else {
@@ -8959,9 +9112,16 @@
                     c.fillText('DOWN', 0, -12);
                     c.restore();
                 } else if (!p.inVehicle) {
-                    c.save(); c.translate(p.x, p.y); c.rotate(p.angle);
+                    c.save(); c.translate(p.x, p.y);
+                    const hum = state.characterType === 'boy' || state.characterType === 'girl';
+                    if (hum) {
+                        const fl = p.avatarFaceLeft === true ? -1 : 1;
+                        c.scale(fl, 1);
+                    } else {
+                        c.rotate(p.angle);
+                    }
                     if (state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
-                    drawPlayerAvatar(c, state.characterType, p.color);
+                    drawPlayerAvatar(c, state.characterType, p.color, p);
                     c.restore();
                 }
             });
