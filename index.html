@@ -336,6 +336,12 @@
         }
         #lobby-settings-overlay.open { display: flex; }
 
+        #creator-mode-overlay {
+            position: fixed; inset: 0; z-index: 1190; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.86); padding: 16px; pointer-events: auto;
+        }
+        #creator-mode-overlay.open { display: flex; }
+
         #lobby-bottom-bar {
             position: sticky;
             bottom: 0;
@@ -751,6 +757,36 @@
                 </button>
             </label>
             <p id="lobby-settings-debug-hint" class="text-[8px] text-slate-500">Adds ?debug=1 style logs or turn off. Errors always log.</p>
+            <div class="border-t border-slate-700 mt-4 pt-4 space-y-3">
+                <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest">Pixel City Creator</p>
+                <label class="flex items-center justify-between gap-3 cursor-pointer interactive">
+                    <span id="lobby-settings-creator-label" class="text-[11px] text-slate-200 font-bold">Creator mode</span>
+                    <button type="button" id="lobby-toggle-creator-mode" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                    </button>
+                </label>
+                <p id="lobby-settings-creator-hint" class="text-[8px] text-slate-500 leading-snug">When on, you can post what you make to the Creator board (saved on this device).</p>
+                <button type="button" id="lobby-open-creator-board" class="w-full bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs font-black py-2.5 rounded-xl interactive border border-fuchsia-500/60">Open Creator board</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="creator-mode-overlay" role="dialog" aria-modal="true" aria-labelledby="creator-mode-title">
+        <div class="bg-slate-900 border-2 border-fuchsia-500/50 rounded-2xl p-5 max-w-md w-full shadow-2xl max-h-[88vh] overflow-y-auto">
+            <div class="flex justify-between items-start gap-2 mb-3">
+                <h2 id="creator-mode-title" class="text-fuchsia-300 font-black text-sm uppercase tracking-widest">Pixel City Creator</h2>
+                <button type="button" id="creator-mode-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
+            </div>
+            <p id="creator-mode-body" class="text-[10px] text-slate-500 mb-3 leading-snug">Share tips, builds, or secrets you found. Posts stay in this browser only (great for a class device).</p>
+            <p id="creator-post-disabled-hint" class="hidden text-[10px] text-amber-300 mb-2 leading-snug">Turn on Creator mode in Lobby settings to post.</p>
+            <label id="creator-post-title-label" for="creator-post-title" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Title (optional)</label>
+            <input id="creator-post-title" type="text" maxlength="120" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive" placeholder="My vault route…" />
+            <label id="creator-post-body-label" for="creator-post-body" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">What you made</label>
+            <textarea id="creator-post-body" rows="4" maxlength="1500" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive resize-y min-h-[88px]" placeholder="Describe your creation or discovery…"></textarea>
+            <button type="button" id="creator-post-submit" class="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black py-2.5 rounded-xl interactive text-sm mb-2">Post</button>
+            <p id="creator-post-msg" class="text-[10px] text-center min-h-[1.25rem] mb-3"></p>
+            <p id="creator-posts-heading" class="text-[9px] text-slate-500 uppercase font-bold mb-1">Recent posts</p>
+            <ul id="creator-posts-list" class="text-xs text-slate-200 space-y-2 list-none pl-0"></ul>
         </div>
     </div>
 
@@ -1606,7 +1642,7 @@
             { id: 'champ', name: 'Champion Setter', price: 200000, mult: 1.5 },
             { id: 'vip', name: 'VIP Companion', price: 500000, mult: 1.4 },
             { id: 'platinum', name: 'Platinum Furball', price: 999000, mult: 1.35 },
-            { id: 'legend', name: 'Legend Best Friend', price: 2000000, mult: 1.5 },
+            { id: 'legend', name: 'Byte', price: 2000000, mult: 10 },
         ];
         const PET_EARN_MULT_CAP = 30;
         function getPetById(id) {
@@ -1625,6 +1661,9 @@
         /** Verbose console + ring buffer for support. Enable: ?debug=1 or localStorage pixelCityDebugVerbose=1 */
         const LS_DEBUG_VERBOSE = 'pixelCityDebugVerbose';
         const LS_LANG = 'pixelCityUiLang';
+        const LS_CREATOR_MODE = 'pixelCityCreatorMode';
+        const LS_CREATOR_POSTS = 'pixelCityCreatorPosts';
+        const CREATOR_POSTS_MAX = 50;
         const LS_BETA_3D = 'pixelCityBeta3d';
         /** 0–100; maps to Beta 3D ray column cap (performance vs sharpness). */
         const LS_BETA_3D_QUALITY = 'pixelCityBeta3dQuality';
@@ -1688,8 +1727,9 @@
             { id: 'devices', label: 'Computer vs Phone vs Xbox?', answer: () => 'Computer uses WASD + mouse look for Beta 3D. Phone uses touch zones. Xbox maps to controller-friendly prompts.' },
             { id: 'codes', label: 'Friend codes & invites?', answer: () => 'MULTIPLAYER shows Your code — Copy or New code if hosting. Friends paste into Join then everyone taps Start game.' },
             { id: 'solo_online', label: 'Why does 1 PLAYER still sync?', answer: () => 'Signed-in solo quietly hosts Realtime so friends can join your city later — UI stays on 1 PLAYER until you choose MULTIPLAYER.' },
-            { id: 'settings_btn', label: 'Where are lobby settings?', answer: () => 'Big ⚙ Settings button at the bottom of the lobby next to Character — language, Beta 3D, verbose logs.' },
+            { id: 'settings_btn', label: 'Where are lobby settings?', answer: () => 'Big ⚙ Settings at the bottom of the lobby next to Character — language, Beta 3D, Pixel City Creator mode & board, verbose logs.' },
             { id: 'beta3d', label: 'What is Beta 3D?', answer: () => 'Full-screen raycast 3D with cars visible ahead of walls. Computer/Xbox: Ctrl+left-click the canvas to look, WASD moves with your view. Phone: drag two fingers to look, one finger to move. Esc releases pointer first (desktop), then Esc again exits to the lobby. Lobby → Settings has a quality slider for ray sharpness vs FPS.' },
+            { id: 'creator_mode', label: 'What is Pixel City Creator?', answer: () => 'Lobby → Settings: turn on Creator mode, then open the Creator board to post short notes about what you built or found. Posts save in this browser only (great for sharing on one computer).' },
             { id: 'lang', label: 'Changing language?', answer: () => 'Lobby settings → Language updates buttons like Character / Settings immediately (more translations arrive over time).' },
             { id: 'debug_logs', label: 'Extra debug for bugs?', answer: () => 'Add ?debug=1 to the URL or flip Verbose logs in lobby settings. Run copyPixelCityDebugInfo() in the console to export a bundle.' },
             { id: 'minimap', label: 'Minimap dots?', answer: () => 'Shows buildings, cars, players — including icons while you drive or sit in jail so friends still see you.' },
@@ -5504,7 +5544,21 @@
                 summaryPrefix: 'Device',
                 summaryMid: 'Mode',
                 duoLockedTitle: '2 Local — Xbox only',
-                duoLockedHint: 'Pick XBOX under Select device to unlock couch co-op.'
+                duoLockedHint: 'Pick XBOX under Select device to unlock couch co-op.',
+                creatorModeLabel: 'Creator mode',
+                creatorModeHint: 'When on, you can post to the Creator board (saved in this browser only).',
+                creatorBoardBtn: 'Open Creator board',
+                creatorOverlayTitle: 'Pixel City Creator',
+                creatorOverlayBody: 'Share tips, builds, or secrets you found. Posts stay on this device only (great for a class computer).',
+                creatorPostTitleLabel: 'Title (optional)',
+                creatorPostBodyLabel: 'What you made',
+                creatorPostTitlePh: 'My vault route…',
+                creatorPostBodyPh: 'Describe your creation or discovery…',
+                creatorPostBtn: 'Post',
+                creatorPostsHeading: 'Recent posts',
+                creatorPostDisabledHint: 'Turn on Creator mode in Lobby settings to post.',
+                creatorDeleteBtn: 'Remove',
+                creatorPostsEmpty: 'No posts yet — turn on Creator mode and share what you made!'
             },
             es: {
                 character: 'Personaje',
@@ -5528,7 +5582,21 @@
                 summaryPrefix: 'Dispositivo',
                 summaryMid: 'Modo',
                 duoLockedTitle: '2 local — solo Xbox',
-                duoLockedHint: 'Elige XBOX en Dispositivo para desbloquear dos jugadores en una pantalla.'
+                duoLockedHint: 'Elige XBOX en Dispositivo para desbloquear dos jugadores en una pantalla.',
+                creatorModeLabel: 'Modo Creator',
+                creatorModeHint: 'Si está activo, puedes publicar en el tablero Creator (solo en este navegador).',
+                creatorBoardBtn: 'Abrir tablero Creator',
+                creatorOverlayTitle: 'Pixel City Creator',
+                creatorOverlayBody: 'Comparte trucos o descubrimientos. Las publicaciones se guardan solo en este dispositivo.',
+                creatorPostTitleLabel: 'Título (opcional)',
+                creatorPostBodyLabel: 'Lo que hiciste',
+                creatorPostTitlePh: 'Mi ruta del banco…',
+                creatorPostBodyPh: 'Describe lo que creaste…',
+                creatorPostBtn: 'Publicar',
+                creatorPostsHeading: 'Publicaciones recientes',
+                creatorPostDisabledHint: 'Activa Creator mode en Ajustes del lobby para publicar.',
+                creatorDeleteBtn: 'Quitar',
+                creatorPostsEmpty: 'Aún no hay publicaciones.'
             },
             ja: {
                 character: 'キャラ',
@@ -5552,7 +5620,21 @@
                 summaryPrefix: '端末',
                 summaryMid: 'モード',
                 duoLockedTitle: '2人ローカルは Xbox のみ',
-                duoLockedHint: 'デバイスで XBOX を選ぶと同画面2人が使えます。'
+                duoLockedHint: 'デバイスで XBOX を選ぶと同画面2人が使えます。',
+                creatorModeLabel: 'クリエイターモード',
+                creatorModeHint: 'オンにするとクリエイター掲示板に投稿できます（このブラウザにのみ保存）。',
+                creatorBoardBtn: '掲示板を開く',
+                creatorOverlayTitle: 'Pixel City Creator',
+                creatorOverlayBody: 'コツや発見を共有。投稿はこの端末だけに保存されます。',
+                creatorPostTitleLabel: 'タイトル（任意）',
+                creatorPostBodyLabel: '作ったもの',
+                creatorPostTitlePh: '金庫ルートなど…',
+                creatorPostBodyPh: '作ったものや発見を書いてください…',
+                creatorPostBtn: '投稿',
+                creatorPostsHeading: '最近の投稿',
+                creatorPostDisabledHint: '投稿するにはロビー設定でクリエイターモードをオンにしてください。',
+                creatorDeleteBtn: '削除',
+                creatorPostsEmpty: 'まだ投稿がありません。'
             }
         };
 
@@ -5607,6 +5689,12 @@
             if (qHint) qHint.textContent = getUiLabel('beta3dQualityHint');
             const prevCap = document.getElementById('lobby-beta3d-quality-preview-caption');
             if (prevCap) prevCap.textContent = getUiLabel('beta3dQualityPreviewCaption');
+            const cLab = document.getElementById('lobby-settings-creator-label');
+            if (cLab) cLab.textContent = getUiLabel('creatorModeLabel');
+            const cHint = document.getElementById('lobby-settings-creator-hint');
+            if (cHint) cHint.textContent = getUiLabel('creatorModeHint');
+            const cOpen = document.getElementById('lobby-open-creator-board');
+            if (cOpen) cOpen.textContent = getUiLabel('creatorBoardBtn');
             const sel = document.getElementById('lobby-settings-lang');
             if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
             updateBeta3dQualityReadout();
@@ -5686,6 +5774,7 @@
                 if (k2) k2.style.transform = state.beta3dMode ? 'translateX(1.5rem)' : '';
             }
             syncLobbyBarLabels();
+            syncCreatorModeToggleUI();
             updateBeta3dQualityReadout();
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
@@ -5698,11 +5787,135 @@
             o.setAttribute('aria-hidden', 'true');
         }
 
+        function isCreatorModeOn() {
+            try { return localStorage.getItem(LS_CREATOR_MODE) === '1'; } catch (_) { return false; }
+        }
+
+        function syncCreatorModeToggleUI() {
+            const on = isCreatorModeOn();
+            const btn = document.getElementById('lobby-toggle-creator-mode');
+            if (btn) {
+                btn.setAttribute('aria-checked', on ? 'true' : 'false');
+                btn.classList.toggle('bg-emerald-600', on);
+                btn.classList.toggle('border-emerald-400', on);
+                const knob = btn.querySelector('span');
+                if (knob) knob.style.transform = on ? 'translateX(1.5rem)' : '';
+            }
+        }
+
+        function loadCreatorPosts() {
+            try {
+                const raw = localStorage.getItem(LS_CREATOR_POSTS);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (_) { return []; }
+        }
+
+        function saveCreatorPosts(arr) {
+            try { localStorage.setItem(LS_CREATOR_POSTS, JSON.stringify(arr)); } catch (_) { /* */ }
+        }
+
+        function renderCreatorPostsList() {
+            const ul = document.getElementById('creator-posts-list');
+            if (!ul) return;
+            ul.innerHTML = '';
+            const posts = loadCreatorPosts();
+            if (!posts.length) {
+                const li = document.createElement('li');
+                li.className = 'text-slate-500 text-[11px] italic py-2';
+                li.textContent = getUiLabel('creatorPostsEmpty');
+                ul.appendChild(li);
+                return;
+            }
+            const delLabel = getUiLabel('creatorDeleteBtn');
+            posts.forEach((post) => {
+                const li = document.createElement('li');
+                li.className = 'border border-slate-700 rounded-lg p-2 bg-slate-950/80';
+                const t = post.title ? `<div class="font-bold text-sky-200 text-xs mb-0.5">${escapeCreatorHtml(String(post.title))}</div>` : '';
+                const b = escapeCreatorHtml(String(post.body || ''));
+                const when = typeof post.t === 'number' ? escapeCreatorHtml(new Date(post.t).toLocaleString()) : '';
+                const idEnc = encodeURIComponent(String(post.id || ''));
+                li.innerHTML = `${t}<div class="text-slate-200 text-[11px] whitespace-pre-wrap leading-snug">${b}</div><div class="text-[8px] text-slate-500 mt-1">${when}</div><button type="button" class="creator-del-btn text-[9px] text-red-400 hover:text-red-300 mt-1 interactive" data-creator-id="${idEnc}">${escapeCreatorHtml(delLabel)}</button>`;
+                ul.appendChild(li);
+            });
+            ul.querySelectorAll('.creator-del-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const enc = btn.getAttribute('data-creator-id');
+                    const id = enc ? decodeURIComponent(enc) : '';
+                    if (!id) return;
+                    const next = loadCreatorPosts().filter(x => String(x.id) !== id);
+                    saveCreatorPosts(next);
+                    renderCreatorPostsList();
+                });
+            });
+        }
+
+        function updateCreatorPostFormAvailability() {
+            const on = isCreatorModeOn();
+            const hint = document.getElementById('creator-post-disabled-hint');
+            const sub = document.getElementById('creator-post-submit');
+            const title = document.getElementById('creator-post-title');
+            const body = document.getElementById('creator-post-body');
+            if (hint) hint.classList.toggle('hidden', on);
+            if (sub) {
+                sub.disabled = !on;
+                sub.classList.toggle('opacity-50', !on);
+                sub.classList.toggle('cursor-not-allowed', !on);
+            }
+            if (title) title.disabled = !on;
+            if (body) body.disabled = !on;
+        }
+
+        function applyCreatorOverlayLanguage() {
+            const t = document.getElementById('creator-mode-title');
+            if (t) t.textContent = getUiLabel('creatorOverlayTitle');
+            const b = document.getElementById('creator-mode-body');
+            if (b) b.textContent = getUiLabel('creatorOverlayBody');
+            const tl = document.getElementById('creator-post-title-label');
+            if (tl) tl.textContent = getUiLabel('creatorPostTitleLabel');
+            const bl = document.getElementById('creator-post-body-label');
+            if (bl) bl.textContent = getUiLabel('creatorPostBodyLabel');
+            const ti = document.getElementById('creator-post-title');
+            if (ti) ti.setAttribute('placeholder', getUiLabel('creatorPostTitlePh'));
+            const bo = document.getElementById('creator-post-body');
+            if (bo) bo.setAttribute('placeholder', getUiLabel('creatorPostBodyPh'));
+            const sub = document.getElementById('creator-post-submit');
+            if (sub) sub.textContent = getUiLabel('creatorPostBtn');
+            const h = document.getElementById('creator-posts-heading');
+            if (h) h.textContent = getUiLabel('creatorPostsHeading');
+            const dh = document.getElementById('creator-post-disabled-hint');
+            if (dh) dh.textContent = getUiLabel('creatorPostDisabledHint');
+        }
+
+        function openCreatorModeOverlay() {
+            const o = document.getElementById('creator-mode-overlay');
+            if (!o) return;
+            applyCreatorOverlayLanguage();
+            syncCreatorModeToggleUI();
+            updateCreatorPostFormAvailability();
+            renderCreatorPostsList();
+            const msg = document.getElementById('creator-post-msg');
+            if (msg) msg.textContent = '';
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeCreatorModeOverlay() {
+            const o = document.getElementById('creator-mode-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
+        }
+
         function setUiLanguage(code) {
             const c = code === 'es' || code === 'ja' ? code : 'en';
             state.uiLang = c;
             try { localStorage.setItem(LS_LANG, c); } catch (_) { /* */ }
             syncLobbyBarLabels();
+            if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) {
+                applyCreatorOverlayLanguage();
+                renderCreatorPostsList();
+            }
             updateLobbyModeSummary();
             applyLobbyCharacterDuoLock();
         }
@@ -8275,6 +8488,64 @@
             c.restore();
         }
 
+        function escapeCreatorHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /** Guide bot look (matches tutorial dock): blue body, antenna, yellow tip, eyes, mouth. */
+        function drawByteGuideBotSprite(ctx, frameCount, idxOff) {
+            const bob = Math.sin(((frameCount || 0) + (idxOff || 0)) * 0.09) * 1.4;
+            ctx.save();
+            ctx.translate(0, bob);
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-1.5, -24, 3, 13);
+            ctx.beginPath();
+            ctx.arc(0, -26.5, 4.6, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fill();
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            const grd = ctx.createLinearGradient(-11, -12, 11, 10);
+            grd.addColorStop(0, '#3b82f6');
+            grd.addColorStop(1, '#1d4ed8');
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(-12, -10, 24, 20, 7);
+            } else {
+                ctx.rect(-12, -10, 24, 20);
+            }
+            ctx.fill();
+            ctx.strokeStyle = '#1e3a8a';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(-4.5, -4, 3.6, 0, Math.PI * 2);
+            ctx.arc(4.5, -4, 3.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-8, 2, 16, 2.5);
+            ctx.restore();
+        }
+
+        function drawBytePetFollower(ctx, p, frameCount, idxOff) {
+            if (!p || p.dead || p.downed || p.inVehicle) return;
+            const dist = 22;
+            const bx = p.x - Math.cos(p.angle) * dist;
+            const by = p.y - Math.sin(p.angle) * dist;
+            ctx.save();
+            ctx.translate(bx, by);
+            ctx.rotate(p.angle);
+            drawByteGuideBotSprite(ctx, frameCount, idxOff);
+            ctx.restore();
+        }
+
         function renderScene(targetCtx, camera, clipX, clipY, clipW, clipH) {
             const c = targetCtx;
             const Z = cameraZoom;
@@ -8532,6 +8803,10 @@
                     c.restore();
                 }
             });
+            const ownsBytePet = (state.ownedPetIds || []).includes('legend');
+            if (ownsBytePet) {
+                state.players.forEach((p, pi) => { drawBytePetFollower(c, p, state.frameCount, pi * 9); });
+            }
             if (state.playMode === 'online') {
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
@@ -8642,6 +8917,15 @@
             }
             ctx.drawImage(gameBuffer, 0, 0, bw, bh, ox + shkx, oy + shky, bw * drawScale, bh * drawScale);
             ctx.filter = 'none';
+            const byteHud = (state.ownedPetIds || []).includes('legend') && beta3dOn && isInGame() && state.players[0] && !state.players[0].dead && !state.players[0].downed;
+            if (byteHud) {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.translate(ox + 36 * drawScale, ch - 72 * drawScale);
+                ctx.scale(drawScale * 1.05, drawScale * 1.05);
+                drawByteGuideBotSprite(ctx, state.frameCount, 0);
+                ctx.restore();
+            }
             const mmCont = document.getElementById('minimap-container');
             if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
             if (isZombieSecretActive()) {
@@ -9718,6 +10002,41 @@
                 } catch (_) { /* */ }
                 applyLobbyDebugToggleUI();
                 pcDebug('info', debugVerbose ? 'verbose_enabled_lobby' : 'verbose_disabled_lobby', null);
+            });
+            document.getElementById('lobby-toggle-creator-mode')?.addEventListener('click', () => {
+                try { localStorage.setItem(LS_CREATOR_MODE, isCreatorModeOn() ? '0' : '1'); } catch (_) { /* */ }
+                syncCreatorModeToggleUI();
+                if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) updateCreatorPostFormAvailability();
+            });
+            document.getElementById('lobby-open-creator-board')?.addEventListener('click', () => { openCreatorModeOverlay(); });
+            document.getElementById('creator-mode-close')?.addEventListener('click', () => closeCreatorModeOverlay());
+            document.getElementById('creator-mode-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'creator-mode-overlay') closeCreatorModeOverlay();
+            });
+            document.getElementById('creator-post-submit')?.addEventListener('click', () => {
+                const msg = document.getElementById('creator-post-msg');
+                if (!isCreatorModeOn()) {
+                    if (msg) msg.textContent = getUiLabel('creatorPostDisabledHint');
+                    return;
+                }
+                const bodyEl = document.getElementById('creator-post-body');
+                const body = (bodyEl && bodyEl.value) ? String(bodyEl.value).trim() : '';
+                if (!body) {
+                    if (msg) msg.textContent = 'Write something first.';
+                    return;
+                }
+                const titleEl = document.getElementById('creator-post-title');
+                const title = (titleEl && titleEl.value) ? String(titleEl.value).trim() : '';
+                const id = `c${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+                let posts = loadCreatorPosts();
+                posts.unshift({ id, title: title.slice(0, 120), body: body.slice(0, 1500), t: Date.now() });
+                if (posts.length > CREATOR_POSTS_MAX) posts = posts.slice(0, CREATOR_POSTS_MAX);
+                saveCreatorPosts(posts);
+                renderCreatorPostsList();
+                if (bodyEl) bodyEl.value = '';
+                if (titleEl) titleEl.value = '';
+                if (msg) msg.textContent = 'Posted!';
+                setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
             });
             document.getElementById('lobby-character-btn')?.addEventListener('click', () => {
                 openAdminSkinModal();
