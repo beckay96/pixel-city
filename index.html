@@ -2004,31 +2004,33 @@
         }
 
         /**
-         * Alex — side-view pixel figure (idle / walk / run / jump / attack), feet near y≈17, drawn facing +x.
-         * `p` holds animation phase; pass null for lobby/auth previews (idle).
+         * Alex — compact Pixel City–style side sprite (~22px), sheet identity: spiky hair, open blue hoodie + tee,
+         * straps + pack, dark pants, blue sneakers w/ white sole. Idle / walk / run / jump / attack; pass null → idle.
          */
         function drawAlexBoyAvatar(ctx, p, col) {
             const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
             const smooth0 = ctx.imageSmoothingEnabled;
             ctx.imageSmoothingEnabled = false;
-            const R = (x, y, w, h, fill) => {
+            const P = (x, y, w, h, fill) => {
                 ctx.fillStyle = fill;
-                ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+                ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
             };
-            const skin = '#fcd9b8';
+            const skin = '#f5cba8';
             const outline = '#0f172a';
-            const hair = '#453224';
-            const hairHi = '#5c4332';
-            const hood = '#1d4ed8';
-            const hoodArm = '#2563eb';
-            const hoodDark = '#172554';
-            const tee = '#f8fafc';
-            const pant = '#1e293b';
-            const pantHi = '#334155';
-            const shoe = '#1e3a8a';
-            const shoeTip = '#f1f5f9';
-            const bp = '#3f4f63';
-            const bpEdge = '#1e293b';
+            const hair = '#4a3728';
+            const hairHi = '#6b5238';
+            const hood = '#3b82f6';
+            const hoodSh = '#2563eb';
+            const hoodIn = '#1e40af';
+            const tee = '#ffffff';
+            const zip = '#94a3b8';
+            const pant = '#171717';
+            const pantHi = '#262626';
+            const shoe = '#1e40af';
+            const sole = '#f8fafc';
+            const lace = '#e2e8f0';
+            const bp = '#0f0f10';
+            const bpHi = '#3f3f46';
 
             let mode = 'idle';
             let fi = 0;
@@ -2041,7 +2043,7 @@
                 if (p.avatarFxKind === 'attack') {
                     mode = 'attack';
                     fi = Math.min(2, Math.max(0, Math.floor((12 - p.avatarFxT) / 3)));
-                    armBoost = fi * 2;
+                    armBoost = fi;
                 } else if (p.avatarFxKind === 'jump') {
                     mode = 'jump';
                     fi = Math.min(3, Math.max(0, Math.floor((17 - p.avatarFxT) / 4)));
@@ -2051,92 +2053,97 @@
                 if (p._pedSprinting) {
                     mode = 'run';
                     fi = ph % 6;
-                    lean = 2.2;
-                    const s = [0, 1.1, 1.6, 1.1, 0, -1.1][fi];
-                    legL = -s * 1.1;
-                    legR = s * 1.1;
+                    lean = 1.1;
+                    const s = [0, 0.65, 1, 0.65, 0, -0.65][fi];
+                    legL = -s * 1.05;
+                    legR = s * 1.05;
                 } else {
                     mode = 'walk';
                     fi = ph % 6;
-                    const s = [0, 0.9, 1.2, 0, -1.2, -0.9][fi];
+                    const s = [0, 0.55, 0.75, 0, -0.75, -0.55][fi];
                     legL = -s;
                     legR = s;
                 }
             } else {
                 fi = p ? Math.floor(p.animWalkPhase || 0) % 4 : 0;
-                bobY = Math.sin((state.frameCount || 0) * 0.12 + fi * 0.4) * 0.45;
+                bobY = Math.sin((state.frameCount || 0) * 0.14 + fi * 0.5) * 0.28;
             }
 
             let jy = 0;
             let jLift = 0;
             if (mode === 'jump') {
-                jy = fi === 0 ? 2 : 0;
-                jLift = fi === 0 ? 0 : fi === 1 ? -4 : fi === 2 ? -6 : -1;
-                if (fi < 2) { legL = -1.2; legR = 1.2; }
-                else if (fi === 2) { legL = 0.4; legR = -0.4; }
+                jy = fi === 0 ? 1 : 0;
+                jLift = fi === 0 ? 0 : fi === 1 ? -2.5 : fi === 2 ? -3.5 : -0.5;
+                if (fi < 2) { legL = -0.65; legR = 0.65; }
+                else if (fi === 2) { legL = 0.25; legR = -0.25; }
                 else { legL = 0; legR = 0; }
             }
 
             ctx.save();
             ctx.translate(lean, bobY + jLift);
 
-            R(-6, -19, 3, 3, hair); R(-3, -20, 4, 4, hairHi); R(0, -20, 5, 3, hair); R(4, -19, 3, 3, hairHi);
-            R(-5, -18, 10, 3, hair); R(-4, -16, 3, 2, hair);
-
-            R(-5, -15, 10, 9, skin);
+            P(-6, -4, 2, 10, bp);
+            P(-6, -3, 1, 8, bpHi);
             ctx.strokeStyle = outline;
             ctx.lineWidth = 1;
-            ctx.strokeRect(-5.5, -15.5, 11, 10);
-            R(-3, -13, 2, 2, '#0f172a');
-            R(3, -13, 2, 2, '#0f172a');
+            ctx.strokeRect(-6.5, -4.5, 3, 11);
+            P(-5, -7, 1, 3, bpHi);
+            P(4, -6, 1, 2, bpHi);
 
-            R(-9, -8, 5, 5, hoodArm);
-            R(5, -8, 5, 5, hoodDark);
-            R(-8, -7, 4, 7, hoodArm);
-            R(5, -7, 4, 7, hoodDark);
-            R(-5, -7, 11, 4, hood);
-            R(-4, -5, 9, 3, hoodArm);
-            R(-3, -4, 7, 8, tee);
+            P(-3, 3 + jy, 7, 3, pant);
+            P(-2, 4 + jy, 5, 1, pantHi);
+            const lx = -3 + legL;
+            const rx = 0 + legR;
+            P(lx, 5 + jy, 2, 5, pant);
+            P(rx, 5 + jy, 2, 5, pant);
+            P(lx, 9 + jy, 2, 1, shoe);
+            P(rx, 9 + jy, 2, 1, shoe);
+            P(lx, 10 + jy, 2, 1, sole);
+            P(rx, 10 + jy, 2, 1, sole);
+            P(lx, 9 + jy, 1, 1, lace);
+            P(rx + 1, 9 + jy, 1, 1, lace);
+            P(lx, 10 + jy, 1, 1, accent);
+            P(rx + 1, 10 + jy, 1, 1, accent);
+
+            P(-4, -1, 9, 5, hoodSh);
+            P(-1, -3, 3, 7, tee);
+            P(0, -3, 1, 7, zip);
+            P(-5, -3, 2, 6, hood);
+            P(4, -3, 2, 6, hoodIn);
+            P(-4, -4, 9, 2, hood);
 
             if (mode === 'attack') {
                 if (fi === 0) {
-                    R(-8, -2, 3, 5, hoodArm);
-                    R(6, -1, 3, 4, hoodDark);
+                    P(-5, 0, 2, 4, hood);
+                    P(3, 0, 2, 3, hoodIn);
                 } else if (fi === 1) {
-                    R(-7, -2, 3, 5, hoodArm);
-                    R(7 + armBoost, -3, 5, 3, hoodArm);
-                    R(10 + armBoost, -2, 3, 3, skin);
+                    P(-4, 0, 2, 4, hood);
+                    P(4 + armBoost, -1, 3, 2, hood);
+                    P(6 + armBoost, 0, 2, 2, skin);
                 } else {
-                    R(-7, -2, 3, 5, hoodArm);
-                    R(8, -4, 6, 3, hoodArm);
-                    ctx.fillStyle = 'rgba(56, 189, 248, 0.82)';
-                    ctx.beginPath();
-                    ctx.ellipse(12 + armBoost, -3, 9, 5, -0.35, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#e0f2fe';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
+                    P(-4, 0, 2, 4, hood);
+                    P(5, -2, 4, 2, hood);
+                    P(7, -3, 1, 1, 'rgba(147,197,253,0.95)');
+                    P(8, -2, 2, 1, 'rgba(56,189,248,0.9)');
+                    P(9, -1, 3, 1, 'rgba(125,211,252,0.85)');
+                    P(10, 0, 2, 1, 'rgba(56,189,248,0.65)');
+                    P(8, -3, 2, 1, 'rgba(224,242,254,0.9)');
                 }
             } else {
-                R(-8, -2, 3, 6, hoodArm);
-                R(6, -2, 3, 6, hoodDark);
+                P(-5, 0, 2, 4, hood);
+                P(4, 0, 2, 4, hoodSh);
             }
 
-            R(-11, -7, 3, 12, bp);
-            R(-12, -5, 2, 8, bpEdge);
+            P(-3, -9, 7, 6, skin);
             ctx.strokeStyle = outline;
             ctx.lineWidth = 1;
-            ctx.strokeRect(-11.5, -7.5, 4, 13);
+            ctx.strokeRect(-3.5, -9.5, 8, 7);
+            P(-2, -7, 1, 1, outline);
+            P(1, -7, 1, 1, outline);
+            P(-1, -5, 2, 1, outline);
 
-            R(-5, 3 + jy, 11, 5, pant);
-            R(-4, 4 + jy, 9, 2, pantHi);
-
-            R(-4 + legL, 8 + jy, 4, 6, pant);
-            R(1 + legR, 8 + jy, 4, 6, pant);
-            R(-4 + legL, 14 + jy, 4, 2, shoe);
-            R(1 + legR, 14 + jy, 4, 2, shoe);
-            R(-4 + legL, 16 + jy, 4, 1, accent);
-            R(1 + legR, 16 + jy, 4, 1, shoeTip);
+            P(-4, -11, 1, 1, hair); P(-3, -12, 1, 1, hairHi); P(-2, -12, 2, 1, hair); P(0, -12, 2, 1, hairHi);
+            P(2, -12, 1, 1, hair); P(3, -11, 1, 1, hairHi); P(-3, -11, 6, 2, hair);
 
             ctx.imageSmoothingEnabled = smooth0;
             ctx.restore();
@@ -2189,8 +2196,8 @@
                 g.clearRect(0, 0, w, h);
                 g.fillStyle = '#0f172a';
                 g.fillRect(0, 0, w, h);
-                g.translate(w / 2, h - 6);
-                g.scale(1.35, 1.35);
+                g.translate(w / 2, h - 4);
+                g.scale(kind === 'boy' ? 1.75 : 1.35, kind === 'boy' ? 1.75 : 1.35);
                 drawAlexMayaPixelAvatar(g, kind, '#38bdf8');
                 g.restore();
             };
@@ -9054,9 +9061,9 @@
                 const col = color || DEFAULT_PLAYER_COLOR;
                 ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
                 if (charType === 'boy') {
-                    ctx.shadowBlur = 4;
+                    ctx.shadowBlur = 3;
                     ctx.save();
-                    ctx.scale(1.7, 1.7);
+                    ctx.scale(1.38, 1.38);
                     drawAlexBoyAvatar(ctx, p || null, col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
