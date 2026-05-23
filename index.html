@@ -342,6 +342,12 @@
         }
         #creator-mode-overlay.open { display: flex; }
 
+        #deep-creator-mode-overlay {
+            position: fixed; inset: 0; z-index: 1205; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.9); padding: 16px; pointer-events: auto;
+        }
+        #deep-creator-mode-overlay.open { display: flex; }
+
         #lobby-bottom-bar {
             position: sticky;
             bottom: 0;
@@ -828,6 +834,7 @@
                 <button type="button" id="creator-mode-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
             </div>
             <p id="creator-mode-body" class="text-[10px] text-slate-500 mb-3 leading-snug">Share tips, builds, or secrets you found. Posts stay in this browser only (great for a class device).</p>
+            <button type="button" id="creator-open-deep" class="w-full mb-3 bg-violet-800 hover:bg-violet-700 text-white text-xs font-black py-2.5 rounded-xl interactive border border-violet-500/50 opacity-50 cursor-not-allowed" disabled>Deep Creator…</button>
             <p id="creator-post-disabled-hint" class="hidden text-[10px] text-amber-300 mb-2 leading-snug">Turn on Creator mode in Lobby settings to post.</p>
             <label id="creator-post-title-label" for="creator-post-title" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Title (optional)</label>
             <input id="creator-post-title" type="text" maxlength="120" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive" placeholder="My vault route…" />
@@ -837,6 +844,58 @@
             <p id="creator-post-msg" class="text-[10px] text-center min-h-[1.25rem] mb-3"></p>
             <p id="creator-posts-heading" class="text-[9px] text-slate-500 uppercase font-bold mb-1">Recent posts</p>
             <ul id="creator-posts-list" class="text-xs text-slate-200 space-y-2 list-none pl-0"></ul>
+        </div>
+    </div>
+
+    <div id="deep-creator-mode-overlay" role="dialog" aria-modal="true" aria-labelledby="deep-creator-title">
+        <div class="bg-slate-900 border-2 border-violet-500/50 rounded-2xl p-5 max-w-lg w-full shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-start gap-2 mb-2">
+                <h2 id="deep-creator-title" class="text-violet-300 font-black text-sm uppercase tracking-widest">Deep Creator Lab</h2>
+                <button type="button" id="deep-creator-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
+            </div>
+            <p id="deep-creator-body" class="text-[10px] text-slate-500 mb-3 leading-snug">Design Item, NPC, Player, or Menu ideas with notes and safe test actions. Blueprints stay on this device only.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label id="deep-creator-kind-label" for="deep-creator-kind" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Type</label>
+                    <select id="deep-creator-kind" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive">
+                        <option value="item">Item</option>
+                        <option value="npc">NPC</option>
+                        <option value="player">Player</option>
+                        <option value="menu">Menu</option>
+                    </select>
+                </div>
+                <div>
+                    <label id="deep-creator-name-label" for="deep-creator-name" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Name</label>
+                    <input id="deep-creator-name" type="text" maxlength="80" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive" placeholder="My gadget…" />
+                </div>
+            </div>
+            <label id="deep-creator-notes-label" for="deep-creator-notes" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">What it does (notes / pseudo-code)</label>
+            <textarea id="deep-creator-notes" rows="4" maxlength="4000" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 mb-2 interactive resize-y min-h-[72px]" placeholder="Describe behavior, stats, UI flow…"></textarea>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label id="deep-creator-primary-label" for="deep-creator-primary-action" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Primary behavior</label>
+                    <select id="deep-creator-primary-action" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive">
+                        <option value="none">None (design only)</option>
+                        <option value="message">Show message</option>
+                    </select>
+                </div>
+                <div id="deep-creator-primary-msg-wrap" class="hidden">
+                    <label id="deep-creator-primary-msg-label" for="deep-creator-primary-msg" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Message</label>
+                    <input id="deep-creator-primary-msg" type="text" maxlength="300" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-sm py-2 px-2 interactive" placeholder="Text when tested…" />
+                </div>
+            </div>
+            <div class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
+                <div class="flex justify-between items-center mb-2">
+                    <span id="deep-creator-extra-heading" class="text-[9px] text-slate-400 uppercase font-bold">Extra buttons</span>
+                    <button type="button" id="deep-creator-add-btn-row" class="text-[10px] text-violet-300 font-bold interactive">+ Add button</button>
+                </div>
+                <div id="deep-creator-extra-rows" class="space-y-2"></div>
+            </div>
+            <button type="button" id="deep-creator-save" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-2.5 rounded-xl interactive text-sm mb-2">Save blueprint</button>
+            <p id="deep-creator-msg" class="text-[10px] text-center min-h-[1.25rem] mb-2 text-emerald-400"></p>
+            <p id="deep-creator-list-heading" class="text-[9px] text-slate-500 uppercase font-bold mb-1">Your blueprints</p>
+            <ul id="deep-creator-list" class="text-xs text-slate-200 space-y-2 list-none pl-0 mb-3"></ul>
+            <button type="button" id="deep-creator-test-primary" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 rounded-lg interactive mb-1">Test primary behavior</button>
         </div>
     </div>
 
@@ -887,6 +946,12 @@
                 <p id="menu-server-link" class="text-[10px] text-sky-300 font-mono break-all leading-snug"></p>
                 <button type="button" id="menu-server-copy-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-black py-2 rounded-lg interactive">📋 Copy server link</button>
                 <button type="button" id="menu-server-reset-btn" class="w-full text-[9px] text-red-400 hover:text-red-300 interactive">🔄 Reset server link</button>
+            </div>
+
+            <div id="menu-deep-creator-test-block" class="hidden border-t border-slate-700 pt-3 space-y-2">
+                <p id="menu-deep-creator-title" class="text-[10px] font-black text-violet-300 uppercase tracking-widest">Creator blueprints</p>
+                <p id="menu-deep-creator-hint" class="text-[8px] text-slate-500 leading-snug">Safe previews only (in-game messages). Design in Lobby → Creator board → Deep Creator.</p>
+                <div id="menu-deep-creator-buttons" class="flex flex-col gap-1.5 max-h-40 overflow-y-auto"></div>
             </div>
 
             <!-- Session Settings (host only in multiplayer) -->
@@ -1719,6 +1784,8 @@
         const LS_LANG = 'pixelCityUiLang';
         const LS_CREATOR_MODE = 'pixelCityCreatorMode';
         const LS_CREATOR_POSTS = 'pixelCityCreatorPosts';
+        const LS_CREATOR_BLUEPRINTS = 'pixelCityDeepCreatorBlueprints';
+        const DEEP_CREATOR_BLUEPRINTS_MAX = 48;
         const CREATOR_POSTS_MAX = 50;
         const LS_BETA_3D = 'pixelCityBeta3d';
         /** 0–100; maps to Beta 3D ray column cap (performance vs sharpness). */
@@ -5945,7 +6012,37 @@
                 creatorPostsHeading: 'Recent posts',
                 creatorPostDisabledHint: 'Turn on Creator mode in Lobby settings to post.',
                 creatorDeleteBtn: 'Remove',
-                creatorPostsEmpty: 'No posts yet — turn on Creator mode and share what you made!'
+                creatorPostsEmpty: 'No posts yet — turn on Creator mode and share what you made!',
+                creatorDeepBtn: 'Deep Creator…',
+                deepCreatorTitle: 'Deep Creator Lab',
+                deepCreatorBody: 'Design Item, NPC, Player, or Menu ideas with notes and safe test actions. Blueprints stay on this device only.',
+                deepCreatorKindLabel: 'Type',
+                deepCreatorKindItem: 'Item',
+                deepCreatorKindNpc: 'NPC',
+                deepCreatorKindPlayer: 'Player',
+                deepCreatorKindMenu: 'Menu',
+                deepCreatorNameLabel: 'Name',
+                deepCreatorNamePh: 'My gadget…',
+                deepCreatorNotesLabel: 'What it does (notes / pseudo-code)',
+                deepCreatorNotesPh: 'Describe behavior, stats, UI flow…',
+                deepCreatorPrimaryLabel: 'Primary behavior',
+                deepCreatorActionNone: 'None (design only)',
+                deepCreatorActionMsg: 'Show message',
+                deepCreatorPrimaryMsgLabel: 'Message',
+                deepCreatorPrimaryMsgPh: 'Text when tested…',
+                deepCreatorExtraHeading: 'Extra buttons',
+                deepCreatorAddBtnRow: '+ Add button',
+                deepCreatorExtraLabelPh: 'Button label',
+                deepCreatorExtraMsgPh: 'Message',
+                deepCreatorSave: 'Save blueprint',
+                deepCreatorListHeading: 'Your blueprints',
+                deepCreatorEmpty: 'No blueprints yet — pick a type, name it, and save.',
+                deepCreatorTestPrimary: 'Test primary behavior',
+                deepCreatorDelete: 'Remove',
+                deepCreatorSaved: 'Blueprint saved.',
+                deepCreatorNeedName: 'Enter a name first.',
+                deepCreatorMenuTitle: 'Creator blueprints',
+                deepCreatorMenuHint: 'Safe previews only (in-game messages). Design in Lobby → Creator board → Deep Creator.'
             },
             es: {
                 character: 'Personaje',
@@ -6251,6 +6348,315 @@
             }
             if (title) title.disabled = !on;
             if (body) body.disabled = !on;
+            const deepOpen = document.getElementById('creator-open-deep');
+            if (deepOpen) {
+                deepOpen.disabled = !on;
+                deepOpen.classList.toggle('opacity-50', !on);
+                deepOpen.classList.toggle('cursor-not-allowed', !on);
+            }
+        }
+
+        function syncDeepPrimaryFields() {
+            const sel = document.getElementById('deep-creator-primary-action');
+            const wrap = document.getElementById('deep-creator-primary-msg-wrap');
+            if (!sel || !wrap) return;
+            wrap.classList.toggle('hidden', sel.value !== 'message');
+        }
+
+        function clearDeepCreatorForm() {
+            const kind = document.getElementById('deep-creator-kind');
+            if (kind) kind.value = 'item';
+            const name = document.getElementById('deep-creator-name');
+            if (name) name.value = '';
+            const notes = document.getElementById('deep-creator-notes');
+            if (notes) notes.value = '';
+            const pa = document.getElementById('deep-creator-primary-action');
+            if (pa) pa.value = 'none';
+            const pm = document.getElementById('deep-creator-primary-msg');
+            if (pm) pm.value = '';
+            const extra = document.getElementById('deep-creator-extra-rows');
+            if (extra) extra.innerHTML = '';
+            syncDeepPrimaryFields();
+        }
+
+        function addDeepExtraButtonRow(data) {
+            const extra = document.getElementById('deep-creator-extra-rows');
+            if (!extra) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'flex flex-col sm:flex-row gap-2 items-stretch deep-extra-row';
+            const labelIn = document.createElement('input');
+            labelIn.type = 'text';
+            labelIn.maxLength = 60;
+            labelIn.className = 'deep-extra-label flex-1 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-1.5 px-2 interactive';
+            labelIn.placeholder = getUiLabel('deepCreatorExtraLabelPh');
+            if (data && data.label) labelIn.value = String(data.label);
+            const sel = document.createElement('select');
+            sel.className = 'deep-extra-action w-full sm:w-36 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-1.5 px-1 interactive';
+            [['none', 'deepCreatorActionNone'], ['message', 'deepCreatorActionMsg']].forEach(([val, key]) => {
+                const o = document.createElement('option');
+                o.value = val;
+                o.textContent = getUiLabel(key);
+                sel.appendChild(o);
+            });
+            if (data && data.action === 'message') sel.value = 'message';
+            const msgIn = document.createElement('input');
+            msgIn.type = 'text';
+            msgIn.maxLength = 300;
+            msgIn.className = 'deep-extra-msg flex-1 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-1.5 px-2 interactive';
+            msgIn.placeholder = getUiLabel('deepCreatorExtraMsgPh');
+            if (data && data.msg) msgIn.value = String(data.msg);
+            const syncExtraMsg = () => {
+                msgIn.classList.toggle('hidden', sel.value !== 'message');
+            };
+            sel.addEventListener('change', syncExtraMsg);
+            syncExtraMsg();
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'deep-extra-remove text-[10px] text-red-400 font-bold interactive shrink-0 px-2';
+            rm.textContent = '\u00d7';
+            rm.addEventListener('click', () => wrap.remove());
+            wrap.appendChild(labelIn);
+            wrap.appendChild(sel);
+            wrap.appendChild(msgIn);
+            wrap.appendChild(rm);
+            extra.appendChild(wrap);
+        }
+
+        function collectDeepExtraButtons() {
+            const rows = document.querySelectorAll('#deep-creator-extra-rows .deep-extra-row');
+            const out = [];
+            rows.forEach((row) => {
+                const label = row.querySelector('.deep-extra-label');
+                const act = row.querySelector('.deep-extra-action');
+                const msg = row.querySelector('.deep-extra-msg');
+                const lab = label && label.value ? String(label.value).trim() : '';
+                if (!lab) return;
+                const action = act && act.value === 'message' ? 'message' : 'none';
+                const m = msg && msg.value ? String(msg.value).trim() : '';
+                out.push({ label: lab.slice(0, 60), action, msg: m.slice(0, 300) });
+            });
+            return out;
+        }
+
+        function loadDeepBlueprints() {
+            try {
+                const raw = localStorage.getItem(LS_CREATOR_BLUEPRINTS);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (_) {
+                return [];
+            }
+        }
+
+        function saveDeepBlueprints(arr) {
+            try {
+                localStorage.setItem(LS_CREATOR_BLUEPRINTS, JSON.stringify(arr));
+            } catch (_) { /* */ }
+        }
+
+        function collectDraftBlueprint() {
+            const kindEl = document.getElementById('deep-creator-kind');
+            const nameEl = document.getElementById('deep-creator-name');
+            const notesEl = document.getElementById('deep-creator-notes');
+            const paEl = document.getElementById('deep-creator-primary-action');
+            const pmEl = document.getElementById('deep-creator-primary-msg');
+            const kindRaw = kindEl && kindEl.value ? String(kindEl.value) : 'item';
+            const k = ['item', 'npc', 'player', 'menu'].indexOf(kindRaw) >= 0 ? kindRaw : 'item';
+            return {
+                kind: k,
+                name: nameEl ? String(nameEl.value).trim() : '',
+                notes: notesEl ? String(notesEl.value).trim() : '',
+                primaryAction: paEl && paEl.value === 'message' ? 'message' : 'none',
+                primaryMsg: pmEl ? String(pmEl.value).trim() : '',
+                extraButtons: collectDeepExtraButtons()
+            };
+        }
+
+        function runDeepBlueprintAction(bp, which) {
+            let action = 'none';
+            let msg = '';
+            if (which === 'primary') {
+                action = bp.primaryAction === 'message' ? 'message' : 'none';
+                msg = bp.primaryMsg != null ? String(bp.primaryMsg) : '';
+            } else if (which && typeof which.extraIndex === 'number') {
+                const ex = bp.extraButtons && bp.extraButtons[which.extraIndex];
+                if (ex) {
+                    action = ex.action === 'message' ? 'message' : 'none';
+                    msg = ex.msg != null ? String(ex.msg) : '';
+                }
+            }
+            if (action === 'message' && msg) showMessage(msg);
+        }
+
+        function renderDeepBlueprintList() {
+            const ul = document.getElementById('deep-creator-list');
+            if (!ul) return;
+            ul.innerHTML = '';
+            const bps = loadDeepBlueprints();
+            if (!bps.length) {
+                const li = document.createElement('li');
+                li.className = 'text-slate-500 text-[11px] italic';
+                li.textContent = getUiLabel('deepCreatorEmpty');
+                ul.appendChild(li);
+                return;
+            }
+            const testL = getUiLabel('deepCreatorTestPrimary');
+            const delL = getUiLabel('deepCreatorDelete');
+            bps.forEach((bp) => {
+                const li = document.createElement('li');
+                li.className = 'border border-slate-700 rounded-lg p-2 bg-slate-950/80';
+                const kind = escapeCreatorHtml(String(bp.kind || ''));
+                const nm = escapeCreatorHtml(String(bp.name || 'Untitled'));
+                const idEnc = encodeURIComponent(String(bp.id || ''));
+                li.innerHTML = '<div class="text-violet-300 text-[10px] font-black uppercase">' + kind + '</div><div class="text-slate-100 text-xs font-bold">' + nm + '</div>'
+                    + '<div class="flex gap-2 mt-2 flex-wrap">'
+                    + '<button type="button" class="deep-bp-test text-[10px] text-sky-300 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(testL) + '</button>'
+                    + '<button type="button" class="deep-bp-del text-[10px] text-red-400 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(delL) + '</button>'
+                    + '</div>';
+                ul.appendChild(li);
+            });
+            ul.querySelectorAll('.deep-bp-test').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = decodeURIComponent(btn.getAttribute('data-deep-id') || '');
+                    const found = loadDeepBlueprints().find((x) => String(x.id) === id);
+                    if (found) runDeepBlueprintAction(found, 'primary');
+                });
+            });
+            ul.querySelectorAll('.deep-bp-del').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = decodeURIComponent(btn.getAttribute('data-deep-id') || '');
+                    const next = loadDeepBlueprints().filter((x) => String(x.id) !== id);
+                    saveDeepBlueprints(next);
+                    renderDeepBlueprintList();
+                    populateIngameMenuCreatorBlueprints();
+                });
+            });
+        }
+
+        function refreshDeepExtraRowI18n() {
+            document.querySelectorAll('#deep-creator-extra-rows .deep-extra-row').forEach((row) => {
+                const labelIn = row.querySelector('.deep-extra-label');
+                const sel = row.querySelector('.deep-extra-action');
+                const msgIn = row.querySelector('.deep-extra-msg');
+                if (labelIn) labelIn.placeholder = getUiLabel('deepCreatorExtraLabelPh');
+                if (msgIn) msgIn.placeholder = getUiLabel('deepCreatorExtraMsgPh');
+                if (sel) {
+                    const opts = sel.querySelectorAll('option');
+                    if (opts[0]) opts[0].textContent = getUiLabel('deepCreatorActionNone');
+                    if (opts[1]) opts[1].textContent = getUiLabel('deepCreatorActionMsg');
+                }
+            });
+        }
+
+        function applyDeepCreatorOverlayLanguage() {
+            const pairs = [
+                ['deep-creator-title', 'deepCreatorTitle'],
+                ['deep-creator-body', 'deepCreatorBody'],
+                ['deep-creator-kind-label', 'deepCreatorKindLabel'],
+                ['deep-creator-name-label', 'deepCreatorNameLabel'],
+                ['deep-creator-notes-label', 'deepCreatorNotesLabel'],
+                ['deep-creator-primary-label', 'deepCreatorPrimaryLabel'],
+                ['deep-creator-primary-msg-label', 'deepCreatorPrimaryMsgLabel'],
+                ['deep-creator-extra-heading', 'deepCreatorExtraHeading'],
+                ['deep-creator-save', 'deepCreatorSave'],
+                ['deep-creator-list-heading', 'deepCreatorListHeading'],
+                ['deep-creator-test-primary', 'deepCreatorTestPrimary']
+            ];
+            pairs.forEach(([id, key]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = getUiLabel(key);
+            });
+            const namePh = document.getElementById('deep-creator-name');
+            if (namePh) namePh.setAttribute('placeholder', getUiLabel('deepCreatorNamePh'));
+            const notesPh = document.getElementById('deep-creator-notes');
+            if (notesPh) notesPh.setAttribute('placeholder', getUiLabel('deepCreatorNotesPh'));
+            const pmPh = document.getElementById('deep-creator-primary-msg');
+            if (pmPh) pmPh.setAttribute('placeholder', getUiLabel('deepCreatorPrimaryMsgPh'));
+            const pa = document.getElementById('deep-creator-primary-action');
+            if (pa) {
+                const opts = pa.querySelectorAll('option');
+                if (opts[0]) opts[0].textContent = getUiLabel('deepCreatorActionNone');
+                if (opts[1]) opts[1].textContent = getUiLabel('deepCreatorActionMsg');
+            }
+            const kindSel = document.getElementById('deep-creator-kind');
+            if (kindSel) {
+                [['item', 'deepCreatorKindItem'], ['npc', 'deepCreatorKindNpc'], ['player', 'deepCreatorKindPlayer'], ['menu', 'deepCreatorKindMenu']].forEach(([val, key]) => {
+                    const o = kindSel.querySelector('option[value="' + val + '"]');
+                    if (o) o.textContent = getUiLabel(key);
+                });
+            }
+            const addBtn = document.getElementById('deep-creator-add-btn-row');
+            if (addBtn) addBtn.textContent = getUiLabel('deepCreatorAddBtnRow');
+            refreshDeepExtraRowI18n();
+        }
+
+        function populateIngameMenuCreatorBlueprints() {
+            const block = document.getElementById('menu-deep-creator-test-block');
+            const title = document.getElementById('menu-deep-creator-title');
+            const hint = document.getElementById('menu-deep-creator-hint');
+            const btns = document.getElementById('menu-deep-creator-buttons');
+            if (!block || !btns) return;
+            const show = isCreatorModeOn() && isInGame();
+            block.classList.toggle('hidden', !show);
+            if (title) title.textContent = getUiLabel('deepCreatorMenuTitle');
+            if (hint) hint.textContent = getUiLabel('deepCreatorMenuHint');
+            if (!show) {
+                btns.innerHTML = '';
+                return;
+            }
+            btns.innerHTML = '';
+            loadDeepBlueprints().forEach((bp) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'border border-slate-700 rounded-lg p-1.5 bg-slate-950/60';
+                const kindTag = document.createElement('div');
+                kindTag.className = 'text-[9px] text-violet-400 font-bold uppercase';
+                kindTag.textContent = String(bp.kind || '');
+                const nameRow = document.createElement('div');
+                nameRow.className = 'text-[10px] text-slate-200 font-bold mb-1';
+                nameRow.textContent = String(bp.name || 'Untitled');
+                wrap.appendChild(kindTag);
+                wrap.appendChild(nameRow);
+                const row = document.createElement('div');
+                row.className = 'flex flex-wrap gap-1';
+                const pb = document.createElement('button');
+                pb.type = 'button';
+                pb.className = 'text-[9px] bg-violet-900/80 hover:bg-violet-800 text-white px-2 py-0.5 rounded interactive';
+                pb.textContent = getUiLabel('deepCreatorTestPrimary');
+                pb.addEventListener('click', () => runDeepBlueprintAction(bp, 'primary'));
+                row.appendChild(pb);
+                (bp.extraButtons || []).forEach((ex, ei) => {
+                    const lab = ex.label && String(ex.label).trim();
+                    if (!lab) return;
+                    const eb = document.createElement('button');
+                    eb.type = 'button';
+                    eb.className = 'text-[9px] bg-slate-700 hover:bg-slate-600 text-white px-2 py-0.5 rounded interactive';
+                    eb.textContent = lab;
+                    eb.addEventListener('click', () => runDeepBlueprintAction(bp, { extraIndex: ei }));
+                    row.appendChild(eb);
+                });
+                wrap.appendChild(row);
+                btns.appendChild(wrap);
+            });
+        }
+
+        function openDeepCreatorModeOverlay() {
+            if (!isCreatorModeOn()) return;
+            const o = document.getElementById('deep-creator-mode-overlay');
+            if (!o) return;
+            applyDeepCreatorOverlayLanguage();
+            syncDeepPrimaryFields();
+            renderDeepBlueprintList();
+            const msg = document.getElementById('deep-creator-msg');
+            if (msg) msg.textContent = '';
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeDeepCreatorModeOverlay() {
+            const o = document.getElementById('deep-creator-mode-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
         }
 
         function applyCreatorOverlayLanguage() {
@@ -6272,6 +6678,9 @@
             if (h) h.textContent = getUiLabel('creatorPostsHeading');
             const dh = document.getElementById('creator-post-disabled-hint');
             if (dh) dh.textContent = getUiLabel('creatorPostDisabledHint');
+            const deepBtn = document.getElementById('creator-open-deep');
+            if (deepBtn) deepBtn.textContent = getUiLabel('creatorDeepBtn');
+            applyDeepCreatorOverlayLanguage();
         }
 
         function openCreatorModeOverlay() {
@@ -6290,6 +6699,7 @@
         function closeCreatorModeOverlay() {
             const o = document.getElementById('creator-mode-overlay');
             if (!o) return;
+            closeDeepCreatorModeOverlay();
             o.classList.remove('open');
             o.setAttribute('aria-hidden', 'true');
         }
@@ -6302,6 +6712,9 @@
             if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) {
                 applyCreatorOverlayLanguage();
                 renderCreatorPostsList();
+            }
+            if (document.getElementById('deep-creator-mode-overlay')?.classList.contains('open')) {
+                applyDeepCreatorOverlayLanguage();
             }
             updateLobbyModeSummary();
             applyLobbyCharacterDuoLock();
@@ -9531,6 +9944,7 @@
             if (b) b.style.display = show ? 'flex' : 'none';
             const mb = document.getElementById('ingame-menu-btn');
             if (mb) mb.style.display = show ? 'flex' : 'none';
+            if (show) populateIngameMenuCreatorBlueprints();
             updateOwnerDashboardFabVisibility();
         }
 
@@ -10424,7 +10838,9 @@
             document.getElementById('lobby-toggle-creator-mode')?.addEventListener('click', () => {
                 try { localStorage.setItem(LS_CREATOR_MODE, isCreatorModeOn() ? '0' : '1'); } catch (_) { /* */ }
                 syncCreatorModeToggleUI();
+                if (!isCreatorModeOn()) closeDeepCreatorModeOverlay();
                 if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) updateCreatorPostFormAvailability();
+                populateIngameMenuCreatorBlueprints();
             });
             document.getElementById('lobby-open-creator-board')?.addEventListener('click', () => { openCreatorModeOverlay(); });
             document.getElementById('creator-mode-close')?.addEventListener('click', () => closeCreatorModeOverlay());
@@ -10455,6 +10871,52 @@
                 if (titleEl) titleEl.value = '';
                 if (msg) msg.textContent = 'Posted!';
                 setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
+            });
+            document.getElementById('creator-open-deep')?.addEventListener('click', () => {
+                if (!isCreatorModeOn()) return;
+                openDeepCreatorModeOverlay();
+            });
+            document.getElementById('deep-creator-close')?.addEventListener('click', () => closeDeepCreatorModeOverlay());
+            document.getElementById('deep-creator-mode-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'deep-creator-mode-overlay') closeDeepCreatorModeOverlay();
+            });
+            document.getElementById('deep-creator-primary-action')?.addEventListener('change', () => syncDeepPrimaryFields());
+            document.getElementById('deep-creator-add-btn-row')?.addEventListener('click', () => addDeepExtraButtonRow(null));
+            document.getElementById('deep-creator-test-primary')?.addEventListener('click', () => {
+                runDeepBlueprintAction(collectDraftBlueprint(), 'primary');
+            });
+            document.getElementById('deep-creator-save')?.addEventListener('click', () => {
+                const msg = document.getElementById('deep-creator-msg');
+                if (!isCreatorModeOn()) {
+                    if (msg) msg.textContent = getUiLabel('creatorPostDisabledHint');
+                    return;
+                }
+                const draft = collectDraftBlueprint();
+                if (!draft.name) {
+                    if (msg) msg.textContent = getUiLabel('deepCreatorNeedName');
+                    return;
+                }
+                const id = 'bp_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                let list = loadDeepBlueprints();
+                list.unshift({
+                    id,
+                    t: Date.now(),
+                    kind: draft.kind,
+                    name: draft.name.slice(0, 80),
+                    notes: draft.notes.slice(0, 4000),
+                    primaryAction: draft.primaryAction,
+                    primaryMsg: draft.primaryMsg.slice(0, 300),
+                    extraButtons: draft.extraButtons
+                });
+                if (list.length > DEEP_CREATOR_BLUEPRINTS_MAX) list = list.slice(0, DEEP_CREATOR_BLUEPRINTS_MAX);
+                saveDeepBlueprints(list);
+                renderDeepBlueprintList();
+                populateIngameMenuCreatorBlueprints();
+                clearDeepCreatorForm();
+                if (msg) {
+                    msg.textContent = getUiLabel('deepCreatorSaved');
+                    setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
+                }
             });
             document.getElementById('lobby-character-btn')?.addEventListener('click', () => {
                 openAdminSkinModal();
@@ -10601,6 +11063,7 @@
                 if (menuOverlay) {
                     updateServerLinkUI();
                     updateSessionSettingsUI();
+                    populateIngameMenuCreatorBlueprints();
                     menuOverlay.classList.remove('hidden');
                     deleteConfirmCount = 0;
                     const dm = document.getElementById('menu-delete-msg');
