@@ -354,6 +354,84 @@
             z-index: 80;
             padding: 6px;
             background: rgba(0,0,0,0.93);
+            align-items: stretch;
+            justify-content: flex-start;
+            overflow: hidden;
+        }
+        #deep-creator-mode-overlay.phone-in-device > div {
+            max-height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #creator-studio-bar {
+            position: fixed;
+            top: max(6px, env(safe-area-inset-top, 0px));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 348;
+            width: calc(100% - 16px);
+            max-width: 36rem;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 8px;
+            border-radius: 14px;
+            border: 2px solid rgba(192, 132, 252, 0.55);
+            background: linear-gradient(180deg, rgba(30, 27, 46, 0.97), rgba(15, 23, 42, 0.98));
+            box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+            pointer-events: auto;
+        }
+        #creator-studio-sheet {
+            position: fixed;
+            inset: 0;
+            z-index: 349;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            background: rgba(0,0,0,0.55);
+            padding: 12px;
+            pointer-events: auto;
+        }
+        #creator-studio-sheet.open { display: flex; }
+        #creator-studio-sheet-backdrop {
+            position: absolute;
+            inset: 0;
+        }
+        #creator-studio-sheet-panel {
+            width: 100%;
+            max-width: 28rem;
+            max-height: min(72vh, 520px);
+            border-radius: 16px 16px 0 0;
+            border: 2px solid rgba(100, 116, 139, 0.7);
+            background: rgba(15, 23, 42, 0.98);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        #ui-layer.creator-studio-open #session-code-badge {
+            top: calc(max(6px, env(safe-area-inset-top, 0px)) + 52px);
+        }
+        #ingame-stats-hud.creator-hud-fixed {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            top: calc(max(6px, env(safe-area-inset-top, 0px)) + 48px);
+            z-index: 340;
+            margin-top: 4px;
+            max-width: calc(100vw - 12px);
+        }
+        #ingame-stats-hud.creator-stats-collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+            overflow: hidden !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-top: 0 !important;
+            border-width: 0 !important;
+            visibility: hidden;
+            pointer-events: none;
         }
 
         #lobby-bottom-bar {
@@ -1024,8 +1102,18 @@
                 <button type="button" id="admin-global-broadcast-dismiss" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white w-full py-2 rounded-lg font-bold text-sm">OK</button>
             </div>
         </div>
+        <div id="creator-studio-bar" class="hidden flex flex-wrap interactive" aria-label="Creator studio">
+            <span id="creator-studio-bar-title" class="text-[10px] font-black uppercase tracking-widest text-fuchsia-200/95 shrink-0 mr-1">Creator studio</span>
+            <button type="button" id="studio-creator-hub-btn" class="interactive text-[9px] font-black bg-fuchsia-900/80 hover:bg-fuchsia-800 text-white px-2 py-1.5 rounded-lg border border-fuchsia-500/50">Hub</button>
+            <button type="button" id="studio-creator-lab-btn" class="interactive text-[9px] font-black bg-violet-700 hover:bg-violet-600 text-white px-2 py-1.5 rounded-lg">Lab</button>
+            <button type="button" id="studio-creator-play-btn" class="interactive text-[9px] font-black bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1.5 rounded-lg">Play</button>
+            <button type="button" id="studio-creator-mods-btn" class="interactive text-[9px] font-black bg-amber-900/80 hover:bg-amber-800 text-white px-2 py-1.5 rounded-lg border border-amber-600/50">Mod Mods</button>
+            <button type="button" id="studio-creator-community-btn" class="interactive text-[9px] font-black bg-cyan-900/80 hover:bg-cyan-800 text-white px-2 py-1.5 rounded-lg border border-cyan-600/50">Community</button>
+            <button type="button" id="studio-creator-phone-btn" class="interactive text-[9px] font-black bg-slate-700 hover:bg-slate-600 text-white px-2 py-1.5 rounded-lg">Phone</button>
+            <button type="button" id="creator-hud-stats-toggle" class="interactive text-[9px] font-black bg-slate-800 hover:bg-slate-700 text-amber-100 px-2 py-1.5 rounded-lg border border-slate-500/80 ml-auto">Run stats ▾</button>
+        </div>
         <!-- Shared HUD -->
-        <div class="flex flex-wrap justify-between items-start gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit max-w-[98vw] mt-4">
+        <div id="ingame-stats-hud" class="flex flex-wrap justify-between items-start gap-2 bg-slate-900/80 p-3 rounded-xl border border-slate-700 backdrop-blur-sm mx-auto w-fit max-w-[98vw] mt-4 transition-all duration-200 overflow-hidden">
             <div class="px-4 border-r border-slate-700">
                 <div class="text-xl font-black text-green-400" id="money-display">$0</div>
                 <div class="text-[8px] text-slate-400 uppercase font-bold text-center">Wallet</div>
@@ -1060,8 +1148,19 @@
                 <span id="loadout-weapon-1" class="text-rose-300">—</span>
                 <span id="loadout-tele-1" class="block text-violet-300">—</span>
             </div>
+            <p class="w-full text-[8px] text-slate-500 text-center pointer-events-none px-2 basis-full">Gadget: <span class="text-cyan-300 font-bold">Q</span> · Weapon: <span class="text-rose-300 font-bold">F</span> · 2P: <span class="text-emerald-300 font-bold">E</span> revive · <span class="text-slate-300 font-bold">G</span> grab body · HOSP to heal or admit (cash)</p>
         </div>
-        <p class="text-[8px] text-slate-500 text-center max-w-md mx-auto mt-1 pointer-events-none px-2">Gadget: <span class="text-cyan-300 font-bold">Q</span> · Weapon: <span class="text-rose-300 font-bold">F</span> · 2P: <span class="text-emerald-300 font-bold">E</span> revive · <span class="text-slate-300 font-bold">G</span> grab body · HOSP to heal or admit (cash)</p>
+
+        <div id="creator-studio-sheet" class="interactive" role="dialog" aria-modal="true" aria-hidden="true">
+            <div id="creator-studio-sheet-backdrop" class="absolute inset-0" aria-hidden="true"></div>
+            <div id="creator-studio-sheet-panel" class="relative z-[1] shadow-2xl flex flex-col min-h-0 w-full">
+                <div class="flex items-center justify-between gap-2 p-3 border-b border-slate-700 shrink-0">
+                    <span id="creator-studio-sheet-title" class="text-white font-bold text-sm">Mod Mods</span>
+                    <button type="button" id="creator-studio-sheet-close" class="text-slate-400 hover:text-white text-xl font-bold leading-none interactive">✕</button>
+                </div>
+                <div id="creator-studio-sheet-body" class="phone-body-scroll flex-1 p-3 text-[10px] text-slate-300 min-h-0 overflow-y-auto" style="max-height:min(56vh,420px)"></div>
+            </div>
+        </div>
 
         <div id="hud-loadout-overlay" class="fixed inset-0 z-[500] hidden items-center justify-center bg-black/70 p-4 interactive" role="dialog" aria-modal="true">
             <div class="bg-slate-900 border-2 border-cyan-600 rounded-2xl p-4 max-w-sm w-full max-h-[80vh] overflow-y-auto text-white shadow-2xl">
@@ -1434,7 +1533,7 @@
                 </div>
                 <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web opens in a new tab. GPS draws a route on the world (Player 1) after you close the phone.</p>
             </div>
-            <div id="phone-view-creator" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+            <div id="phone-view-creator" class="hidden flex flex-col flex-1 min-h-0 bg-slate-950">
                 <div class="flex items-center justify-between gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
                     <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
                     <span id="phone-view-creator-title" class="text-white font-bold text-sm">Creator</span>
@@ -1446,14 +1545,14 @@
                     <p id="phone-creator-lab-locked" class="hidden text-[10px] text-amber-300">Turn on Deep Creator mode in Lobby settings to open the lab.</p>
                 </div>
             </div>
-            <div id="phone-view-modmods" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+            <div id="phone-view-modmods" class="hidden flex flex-col flex-1 min-h-0 bg-slate-950">
                 <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
                     <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
                     <span id="phone-view-modmods-title" class="text-white font-bold text-sm">Mod Mods</span>
                 </div>
                 <div id="phone-modmods-body" class="phone-body-scroll flex-1 p-3 text-[10px] text-slate-300 space-y-2"></div>
             </div>
-            <div id="phone-view-community" class="hidden flex flex-col bg-slate-950 h-full min-h-0">
+            <div id="phone-view-community" class="hidden flex flex-col flex-1 min-h-0 bg-slate-950">
                 <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
                     <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
                     <span id="phone-view-community-title" class="text-white font-bold text-sm">Community</span>
@@ -2507,6 +2606,8 @@
             sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
             /** Creator app: calm test — clears wanted/police each frame while on */
             creatorPlaytest: false,
+            /** In-game + Creator mode: wallet/health HUD hidden until player opens the run-stats tab */
+            ingameHudStatsExpanded: false,
             /** Highest car tier bought this run (progression / saves). */
             bestCarTier: -1,
             /** Best store $/tap from any car purchased this run — never lowered by buying a cheaper car */
@@ -4069,6 +4170,7 @@
                 if (btn) btn.classList.add('hidden');
             }
             syncPhoneCreatorAppsVisibility();
+            syncCreatorStudioIngameLayout();
         }
 
         function showLobbyFromSignIn() {
@@ -4217,6 +4319,8 @@
             closeDeepCreatorModeOverlay();
             mountDeepCreatorOverlayInPhone(false);
             state.creatorPlaytest = false;
+            state.ingameHudStatsExpanded = false;
+            closeCreatorStudioSheet();
             document.getElementById('game-over-overlay').style.display = 'none';
             document.getElementById('jail-overlay').style.display = 'none';
             document.getElementById('jail-vault-arrest-row')?.classList.add('hidden');
@@ -6142,6 +6246,14 @@
                 deepCreatorNeedProjectName: 'Enter a project name first.',
                 deepCreatorProjectListFull: 'Too many projects — remove one from storage or merge.',
                 deepCreatorProjectAdded: 'Project added.',
+                creatorStudioTitle: 'Creator studio',
+                creatorStudioHub: 'Hub',
+                creatorStudioLab: 'Lab',
+                creatorStudioMods: 'Mod Mods',
+                creatorStudioCommunity: 'Community',
+                creatorStudioPhone: 'Phone',
+                creatorHudShowStats: 'Run stats ▾',
+                creatorHudHideStats: 'Hide stats ▴',
             },
             es: {
                 character: 'Personaje',
@@ -6179,7 +6291,15 @@
                 creatorPostsHeading: 'Publicaciones recientes',
                 creatorPostDisabledHint: 'Activa Creator mode en Ajustes del lobby para publicar.',
                 creatorDeleteBtn: 'Quitar',
-                creatorPostsEmpty: 'Aún no hay publicaciones.'
+                creatorPostsEmpty: 'Aún no hay publicaciones.',
+                creatorStudioTitle: 'Estudio Creator',
+                creatorStudioHub: 'Hub',
+                creatorStudioLab: 'Laboratorio',
+                creatorStudioMods: 'Mod Mods',
+                creatorStudioCommunity: 'Comunidad',
+                creatorStudioPhone: 'Teléfono',
+                creatorHudShowStats: 'Stats de partida ▾',
+                creatorHudHideStats: 'Ocultar stats ▴',
             },
             ja: {
                 character: 'キャラ',
@@ -6217,7 +6337,15 @@
                 creatorPostsHeading: '最近の投稿',
                 creatorPostDisabledHint: '投稿するにはロビー設定でクリエイターモードをオンにしてください。',
                 creatorDeleteBtn: '削除',
-                creatorPostsEmpty: 'まだ投稿がありません。'
+                creatorPostsEmpty: 'まだ投稿がありません。',
+                creatorStudioTitle: 'クリエイター作業台',
+                creatorStudioHub: 'ハブ',
+                creatorStudioLab: 'ラボ',
+                creatorStudioMods: 'Mod Mods',
+                creatorStudioCommunity: 'コミュニティ',
+                creatorStudioPhone: '電話',
+                creatorHudShowStats: 'プレイHUD ▾',
+                creatorHudHideStats: 'HUDを隠す ▴',
             }
         };
 
@@ -6285,6 +6413,7 @@
             const sel = document.getElementById('lobby-settings-lang');
             if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
             updateBeta3dQualityReadout();
+            applyCreatorStudioBarLanguage();
         }
 
         function applyLobbyCharacterDuoLock() {
@@ -6364,6 +6493,7 @@
             syncCreatorModeToggleUI();
             updateBeta3dQualityReadout();
             syncPhoneCreatorAppsVisibility();
+            syncCreatorStudioIngameLayout();
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
         }
@@ -6390,6 +6520,10 @@
                 if (knob) knob.style.transform = on ? 'translateX(1.5rem)' : '';
             }
             syncCreatorDeepLobbyRow();
+            if (isInGame()) {
+                if (!on) state.ingameHudStatsExpanded = false;
+                syncCreatorStudioIngameLayout();
+            }
         }
 
         function isDeepCreatorModeOn() {
@@ -6406,6 +6540,7 @@
                 const knob = btn.querySelector('span');
                 if (knob) knob.style.transform = on ? 'translateX(1.5rem)' : '';
             }
+            if (isInGame()) syncCreatorStudioIngameLayout();
         }
 
         function syncCreatorDeepLobbyRow() {
@@ -6528,20 +6663,129 @@
             if (coBtn) coBtn.classList.toggle('hidden', !(ing && signed));
         }
 
-        function refreshPhoneCreatorScreen() {
-            const labBtn = document.getElementById('phone-creator-open-lab');
-            const lock = document.getElementById('phone-creator-lab-locked');
-            const play = document.getElementById('phone-creator-play-btn');
-            const deepOn = isDeepCreatorModeOn();
-            if (labBtn) labBtn.classList.toggle('hidden', !deepOn);
-            if (lock) lock.classList.toggle('hidden', deepOn);
+        function closeSmartphoneOverlayFully() {
+            phoneGoHome();
+            stopMiniGames();
+            teardownPhoneChatChannel();
+            const overlay = document.getElementById('smartphone-overlay');
+            if (overlay) overlay.classList.remove('open');
+        }
+
+        function applyCreatorStudioBarLanguage() {
+            const t = document.getElementById('creator-studio-bar-title');
+            if (t) t.textContent = getUiLabel('creatorStudioTitle');
+            const hub = document.getElementById('studio-creator-hub-btn');
+            if (hub) hub.textContent = getUiLabel('creatorStudioHub');
+            const lab = document.getElementById('studio-creator-lab-btn');
+            if (lab) lab.textContent = getUiLabel('creatorStudioLab');
+            const mods = document.getElementById('studio-creator-mods-btn');
+            if (mods) mods.textContent = getUiLabel('creatorStudioMods');
+            const com = document.getElementById('studio-creator-community-btn');
+            if (com) com.textContent = getUiLabel('creatorStudioCommunity');
+            const ph = document.getElementById('studio-creator-phone-btn');
+            if (ph) ph.textContent = getUiLabel('creatorStudioPhone');
+            const play = document.getElementById('studio-creator-play-btn');
             if (play) {
                 play.textContent = state.creatorPlaytest ? getUiLabel('phoneCreatorPlayStop') : getUiLabel('phoneCreatorPlayStart');
             }
+            const tab = document.getElementById('creator-hud-stats-toggle');
+            if (tab) {
+                tab.textContent = state.ingameHudStatsExpanded ? getUiLabel('creatorHudHideStats') : getUiLabel('creatorHudShowStats');
+            }
         }
 
-        function refreshPhoneModMods() {
-            const body = document.getElementById('phone-modmods-body');
+        function syncCreatorStudioIngameLayout() {
+            const bar = document.getElementById('creator-studio-bar');
+            const ui = document.getElementById('ui-layer');
+            const stats = document.getElementById('ingame-stats-hud');
+            const labBtn = document.getElementById('studio-creator-lab-btn');
+            const modsBtn = document.getElementById('studio-creator-mods-btn');
+            const comBtn = document.getElementById('studio-creator-community-btn');
+            const cGame = isCreatorModeOn() && isInGame();
+            if (ui) ui.classList.toggle('creator-studio-open', cGame);
+            if (bar) bar.classList.toggle('hidden', !cGame);
+            if (stats) {
+                stats.classList.toggle('creator-hud-fixed', cGame);
+                if (cGame) {
+                    stats.classList.toggle('creator-stats-collapsed', !state.ingameHudStatsExpanded);
+                } else {
+                    stats.classList.remove('creator-stats-collapsed');
+                    stats.classList.remove('creator-hud-fixed');
+                }
+            }
+            if (labBtn) labBtn.classList.toggle('hidden', !isDeepCreatorModeOn());
+            if (modsBtn) modsBtn.classList.toggle('hidden', !(isDeepCreatorModeOn()));
+            if (comBtn) comBtn.classList.toggle('hidden', !state.supabaseUserId);
+            applyCreatorStudioBarLanguage();
+        }
+
+        function closeCreatorStudioSheet() {
+            const sh = document.getElementById('creator-studio-sheet');
+            if (!sh) return;
+            sh.classList.remove('open');
+            sh.setAttribute('aria-hidden', 'true');
+        }
+
+        function openCreatorStudioSheet(kind) {
+            const sh = document.getElementById('creator-studio-sheet');
+            const title = document.getElementById('creator-studio-sheet-title');
+            const body = document.getElementById('creator-studio-sheet-body');
+            if (!sh || !body) return;
+            if (title) title.textContent = kind === 'community' ? getUiLabel('phoneCommunityTitle') : getUiLabel('phoneModModsTitle');
+            body.innerHTML = '';
+            if (kind === 'community') fillCommunityIntoElement(body);
+            else fillModModsIntoElement(body);
+            sh.classList.add('open');
+            sh.setAttribute('aria-hidden', 'false');
+        }
+
+        function initCreatorStudioBarUI() {
+            document.getElementById('studio-creator-hub-btn')?.addEventListener('click', () => {
+                closeCreatorStudioSheet();
+                openCreatorModeOverlay();
+            });
+            document.getElementById('studio-creator-lab-btn')?.addEventListener('click', () => {
+                closeCreatorStudioSheet();
+                openDeepCreatorModeOverlay({ fromStudioBar: true });
+            });
+            document.getElementById('studio-creator-play-btn')?.addEventListener('click', () => {
+                state.creatorPlaytest = !state.creatorPlaytest;
+                if (state.creatorPlaytest) {
+                    state.wantedLevel = 0;
+                    state.policeDelay = 0;
+                    state.police = [];
+                    state.vaultChaseActive = false;
+                    showMessage(getUiLabel('phoneCreatorPlaytestOn'));
+                } else {
+                    showMessage(getUiLabel('phoneCreatorPlaytestOff'));
+                }
+                refreshPhoneCreatorScreen();
+                syncCreatorStudioIngameLayout();
+            });
+            document.getElementById('studio-creator-mods-btn')?.addEventListener('click', () => {
+                openCreatorStudioSheet('modmods');
+            });
+            document.getElementById('studio-creator-community-btn')?.addEventListener('click', () => {
+                openCreatorStudioSheet('community');
+            });
+            document.getElementById('studio-creator-phone-btn')?.addEventListener('click', () => {
+                const overlay = document.getElementById('smartphone-overlay');
+                if (overlay) {
+                    overlay.classList.add('open');
+                    phoneGoHome();
+                    syncPhoneCreatorAppsVisibility();
+                    applyCreatorOverlayLanguage();
+                }
+            });
+            document.getElementById('creator-hud-stats-toggle')?.addEventListener('click', () => {
+                state.ingameHudStatsExpanded = !state.ingameHudStatsExpanded;
+                syncCreatorStudioIngameLayout();
+            });
+            document.getElementById('creator-studio-sheet-close')?.addEventListener('click', () => closeCreatorStudioSheet());
+            document.getElementById('creator-studio-sheet-backdrop')?.addEventListener('click', () => closeCreatorStudioSheet());
+        }
+
+        function fillModModsIntoElement(body) {
             if (!body) return;
             ensureDefaultCreatorProjects();
             const projects = loadCreatorProjects();
@@ -6564,14 +6808,37 @@
             body.appendChild(foot);
         }
 
-        function refreshPhoneCommunity() {
-            const body = document.getElementById('phone-community-body');
+        function fillCommunityIntoElement(body) {
             if (!body) return;
             if (!state.supabaseUserId) {
                 body.innerHTML = `<p class="text-slate-400">${escapeCreatorHtml(getUiLabel('phoneCommunityNeedSignIn'))}</p>`;
                 return;
             }
             body.innerHTML = `<p class="text-slate-300 mb-2">${escapeCreatorHtml(getUiLabel('phoneCommunitySignedIn'))}</p><p class="text-slate-500">${escapeCreatorHtml(getUiLabel('phoneCommunityEmpty'))}</p>`;
+        }
+
+        function refreshPhoneCreatorScreen() {
+            const labBtn = document.getElementById('phone-creator-open-lab');
+            const lock = document.getElementById('phone-creator-lab-locked');
+            const play = document.getElementById('phone-creator-play-btn');
+            const deepOn = isDeepCreatorModeOn();
+            if (labBtn) labBtn.classList.toggle('hidden', !deepOn);
+            if (lock) lock.classList.toggle('hidden', deepOn);
+            if (play) {
+                play.textContent = state.creatorPlaytest ? getUiLabel('phoneCreatorPlayStop') : getUiLabel('phoneCreatorPlayStart');
+            }
+            const sPlay = document.getElementById('studio-creator-play-btn');
+            if (sPlay) {
+                sPlay.textContent = state.creatorPlaytest ? getUiLabel('phoneCreatorPlayStop') : getUiLabel('phoneCreatorPlayStart');
+            }
+        }
+
+        function refreshPhoneModMods() {
+            fillModModsIntoElement(document.getElementById('phone-modmods-body'));
+        }
+
+        function refreshPhoneCommunity() {
+            fillCommunityIntoElement(document.getElementById('phone-community-body'));
         }
 
         function openDeepCreatorFromPhone() {
@@ -6928,28 +7195,34 @@
         }
 
         function openDeepCreatorModeOverlay(opts) {
-            const fromPhone = !!(opts && opts.fromPhone);
+            const o = opts || {};
+            const fromPhone = !!o.fromPhone;
+            const fromStudioBar = !!o.fromStudioBar;
             if (!isCreatorModeOn()) return;
-            if (!fromPhone) {
-                showMessage(getUiLabel('creatorLabUsePhone'));
-                return;
-            }
             if (!isInGame()) return;
             if (!isDeepCreatorModeOn()) {
                 showMessage(getUiLabel('creatorLabNeedDeepMode'));
                 return;
             }
-            mountDeepCreatorOverlayInPhone(true);
-            const o = document.getElementById('deep-creator-mode-overlay');
-            if (!o) return;
+            if (fromStudioBar) {
+                mountDeepCreatorOverlayInPhone(false);
+                closeSmartphoneOverlayFully();
+            } else if (fromPhone) {
+                mountDeepCreatorOverlayInPhone(true);
+            } else {
+                showMessage(getUiLabel('creatorLabUsePhone'));
+                return;
+            }
+            const el = document.getElementById('deep-creator-mode-overlay');
+            if (!el) return;
             applyDeepCreatorOverlayLanguage();
             fillDeepCreatorProjectPick();
             syncDeepPrimaryFields();
             renderDeepBlueprintList();
             const msg = document.getElementById('deep-creator-msg');
             if (msg) msg.textContent = '';
-            o.classList.add('open');
-            o.setAttribute('aria-hidden', 'false');
+            el.classList.add('open');
+            el.setAttribute('aria-hidden', 'false');
         }
 
         function closeDeepCreatorModeOverlay() {
@@ -6985,9 +7258,11 @@
             if (pcm) pcm.textContent = getUiLabel('phoneCommunityTitle');
             applyDeepCreatorOverlayLanguage();
             refreshPhoneCreatorScreen();
+            applyCreatorStudioBarLanguage();
         }
 
         function openCreatorModeOverlay() {
+            closeCreatorStudioSheet();
             const o = document.getElementById('creator-mode-overlay');
             if (!o) return;
             applyCreatorOverlayLanguage();
@@ -7020,6 +7295,7 @@
             }
             updateLobbyModeSummary();
             applyLobbyCharacterDuoLock();
+            syncCreatorStudioIngameLayout();
         }
 
         /** Beta 3D: vertical wall height in world units (same scale as building boxes). */
@@ -7654,6 +7930,7 @@
             state.arrestCount = 0;
             state.police = [];
             state.creatorPlaytest = false;
+            state.ingameHudStatsExpanded = false;
             state.vaultChaseActive = false;
             state.pendingVaultLoot = 0;
             state.vaultArrestOwe = 0;
@@ -10256,6 +10533,7 @@
             if (show) populateIngameMenuCreatorBlueprints();
             syncPhoneCreatorAppsVisibility();
             updateOwnerDashboardFabVisibility();
+            syncCreatorStudioIngameLayout();
         }
 
         function phoneShowView(name) {
@@ -10835,20 +11113,11 @@
                 phoneGoHome();
                 syncPhoneCreatorAppsVisibility();
                 applyCreatorOverlayLanguage();
+                syncCreatorStudioIngameLayout();
             };
-            if (closeX) closeX.onclick = () => {
-                if (overlay) overlay.classList.remove('open');
-                stopMiniGames();
-                teardownPhoneChatChannel();
-                closeDeepCreatorModeOverlay();
-            };
+            if (closeX) closeX.onclick = () => { closeSmartphoneOverlayFully(); };
             overlay?.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    overlay.classList.remove('open');
-                    stopMiniGames();
-                    teardownPhoneChatChannel();
-                    closeDeepCreatorModeOverlay();
-                }
+                if (e.target === overlay) closeSmartphoneOverlayFully();
             });
 
             initPhoneGpsUI();
@@ -10873,8 +11142,13 @@
                         phoneShowView('gps');
                         syncPhoneGpsHint();
                     } else if (app === 'creator') {
-                        phoneShowView('creator');
+                        if (isInGame() && isCreatorModeOn()) {
+                            closeSmartphoneOverlayFully();
+                        } else {
+                            phoneShowView('creator');
+                        }
                         refreshPhoneCreatorScreen();
+                        syncCreatorStudioIngameLayout();
                     } else if (app === 'modmods') {
                         refreshPhoneModMods();
                         phoneShowView('modmods');
@@ -10898,6 +11172,7 @@
                     showMessage(getUiLabel('phoneCreatorPlaytestOff'));
                 }
                 refreshPhoneCreatorScreen();
+                syncCreatorStudioIngameLayout();
             });
             document.getElementById('deep-creator-new-project-btn')?.addEventListener('click', () => {
                 const inp = document.getElementById('deep-creator-new-project-name');
@@ -10958,6 +11233,7 @@
                     pixelJump();
                 }
             });
+            initCreatorStudioBarUI();
         }
 
         async function startApp() {
@@ -11196,6 +11472,11 @@
             });
             document.getElementById('lobby-toggle-creator-mode')?.addEventListener('click', () => {
                 try { localStorage.setItem(LS_CREATOR_MODE, isCreatorModeOn() ? '0' : '1'); } catch (_) { /* */ }
+                const nowOn = isCreatorModeOn();
+                if (nowOn && isInGame()) {
+                    state.ingameHudStatsExpanded = false;
+                    closeSmartphoneOverlayFully();
+                }
                 syncCreatorModeToggleUI();
                 if (!isCreatorModeOn()) closeDeepCreatorModeOverlay();
                 if (document.getElementById('creator-mode-overlay')?.classList.contains('open')) updateCreatorPostFormAvailability();
@@ -11209,6 +11490,7 @@
                 if (!isDeepCreatorModeOn()) closeDeepCreatorModeOverlay();
                 syncPhoneCreatorAppsVisibility();
                 populateIngameMenuCreatorBlueprints();
+                syncCreatorStudioIngameLayout();
             });
             document.getElementById('lobby-open-creator-board')?.addEventListener('click', () => { openCreatorModeOverlay(); });
             document.getElementById('creator-mode-close')?.addEventListener('click', () => closeCreatorModeOverlay());
