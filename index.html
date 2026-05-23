@@ -10137,6 +10137,7 @@
                 // Go back to sign-in screen
                 document.getElementById('lobby-screen').style.display = 'none';
                 document.getElementById('sign-in-screen').style.display = 'flex';
+                applyStoredCharacterToAuthPicker();
             });
 
             document.getElementById('lobby-stats-fab')?.addEventListener('click', () => {
