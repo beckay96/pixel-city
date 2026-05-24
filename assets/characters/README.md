@@ -1,8 +1,10 @@
 # Character sprite sheets
 
+Repository layout: **`assets/characters/`** (lowercase — this is the `Assets` → `Characters` path the game loads over HTTP).
+
 ## Alex (`alex.png`)
 
-Place a PNG at **`alex.png`** in this folder (deployed as `assets/characters/alex.png`).
+The game reads **`assets/characters/alex.png`** (exact filename, lowercase).
 
 The game expects a **6 column × 6 row** grid of equal-sized cells (no padding between cells). Each row is one animation strip:
 
