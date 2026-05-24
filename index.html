@@ -656,73 +656,19 @@
         }
         #jail-overlay.content-interactive { pointer-events: auto; }
         .jail-school-block { max-width: 24rem; margin: 0 auto; }
-        /* Admin house — Alex / Maya: exact same box model as your div/CSS reference (80×140 + positions) */
+        /* Admin house — Alex/Maya preview uses the same canvas sprites as in-game (no CSS rectangle mockup). */
         #admin-skin-preview-fig {
             display: none;
-            align-items: flex-end;
-            justify-content: center;
         }
         #admin-skin-preview-fig.pc-adm-show {
             display: flex;
+            align-items: flex-end;
+            justify-content: center;
         }
-        #admin-skin-preview-fig .pc-adm-char-scale {
-            transform: scale(0.5);
-            transform-origin: bottom center;
+        #admin-char-preview-canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
-        #admin-skin-preview-fig .character {
-            position: relative;
-            width: 80px;
-            height: 140px;
-            display: inline-block;
-            margin: 0;
-            --pc-adm-skin: #f2c49b;
-        }
-        #admin-skin-preview-fig .head {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background: var(--pc-adm-skin);
-            left: 20px;
-            top: 10px;
-        }
-        #admin-skin-preview-fig .hair {
-            position: absolute;
-            width: 44px;
-            height: 18px;
-            background: brown;
-            left: 18px;
-            top: 2px;
-        }
-        #admin-skin-preview-fig .body {
-            position: absolute;
-            width: 50px;
-            height: 50px;
-            left: 15px;
-            top: 50px;
-        }
-        #admin-skin-preview-fig .left-arm,
-        #admin-skin-preview-fig .right-arm {
-            position: absolute;
-            width: 12px;
-            height: 40px;
-            top: 55px;
-            background: var(--pc-adm-skin);
-        }
-        #admin-skin-preview-fig .left-arm { left: 5px; }
-        #admin-skin-preview-fig .right-arm { right: 5px; }
-        #admin-skin-preview-fig .left-leg,
-        #admin-skin-preview-fig .right-leg {
-            position: absolute;
-            width: 15px;
-            height: 40px;
-            top: 100px;
-            background: #444;
-        }
-        #admin-skin-preview-fig .left-leg { left: 20px; }
-        #admin-skin-preview-fig .right-leg { right: 20px; }
-        #admin-skin-preview-fig .alex .body { background: #3b82f6; }
-        #admin-skin-preview-fig .maya .body { background: #ec4899; }
-        #admin-skin-preview-fig .maya .hair { border-radius: 10px; }
         /* In-game lobby “School mode” (jobs + school jail) — not the school-safe scaffold */
         #ingame-schoolgame-badge {
             position: fixed;
@@ -1504,7 +1450,7 @@
         <div id="admin-skin-modal" class="fixed inset-0 bg-slate-950/95 hidden flex-col items-center justify-center z-[410] interactive text-white p-4">
             <div class="w-full max-w-sm bg-slate-900 border-2 border-cyan-500 rounded-2xl p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <h2 class="text-xl font-black text-cyan-400 text-center mb-1 uppercase">Admin house</h2>
-                <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. Alex and Maya use the block figure preview; other shapes show a color swatch.</p>
+                <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. <span class="text-white font-bold">Alex</span> uses your <span class="text-slate-300">assets/characters/alex.png</span> sprite sheet when it is present (see <span class="text-slate-300">assets/characters/README.md</span> for the 6×6 layout); otherwise the procedural explorer sprite. <span class="text-white font-bold">Maya</span> uses the Girl sprite. <span class="text-white font-bold">Dot</span> is a color disk.</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Shape</p>
                 <div class="flex flex-wrap gap-2 justify-center mb-3 max-w-[22rem] mx-auto">
                     <button type="button" id="lobby-char-alex" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-300">Alex</button>
@@ -1515,7 +1461,9 @@
                 </div>
                 <div id="admin-skin-active-preview" class="mx-auto w-[7rem] h-[5.5rem] rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3 relative overflow-hidden bg-slate-950">
                     <div id="admin-skin-preview-swatch" class="absolute inset-0 rounded-xl pointer-events-none" style="background:#2563eb"></div>
-                    <div id="admin-skin-preview-fig" class="absolute inset-0 pointer-events-none"></div>
+                    <div id="admin-skin-preview-fig" class="absolute inset-0 pointer-events-none flex items-end justify-center">
+                        <canvas id="admin-char-preview-canvas" width="96" height="96" class="hidden max-h-full w-auto"></canvas>
+                    </div>
                 </div>
                 <p id="admin-skin-active-label" class="text-center text-sm font-bold text-cyan-200 mb-2">Current: Blue</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Presets</p>
@@ -2359,34 +2307,10 @@
         }
 
         /**
-         * Boy-style avatar — compact Pixel City–style side sprite (~22px): spiky hair, open hoodie + tee,
-         * straps + pack, dark pants, sneakers w/ white sole. Idle / walk / run / jump / attack; pass null → idle.
+         * Shared animation picker for the side-view explorer (procedural boy + optional Alex PNG sheet).
+         * Rows on the sheet: idle(4), walk(6), run(6), jump(4), attack(3), interact(2) — all laid out on a 6-wide grid.
          */
-        function drawBoyStyleAvatar(ctx, p, col) {
-            const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
-            const smooth0 = ctx.imageSmoothingEnabled;
-            ctx.imageSmoothingEnabled = false;
-            const P = (x, y, w, h, fill) => {
-                ctx.fillStyle = fill;
-                ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
-            };
-            const skin = '#f5cba8';
-            const outline = '#0f172a';
-            const hair = '#4a3728';
-            const hairHi = '#6b5238';
-            const hood = '#3b82f6';
-            const hoodSh = '#2563eb';
-            const hoodIn = '#1e40af';
-            const tee = '#ffffff';
-            const zip = '#94a3b8';
-            const pant = '#171717';
-            const pantHi = '#262626';
-            const shoe = '#1e40af';
-            const sole = '#f8fafc';
-            const lace = '#e2e8f0';
-            const bp = '#0f0f10';
-            const bpHi = '#3f3f46';
-
+        function getSideExplorerAnimState(p) {
             let mode = 'idle';
             let fi = 0;
             let bobY = 0;
@@ -2433,6 +2357,101 @@
                 else if (fi === 2) { legL = 0.25; legR = -0.25; }
                 else { legL = 0; legR = 0; }
             }
+            return { mode, fi, bobY, jLift, lean, legL, legR, jy, armBoost };
+        }
+
+        /** Optional PNG sprite sheet for Alex — same 6×6 grid as the reference art; falls back to procedural if missing. */
+        const ALEX_SPRITESHEET_URL = 'assets/characters/alex.png';
+        const ALEX_SPRITESHEET_COLS = 6;
+        const ALEX_SPRITESHEET_ROWS = 6;
+        const pcAlexSpritesheet = { img: null, started: false, ready: false, fw: 0, fh: 0 };
+
+        function ensureAlexSpritesheet() {
+            if (pcAlexSpritesheet.started) return;
+            pcAlexSpritesheet.started = true;
+            const im = new Image();
+            im.decoding = 'async';
+            im.onload = () => {
+                const w = im.naturalWidth | 0;
+                const h = im.naturalHeight | 0;
+                const cw = ALEX_SPRITESHEET_COLS;
+                const rh = ALEX_SPRITESHEET_ROWS;
+                pcAlexSpritesheet.fw = Math.floor(w / cw);
+                pcAlexSpritesheet.fh = Math.floor(h / rh);
+                if (pcAlexSpritesheet.fw > 2 && pcAlexSpritesheet.fh > 2) {
+                    pcAlexSpritesheet.img = im;
+                    pcAlexSpritesheet.ready = true;
+                }
+            };
+            im.onerror = () => { /* keep procedural */ };
+            im.src = ALEX_SPRITESHEET_URL;
+        }
+
+        function drawAlexSpritesheetOrProcedural(ctx, p, col) {
+            ensureAlexSpritesheet();
+            const a = getSideExplorerAnimState(p);
+            if (!pcAlexSpritesheet.ready || !pcAlexSpritesheet.img) {
+                drawBoyStyleAvatarFromState(ctx, p, col, a);
+                return;
+            }
+            const alexSheetRow = { idle: 0, walk: 1, run: 2, jump: 3, attack: 4 };
+            const row = alexSheetRow[a.mode] !== undefined ? alexSheetRow[a.mode] : 0;
+            let colIdx = a.fi;
+            if (a.mode === 'idle') colIdx = a.fi % 4;
+            else if (a.mode === 'jump') colIdx = a.fi % 4;
+            else if (a.mode === 'attack') colIdx = a.fi % 3;
+            else colIdx = a.fi % 6;
+            const fw = pcAlexSpritesheet.fw;
+            const fh = pcAlexSpritesheet.fh;
+            const sx = colIdx * fw;
+            const sy = row * fh;
+            const smooth0 = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            ctx.save();
+            ctx.translate(a.lean, a.bobY + a.jLift);
+            const destH = 23;
+            const scale = destH / fh;
+            const destW = fw * scale;
+            const destH2 = fh * scale;
+            ctx.drawImage(pcAlexSpritesheet.img, sx, sy, fw, fh, Math.round(-destW / 2), Math.round(11 - destH2), Math.round(destW), Math.round(destH2));
+            ctx.restore();
+            ctx.imageSmoothingEnabled = smooth0;
+        }
+
+        function drawBoyStyleAvatarFromState(ctx, p, col, a) {
+            const accent = (col && String(col).length) ? col : DEFAULT_PLAYER_COLOR;
+            const smooth0 = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            const P = (x, y, w, h, fill) => {
+                ctx.fillStyle = fill;
+                ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
+            };
+            const skin = '#f5cba8';
+            const outline = '#0f172a';
+            const hair = '#4a3728';
+            const hairHi = '#6b5238';
+            const hood = '#3b82f6';
+            const hoodSh = '#2563eb';
+            const hoodIn = '#1e40af';
+            const tee = '#ffffff';
+            const zip = '#94a3b8';
+            const pant = '#171717';
+            const pantHi = '#262626';
+            const shoe = '#1e40af';
+            const sole = '#f8fafc';
+            const lace = '#e2e8f0';
+            const bp = '#0f0f10';
+            const bpHi = '#3f3f46';
+
+            const mode = a.mode;
+            const fi = a.fi;
+            const bobY = a.bobY;
+            const jLift = a.jLift;
+            const lean = a.lean;
+            const legL = a.legL;
+            const legR = a.legR;
+            const jy = a.jy;
+            const armBoost = a.armBoost;
 
             ctx.save();
             ctx.translate(lean, bobY + jLift);
@@ -2502,6 +2521,11 @@
 
             ctx.imageSmoothingEnabled = smooth0;
             ctx.restore();
+        }
+
+        /** Boy-style avatar — compact Pixel City–style side sprite (~22px); pass null → idle. */
+        function drawBoyStyleAvatar(ctx, p, col) {
+            drawBoyStyleAvatarFromState(ctx, p, col, getSideExplorerAnimState(p));
         }
 
         /** Girl-style avatar — Pixel City sheet style: leaner proportions, ponytail + scrunchie, jacket/skirt/sneakers, pack behind. */
@@ -2581,48 +2605,6 @@
             R(5, -13, 2, 4, hairHi);
 
             ctx.imageSmoothingEnabled = smooth0;
-        }
-
-        /**
-         * Alex / Maya on canvas — same geometry as your div/CSS (80×140 box, px positions).
-         * Origin: bottom-center of that box (feet). Hair color matches CSS keyword `brown`; Maya hair uses roundRect r=10 like your CSS.
-         */
-        function drawBlockyAlexMayaAvatar(ctx, kind, p, col) {
-            const shirt = kind === 'maya' ? '#ec4899' : '#3b82f6';
-            let skin = '#f2c49b';
-            if (col && /^#[0-9a-fA-F]{6}$/i.test(String(col))) skin = String(col).toLowerCase();
-            const hairCol = 'brown';
-            const pants = '#444';
-            const bob = (p && (p._pedSpd || 0) > 0.2)
-                ? Math.sin((state.frameCount || 0) * 0.22) * 1.2
-                : Math.sin((state.frameCount || 0) * 0.12) * 0.8;
-            const S = 0.206;
-            const smooth0 = ctx.imageSmoothingEnabled;
-            ctx.imageSmoothingEnabled = false;
-            ctx.save();
-            ctx.translate(0, bob);
-            ctx.scale(S, S);
-            ctx.translate(-40, -140);
-            const R = (x, y, w, h, fill) => {
-                ctx.fillStyle = fill;
-                ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-            };
-            if (kind === 'maya' && typeof ctx.roundRect === 'function') {
-                ctx.fillStyle = hairCol;
-                ctx.beginPath();
-                ctx.roundRect(18, 2, 44, 18, 10);
-                ctx.fill();
-            } else {
-                R(18, 2, 44, 18, hairCol);
-            }
-            R(20, 10, 40, 40, skin);
-            R(15, 50, 50, 50, shirt);
-            R(5, 55, 12, 40, skin);
-            R(63, 55, 12, 40, skin);
-            R(20, 100, 15, 40, pants);
-            R(45, 100, 15, 40, pants);
-            ctx.imageSmoothingEnabled = smooth0;
-            ctx.restore();
         }
 
         function paintAuthCharacterPreviews() {
@@ -4238,20 +4220,44 @@
         function updateAdminSkinCharacterFigure() {
             const sw = document.getElementById('admin-skin-preview-swatch');
             const fig = document.getElementById('admin-skin-preview-fig');
+            const cv = document.getElementById('admin-char-preview-canvas');
             if (!sw || !fig) return;
-            const c = getSavedPlayerSkin();
             const t = state.characterType;
             if (t === 'alex' || t === 'maya') {
                 sw.classList.add('opacity-0');
                 fig.classList.add('pc-adm-show');
-                const cls = t === 'maya' ? 'maya' : 'alex';
-                const skin = c && /^#[0-9a-fA-F]{6}$/i.test(String(c)) ? String(c).toLowerCase() : '#f2c49b';
-                fig.innerHTML = '<div class="pc-adm-char-scale"><div class="character ' + cls + '" style="--pc-adm-skin:' + skin + '"><div class="hair"></div><div class="head"></div><div class="body"></div><div class="left-arm"></div><div class="right-arm"></div><div class="left-leg"></div><div class="right-leg"></div></div></div>';
+                if (cv) {
+                    cv.classList.remove('hidden');
+                    paintAdminCharPreviewCanvas(t);
+                }
             } else {
                 sw.classList.remove('opacity-0');
                 fig.classList.remove('pc-adm-show');
-                fig.innerHTML = '';
+                if (cv) cv.classList.add('hidden');
             }
+        }
+
+        function paintAdminCharPreviewCanvas(characterType) {
+            const canvas = document.getElementById('admin-char-preview-canvas');
+            if (!canvas || !canvas.getContext) return;
+            const g = canvas.getContext('2d');
+            if (!g) return;
+            const w = canvas.width;
+            const h = canvas.height;
+            const col = getSavedPlayerSkin() || DEFAULT_PLAYER_COLOR;
+            g.save();
+            g.clearRect(0, 0, w, h);
+            g.fillStyle = '#0f172a';
+            g.fillRect(0, 0, w, h);
+            g.translate(Math.floor(w / 2), h - 3);
+            if (characterType === 'alex') {
+                g.scale(2.0, 2.0);
+                drawAlexSpritesheetOrProcedural(g, null, col);
+            } else {
+                g.scale(1.55, 1.55);
+                drawHumanPixelAvatar(g, 'girl', col);
+            }
+            g.restore();
         }
 
         function applyAdminHouseSkin(hex, fromPreset, opts) {
@@ -10724,12 +10730,19 @@
                     drawHumanPixelAvatar(ctx, 'girl', col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
-                } else if (charType === 'alex' || charType === 'maya') {
+                } else if (charType === 'alex') {
                     ctx.shadowBlur = 3;
                     ctx.save();
-                    ctx.translate(0, -2);
-                    ctx.scale(1.42, 1.42);
-                    drawBlockyAlexMayaAvatar(ctx, charType, p || null, col);
+                    ctx.scale(1.52, 1.52);
+                    drawAlexSpritesheetOrProcedural(ctx, p || null, col);
+                    ctx.restore();
+                    ctx.shadowBlur = 0;
+                } else if (charType === 'maya') {
+                    ctx.shadowBlur = 4;
+                    ctx.save();
+                    ctx.scale(1.5, 1.5);
+                    if (p) ctx.translate(0, Math.sin((state.frameCount || 0) * 0.12) * 0.28);
+                    drawHumanPixelAvatar(ctx, 'girl', col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
                 } else {
