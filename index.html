@@ -656,6 +656,67 @@
         }
         #jail-overlay.content-interactive { pointer-events: auto; }
         .jail-school-block { max-width: 24rem; margin: 0 auto; }
+        /* Admin house — Alex / Maya div preview (same structure as standalone character mockup) */
+        #admin-skin-preview-fig {
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        #admin-skin-preview-fig.pc-adm-show {
+            display: flex;
+        }
+        #admin-skin-preview-fig .character {
+            position: relative;
+            width: 40px;
+            height: 70px;
+            --pc-adm-skin: #f2c49b;
+        }
+        #admin-skin-preview-fig .head {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--pc-adm-skin);
+            left: 10px;
+            top: 5px;
+        }
+        #admin-skin-preview-fig .hair {
+            position: absolute;
+            width: 22px;
+            height: 9px;
+            background: #5c3d2e;
+            left: 9px;
+            top: 1px;
+        }
+        #admin-skin-preview-fig .body {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            left: 7px;
+            top: 25px;
+        }
+        #admin-skin-preview-fig .left-arm,
+        #admin-skin-preview-fig .right-arm {
+            position: absolute;
+            width: 6px;
+            height: 20px;
+            top: 27px;
+            background: var(--pc-adm-skin);
+        }
+        #admin-skin-preview-fig .left-arm { left: 2px; }
+        #admin-skin-preview-fig .right-arm { right: 2px; }
+        #admin-skin-preview-fig .left-leg,
+        #admin-skin-preview-fig .right-leg {
+            position: absolute;
+            width: 8px;
+            height: 20px;
+            top: 50px;
+            background: #3f3f46;
+        }
+        #admin-skin-preview-fig .left-leg { left: 10px; }
+        #admin-skin-preview-fig .right-leg { right: 10px; }
+        #admin-skin-preview-fig .alex .body { background: #3b82f6; }
+        #admin-skin-preview-fig .maya .body { background: #ec4899; }
+        #admin-skin-preview-fig .maya .hair { border-radius: 5px; }
         /* In-game lobby “School mode” (jobs + school jail) — not the school-safe scaffold */
         #ingame-schoolgame-badge {
             position: fixed;
@@ -1439,12 +1500,17 @@
                 <h2 class="text-xl font-black text-cyan-400 text-center mb-1 uppercase">Admin house</h2>
                 <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. The big swatch shows the active skin.</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Shape</p>
-                <div class="flex gap-2 justify-center mb-3">
-                    <button type="button" id="lobby-char-boy" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-200">Boy</button>
-                    <button type="button" id="lobby-char-girl" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-200">Girl</button>
-                    <button type="button" id="lobby-char-circle" class="flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-slate-200">Dot</button>
+                <div class="flex flex-wrap gap-2 justify-center mb-3 max-w-[22rem] mx-auto">
+                    <button type="button" id="lobby-char-alex" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-300">Alex</button>
+                    <button type="button" id="lobby-char-maya" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-300">Maya</button>
+                    <button type="button" id="lobby-char-boy" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-200">Boy</button>
+                    <button type="button" id="lobby-char-girl" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-200">Girl</button>
+                    <button type="button" id="lobby-char-circle" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-slate-200">Dot</button>
                 </div>
-                <div id="admin-skin-active-preview" class="mx-auto w-20 h-20 rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3" style="background:#2563eb"></div>
+                <div id="admin-skin-active-preview" class="mx-auto w-[5.5rem] h-[7.5rem] rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3 relative overflow-hidden bg-slate-950">
+                    <div id="admin-skin-preview-swatch" class="absolute inset-0 rounded-xl pointer-events-none" style="background:#2563eb"></div>
+                    <div id="admin-skin-preview-fig" class="absolute inset-0 pointer-events-none"></div>
+                </div>
                 <p id="admin-skin-active-label" class="text-center text-sm font-bold text-cyan-200 mb-2">Current: Blue</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Presets</p>
                 <div id="admin-skin-swatch-wrap" class="grid grid-cols-4 gap-2 mb-3"></div>
@@ -2085,7 +2151,7 @@
             { id: 'wanted_drop', label: 'How do I lose stars fast?', answer: () => 'Stop committing crimes, hide at HOME, or put distance between you and cruisers until the meter cools.' },
             { id: 'autosave', label: 'Autosave timing?', answer: () => 'World autosaves on an interval while you play — still manual-save before risky vault runs.' },
             { id: 'disconnect', label: 'Multiplayer disconnections?', answer: () => 'Game retries Realtime with backoff — check Wi‑Fi, stay signed in, and avoid refreshing mid-session.' },
-            { id: 'character', label: 'Character appearance?', answer: () => 'Pick Boy or Girl when you create an account (or before Play offline). The lobby Character button can switch shape (Boy, Girl, or classic dot) and recolor your trail.' },
+            { id: 'character', label: 'Character appearance?', answer: () => 'Pick Boy or Girl when you create an account (or before Play offline). The lobby Character button can switch shape (Alex, Maya, Boy, Girl, or classic dot) and recolor your trail.' },
             { id: 'coupe', label: 'Sports coupe tier?', answer: () => 'Dealership “Sports Coupe” is $50,000 between the Porsche 911 and the Lambo — strong mid milestone before the six-figure hypercars.' }
         ];
 
@@ -2272,16 +2338,18 @@
         function loadCharacterTypeFromStorage() {
             try {
                 const v = localStorage.getItem(LS_CHARACTER_TYPE);
-                if (v === 'boy' || v === 'girl' || v === 'circle') return v;
+                if (v === 'alex' || v === 'maya' || v === 'boy' || v === 'girl' || v === 'circle') return v;
             } catch (_) { /* */ }
             return 'boy';
         }
 
         function persistCharacterType(t) {
-            const v = (t === 'boy' || t === 'girl' || t === 'circle') ? t : 'circle';
+            const allowed = ['alex', 'maya', 'boy', 'girl', 'circle'];
+            const v = allowed.indexOf(t) >= 0 ? t : 'boy';
             state.characterType = v;
             try { localStorage.setItem(LS_CHARACTER_TYPE, v); } catch (_) { /* */ }
             syncLobbyCharacterShapeButtons();
+            updateAdminSkinCharacterFigure();
         }
 
         /**
@@ -2509,6 +2577,48 @@
             ctx.imageSmoothingEnabled = smooth0;
         }
 
+        /** Block-style Alex / Maya — same layout as the div character mockup (hair, head, shirt, arms, legs). */
+        function drawBlockyAlexMayaAvatar(ctx, kind, p, col) {
+            const shirt = kind === 'maya' ? '#ec4899' : '#3b82f6';
+            let skin = '#f2c49b';
+            if (col && /^#[0-9a-fA-F]{6}$/i.test(String(col))) skin = String(col).toLowerCase();
+            const hair = '#5c3d2e';
+            const pants = '#3f3f46';
+            const shoe = '#1e293b';
+            const outline = '#0f172a';
+            const bob = (p && (p._pedSpd || 0) > 0.2)
+                ? Math.sin((state.frameCount || 0) * 0.22) * 0.5
+                : Math.sin((state.frameCount || 0) * 0.12) * 0.28;
+            const smooth0 = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            const R = (x, y, w, h, fill) => {
+                ctx.fillStyle = fill;
+                ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+            };
+            ctx.save();
+            ctx.translate(0, bob);
+            if (kind === 'maya') {
+                R(-10, -38, 20, 8, hair);
+            } else {
+                R(-10, -38, 20, 7, hair);
+            }
+            R(-8, -29, 16, 14, skin);
+            ctx.strokeStyle = outline;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-8.5, -29.5, 17, 15);
+            R(-2, -25, 1, 1, outline);
+            R(3, -25, 1, 1, outline);
+            R(-9, -16, 18, 14, shirt);
+            R(-12, -14, 4, 11, skin);
+            R(8, -14, 4, 11, skin);
+            R(-8, -3, 7, 13, pants);
+            R(1, -3, 7, 13, pants);
+            R(-8, 8, 7, 2, shoe);
+            R(1, 8, 7, 2, shoe);
+            ctx.imageSmoothingEnabled = smooth0;
+            ctx.restore();
+        }
+
         function paintAuthCharacterPreviews() {
             const go = (id, kind) => {
                 const cvs = document.getElementById(id);
@@ -2552,10 +2662,16 @@
         }
 
         function syncLobbyCharacterShapeButtons() {
-            ['lobby-char-boy', 'lobby-char-girl', 'lobby-char-circle'].forEach(id => {
+            const shapes = [
+                ['lobby-char-alex', 'alex'],
+                ['lobby-char-maya', 'maya'],
+                ['lobby-char-boy', 'boy'],
+                ['lobby-char-girl', 'girl'],
+                ['lobby-char-circle', 'circle']
+            ];
+            shapes.forEach(([id, k]) => {
                 const el = document.getElementById(id);
                 if (!el) return;
-                const k = id === 'lobby-char-girl' ? 'girl' : id === 'lobby-char-circle' ? 'circle' : 'boy';
                 const on = state.characterType === k;
                 el.classList.toggle('border-cyan-400', on);
                 el.classList.toggle('bg-cyan-950', on);
@@ -2563,6 +2679,20 @@
                 el.classList.toggle('ring-cyan-400/60', on);
                 el.classList.toggle('border-slate-600', !on);
                 el.classList.toggle('bg-slate-800', !on);
+            });
+        }
+
+        function updateLobbyCharacterShapeLabels() {
+            const map = [
+                ['lobby-char-alex', 'characterShapeAlex'],
+                ['lobby-char-maya', 'characterShapeMaya'],
+                ['lobby-char-boy', 'characterShapeBoy'],
+                ['lobby-char-girl', 'characterShapeGirl'],
+                ['lobby-char-circle', 'characterShapeDot']
+            ];
+            map.forEach(([id, key]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = getUiLabel(key);
             });
         }
 
@@ -2667,7 +2797,7 @@
             /** Dealership: after two taps on "Buy for friend", next E/Shift purchase spawns an extra car for peers. */
             dealerBuyForFriendArmed: false,
             dealerFriendConfirmStep: 0,
-            /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
+            /** 'alex' | 'maya' | 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
             characterType: initialCharacterType,
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
             stamina: 100,
@@ -4085,16 +4215,36 @@
 
         function updateAdminSkinPreview() {
             const c = getSavedPlayerSkin();
-            const prev = document.getElementById('admin-skin-active-preview');
+            const sw = document.getElementById('admin-skin-preview-swatch');
             const lab = document.getElementById('admin-skin-active-label');
             const pick = document.getElementById('admin-skin-color-picker');
             const hexIn = document.getElementById('admin-skin-hex-input');
-            if (prev) prev.style.background = c;
+            if (sw) sw.style.background = c;
             if (pick) pick.value = c.length === 7 && c.startsWith('#') ? c : '#2563eb';
             if (hexIn && document.activeElement !== hexIn) hexIn.value = c;
             if (lab) {
                 const preset = SKIN_PRESETS.find(s => s.color.toLowerCase() === c.toLowerCase());
                 lab.textContent = preset ? `Current: ${preset.label}` : `Current: custom (${c})`;
+            }
+            updateAdminSkinCharacterFigure();
+        }
+
+        function updateAdminSkinCharacterFigure() {
+            const sw = document.getElementById('admin-skin-preview-swatch');
+            const fig = document.getElementById('admin-skin-preview-fig');
+            if (!sw || !fig) return;
+            const c = getSavedPlayerSkin();
+            const t = state.characterType;
+            if (t === 'alex' || t === 'maya') {
+                sw.classList.add('opacity-0');
+                fig.classList.add('pc-adm-show');
+                const cls = t === 'maya' ? 'maya' : 'alex';
+                const skin = c && /^#[0-9a-fA-F]{6}$/i.test(String(c)) ? String(c).toLowerCase() : '#f2c49b';
+                fig.innerHTML = '<div class="character ' + cls + '" style="--pc-adm-skin:' + skin + '"><div class="hair"></div><div class="head"></div><div class="body"></div><div class="left-arm"></div><div class="right-arm"></div><div class="left-leg"></div><div class="right-leg"></div></div>';
+            } else {
+                sw.classList.remove('opacity-0');
+                fig.classList.remove('pc-adm-show');
+                fig.innerHTML = '';
             }
         }
 
@@ -6203,6 +6353,11 @@
         const LOBBY_I18N = {
             en: {
                 character: 'Character',
+                characterShapeAlex: 'Alex',
+                characterShapeMaya: 'Maya',
+                characterShapeBoy: 'Boy',
+                characterShapeGirl: 'Girl',
+                characterShapeDot: 'Dot',
                 settings: 'Settings',
                 lobbySettingsTitle: 'Lobby settings',
                 lobbySettingsBody: 'Language, experimental view, and debug logs apply on this device.',
@@ -6321,6 +6476,11 @@
             },
             es: {
                 character: 'Personaje',
+                characterShapeAlex: 'Alex',
+                characterShapeMaya: 'Maya',
+                characterShapeBoy: 'Chico',
+                characterShapeGirl: 'Chica',
+                characterShapeDot: 'Punto',
                 settings: 'Ajustes',
                 lobbySettingsTitle: 'Ajustes del lobby',
                 lobbySettingsBody: 'Idioma, vista experimental y registros de depuración en este dispositivo.',
@@ -6381,6 +6541,11 @@
             },
             ja: {
                 character: 'キャラ',
+                characterShapeAlex: 'Alex',
+                characterShapeMaya: 'Maya',
+                characterShapeBoy: 'ボーイ',
+                characterShapeGirl: 'ガール',
+                characterShapeDot: 'ドット',
                 settings: '設定',
                 lobbySettingsTitle: 'ロビー設定',
                 lobbySettingsBody: '言語・実験ビュー・詳細ログはこの端末に保存されます。',
@@ -6505,6 +6670,7 @@
             const sel = document.getElementById('lobby-settings-lang');
             if (sel && sel.value !== state.uiLang) sel.value = state.uiLang;
             updateBeta3dQualityReadout();
+            updateLobbyCharacterShapeLabels();
             applyCreatorStudioBarLanguage();
         }
 
@@ -10533,7 +10699,7 @@
 
             state.vehicles.forEach(v => { drawCartoonCar(c, v); });
             state.police.forEach(v => { c.save(); c.translate(v.x, v.y); c.rotate(v.angle); c.fillStyle = '#f8fafc'; c.strokeStyle = '#0f172a'; c.lineWidth = 2; c.beginPath(); c.moveTo(-26, -14); c.lineTo(26, -14); c.quadraticCurveTo(30, 0, 26, 14); c.lineTo(-26, 14); c.quadraticCurveTo(-30, 0, -26, -14); c.closePath(); c.fill(); c.stroke(); const flash = Math.floor(state.frameCount / 5) % 2 === 0; c.fillStyle = flash ? '#ef4444' : '#2563eb'; c.fillRect(2, -12, 10, 24); c.fillStyle = 'rgba(254,252,232,0.95)'; c.beginPath(); c.arc(22, -8, 2.5, 0, Math.PI * 2); c.arc(22, 8, 2.5, 0, Math.PI * 2); c.fill(); c.fillStyle = '#fecaca'; c.beginPath(); c.arc(-22, -8, 2.2, 0, Math.PI * 2); c.arc(-22, 8, 2.2, 0, Math.PI * 2); c.fill(); c.fillStyle = '#0f172a'; c.beginPath(); c.arc(12, 16, 5, 0, Math.PI * 2); c.arc(-12, 16, 5, 0, Math.PI * 2); c.arc(12, -16, 5, 0, Math.PI * 2); c.arc(-12, -16, 5, 0, Math.PI * 2); c.fill(); c.restore(); });
-            // Draw boy / girl / classic dot from characterType ('boy', 'girl', 'circle')
+            // Draw Alex / Maya / boy / girl / classic dot from characterType
             function drawPlayerAvatar(ctx, charType, color, p) {
                 const col = color || DEFAULT_PLAYER_COLOR;
                 ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
@@ -10550,6 +10716,14 @@
                     ctx.scale(1.5, 1.5);
                     if (p) ctx.translate(0, Math.sin((state.frameCount || 0) * 0.12) * 0.28);
                     drawHumanPixelAvatar(ctx, 'girl', col);
+                    ctx.restore();
+                    ctx.shadowBlur = 0;
+                } else if (charType === 'alex' || charType === 'maya') {
+                    ctx.shadowBlur = 3;
+                    ctx.save();
+                    ctx.translate(0, -2);
+                    ctx.scale(1.42, 1.42);
+                    drawBlockyAlexMayaAvatar(ctx, charType, p || null, col);
                     ctx.restore();
                     ctx.shadowBlur = 0;
                 } else {
@@ -10597,7 +10771,8 @@
                     c.restore();
                 } else if (!p.inVehicle) {
                     c.save(); c.translate(p.x, p.y);
-                    const hum = state.characterType === 'boy' || state.characterType === 'girl';
+                    const hum = state.characterType === 'boy' || state.characterType === 'girl'
+                        || state.characterType === 'alex' || state.characterType === 'maya';
                     if (hum) {
                         const fl = p.avatarFaceLeft === true ? -1 : 1;
                         c.scale(fl, 1);
@@ -11956,6 +12131,8 @@
             document.getElementById('lobby-character-btn')?.addEventListener('click', () => {
                 openAdminSkinModal();
             });
+            document.getElementById('lobby-char-alex')?.addEventListener('click', () => persistCharacterType('alex'));
+            document.getElementById('lobby-char-maya')?.addEventListener('click', () => persistCharacterType('maya'));
             document.getElementById('lobby-char-boy')?.addEventListener('click', () => persistCharacterType('boy'));
             document.getElementById('lobby-char-girl')?.addEventListener('click', () => persistCharacterType('girl'));
             document.getElementById('lobby-char-circle')?.addEventListener('click', () => persistCharacterType('circle'));
