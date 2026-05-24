@@ -656,7 +656,7 @@
         }
         #jail-overlay.content-interactive { pointer-events: auto; }
         .jail-school-block { max-width: 24rem; margin: 0 auto; }
-        /* Admin house — Alex / Maya div preview (same structure as standalone character mockup) */
+        /* Admin house — Alex / Maya: exact same box model as your div/CSS reference (80×140 + positions) */
         #admin-skin-preview-fig {
             display: none;
             align-items: flex-end;
@@ -665,58 +665,64 @@
         #admin-skin-preview-fig.pc-adm-show {
             display: flex;
         }
+        #admin-skin-preview-fig .pc-adm-char-scale {
+            transform: scale(0.5);
+            transform-origin: bottom center;
+        }
         #admin-skin-preview-fig .character {
             position: relative;
-            width: 40px;
-            height: 70px;
+            width: 80px;
+            height: 140px;
+            display: inline-block;
+            margin: 0;
             --pc-adm-skin: #f2c49b;
         }
         #admin-skin-preview-fig .head {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
             background: var(--pc-adm-skin);
-            left: 10px;
-            top: 5px;
+            left: 20px;
+            top: 10px;
         }
         #admin-skin-preview-fig .hair {
             position: absolute;
-            width: 22px;
-            height: 9px;
-            background: #5c3d2e;
-            left: 9px;
-            top: 1px;
+            width: 44px;
+            height: 18px;
+            background: brown;
+            left: 18px;
+            top: 2px;
         }
         #admin-skin-preview-fig .body {
             position: absolute;
-            width: 25px;
-            height: 25px;
-            left: 7px;
-            top: 25px;
+            width: 50px;
+            height: 50px;
+            left: 15px;
+            top: 50px;
         }
         #admin-skin-preview-fig .left-arm,
         #admin-skin-preview-fig .right-arm {
             position: absolute;
-            width: 6px;
-            height: 20px;
-            top: 27px;
+            width: 12px;
+            height: 40px;
+            top: 55px;
             background: var(--pc-adm-skin);
         }
-        #admin-skin-preview-fig .left-arm { left: 2px; }
-        #admin-skin-preview-fig .right-arm { right: 2px; }
+        #admin-skin-preview-fig .left-arm { left: 5px; }
+        #admin-skin-preview-fig .right-arm { right: 5px; }
         #admin-skin-preview-fig .left-leg,
         #admin-skin-preview-fig .right-leg {
             position: absolute;
-            width: 8px;
-            height: 20px;
-            top: 50px;
-            background: #3f3f46;
+            width: 15px;
+            height: 40px;
+            top: 100px;
+            background: #444;
         }
-        #admin-skin-preview-fig .left-leg { left: 10px; }
-        #admin-skin-preview-fig .right-leg { right: 10px; }
+        #admin-skin-preview-fig .left-leg { left: 20px; }
+        #admin-skin-preview-fig .right-leg { right: 20px; }
         #admin-skin-preview-fig .alex .body { background: #3b82f6; }
         #admin-skin-preview-fig .maya .body { background: #ec4899; }
-        #admin-skin-preview-fig .maya .hair { border-radius: 5px; }
+        #admin-skin-preview-fig .maya .hair { border-radius: 10px; }
         /* In-game lobby “School mode” (jobs + school jail) — not the school-safe scaffold */
         #ingame-schoolgame-badge {
             position: fixed;
@@ -1498,7 +1504,7 @@
         <div id="admin-skin-modal" class="fixed inset-0 bg-slate-950/95 hidden flex-col items-center justify-center z-[410] interactive text-white p-4">
             <div class="w-full max-w-sm bg-slate-900 border-2 border-cyan-500 rounded-2xl p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <h2 class="text-xl font-black text-cyan-400 text-center mb-1 uppercase">Admin house</h2>
-                <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. The big swatch shows the active skin.</p>
+                <p class="text-[10px] text-slate-400 text-center mb-2">Pick a color — your character updates live. Alex and Maya use the block figure preview; other shapes show a color swatch.</p>
                 <p class="text-[9px] text-slate-500 uppercase text-center mb-1">Shape</p>
                 <div class="flex flex-wrap gap-2 justify-center mb-3 max-w-[22rem] mx-auto">
                     <button type="button" id="lobby-char-alex" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-sky-300">Alex</button>
@@ -1507,7 +1513,7 @@
                     <button type="button" id="lobby-char-girl" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-pink-200">Girl</button>
                     <button type="button" id="lobby-char-circle" class="min-w-[4.25rem] flex-1 py-2 rounded-lg border-2 text-[10px] font-black interactive border-slate-600 bg-slate-800 text-slate-200">Dot</button>
                 </div>
-                <div id="admin-skin-active-preview" class="mx-auto w-[5.5rem] h-[7.5rem] rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3 relative overflow-hidden bg-slate-950">
+                <div id="admin-skin-active-preview" class="mx-auto w-[7rem] h-[5.5rem] rounded-2xl border-4 border-cyan-400/80 shadow-lg shadow-cyan-500/20 mb-3 relative overflow-hidden bg-slate-950">
                     <div id="admin-skin-preview-swatch" class="absolute inset-0 rounded-xl pointer-events-none" style="background:#2563eb"></div>
                     <div id="admin-skin-preview-fig" class="absolute inset-0 pointer-events-none"></div>
                 </div>
@@ -2577,44 +2583,44 @@
             ctx.imageSmoothingEnabled = smooth0;
         }
 
-        /** Block-style Alex / Maya — same layout as the div character mockup (hair, head, shirt, arms, legs). */
+        /**
+         * Alex / Maya on canvas — same geometry as your div/CSS (80×140 box, px positions).
+         * Origin: bottom-center of that box (feet). Hair color matches CSS keyword `brown`; Maya hair uses roundRect r=10 like your CSS.
+         */
         function drawBlockyAlexMayaAvatar(ctx, kind, p, col) {
             const shirt = kind === 'maya' ? '#ec4899' : '#3b82f6';
             let skin = '#f2c49b';
             if (col && /^#[0-9a-fA-F]{6}$/i.test(String(col))) skin = String(col).toLowerCase();
-            const hair = '#5c3d2e';
-            const pants = '#3f3f46';
-            const shoe = '#1e293b';
-            const outline = '#0f172a';
+            const hairCol = 'brown';
+            const pants = '#444444';
             const bob = (p && (p._pedSpd || 0) > 0.2)
-                ? Math.sin((state.frameCount || 0) * 0.22) * 0.5
-                : Math.sin((state.frameCount || 0) * 0.12) * 0.28;
+                ? Math.sin((state.frameCount || 0) * 0.22) * 1.2
+                : Math.sin((state.frameCount || 0) * 0.12) * 0.8;
+            const S = 0.206;
             const smooth0 = ctx.imageSmoothingEnabled;
             ctx.imageSmoothingEnabled = false;
+            ctx.save();
+            ctx.translate(0, bob);
+            ctx.scale(S, S);
+            ctx.translate(-40, -140);
             const R = (x, y, w, h, fill) => {
                 ctx.fillStyle = fill;
                 ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
             };
-            ctx.save();
-            ctx.translate(0, bob);
-            if (kind === 'maya') {
-                R(-10, -38, 20, 8, hair);
+            if (kind === 'maya' && typeof ctx.roundRect === 'function') {
+                ctx.fillStyle = hairCol;
+                ctx.beginPath();
+                ctx.roundRect(18, 2, 44, 18, 10);
+                ctx.fill();
             } else {
-                R(-10, -38, 20, 7, hair);
+                R(18, 2, 44, 18, hairCol);
             }
-            R(-8, -29, 16, 14, skin);
-            ctx.strokeStyle = outline;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(-8.5, -29.5, 17, 15);
-            R(-2, -25, 1, 1, outline);
-            R(3, -25, 1, 1, outline);
-            R(-9, -16, 18, 14, shirt);
-            R(-12, -14, 4, 11, skin);
-            R(8, -14, 4, 11, skin);
-            R(-8, -3, 7, 13, pants);
-            R(1, -3, 7, 13, pants);
-            R(-8, 8, 7, 2, shoe);
-            R(1, 8, 7, 2, shoe);
+            R(20, 10, 40, 40, skin);
+            R(15, 50, 50, 50, shirt);
+            R(5, 55, 12, 40, skin);
+            R(63, 55, 12, 40, skin);
+            R(20, 100, 15, 40, pants);
+            R(45, 100, 15, 40, pants);
             ctx.imageSmoothingEnabled = smooth0;
             ctx.restore();
         }
@@ -4240,7 +4246,7 @@
                 fig.classList.add('pc-adm-show');
                 const cls = t === 'maya' ? 'maya' : 'alex';
                 const skin = c && /^#[0-9a-fA-F]{6}$/i.test(String(c)) ? String(c).toLowerCase() : '#f2c49b';
-                fig.innerHTML = '<div class="character ' + cls + '" style="--pc-adm-skin:' + skin + '"><div class="hair"></div><div class="head"></div><div class="body"></div><div class="left-arm"></div><div class="right-arm"></div><div class="left-leg"></div><div class="right-leg"></div></div>';
+                fig.innerHTML = '<div class="pc-adm-char-scale"><div class="character ' + cls + '" style="--pc-adm-skin:' + skin + '"><div class="hair"></div><div class="head"></div><div class="body"></div><div class="left-arm"></div><div class="right-arm"></div><div class="left-leg"></div><div class="right-leg"></div></div></div>';
             } else {
                 sw.classList.remove('opacity-0');
                 fig.classList.remove('pc-adm-show');
