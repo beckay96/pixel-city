@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel City — Alex &amp; Maya (div reference)</title>
+    <style>
+        /* Scoped under .pc-div-char-demo so classes can be pasted into a larger page later without breaking globals */
+        body {
+            margin: 0;
+            background: #111;
+            font-family: system-ui, sans-serif;
+            color: #e2e8f0;
+        }
+        .pc-div-char-demo {
+            padding: 24px;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        .pc-div-char-demo h1 {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #38bdf8;
+            margin: 0 0 8px;
+        }
+        .pc-div-char-demo p {
+            font-size: 11px;
+            color: #94a3b8;
+            margin: 0 0 20px;
+            line-height: 1.45;
+        }
+        .pc-div-char-demo .character {
+            position: relative;
+            width: 80px;
+            height: 140px;
+            display: inline-block;
+            margin: 20px;
+            vertical-align: top;
+            box-sizing: border-box;
+        }
+        .pc-div-char-demo .head {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #f2c49b;
+            left: 20px;
+            top: 10px;
+        }
+        .pc-div-char-demo .hair {
+            position: absolute;
+            width: 44px;
+            height: 18px;
+            background: #6b4423;
+            left: 18px;
+            top: 2px;
+        }
+        .pc-div-char-demo .body {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            left: 15px;
+            top: 50px;
+        }
+        .pc-div-char-demo .left-arm,
+        .pc-div-char-demo .right-arm {
+            position: absolute;
+            width: 12px;
+            height: 40px;
+            top: 55px;
+            background: #f2c49b;
+        }
+        .pc-div-char-demo .left-arm {
+            left: 5px;
+        }
+        .pc-div-char-demo .right-arm {
+            right: 5px;
+        }
+        .pc-div-char-demo .left-leg,
+        .pc-div-char-demo .right-leg {
+            position: absolute;
+            width: 15px;
+            height: 40px;
+            top: 100px;
+            background: #444;
+        }
+        .pc-div-char-demo .left-leg {
+            left: 20px;
+        }
+        .pc-div-char-demo .right-leg {
+            right: 20px;
+        }
+        .pc-div-char-demo .alex .body {
+            background: #3b82f6;
+        }
+        .pc-div-char-demo .maya .body {
+            background: #ec4899;
+        }
+        .pc-div-char-demo .maya .hair {
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="pc-div-char-demo">
+        <h1>Div character reference</h1>
+        <p>Optional art reference for Alex (blue) and Maya (pink). In-game avatars are still drawn on the canvas in <code>index.html</code>.</p>
+
+        <!-- Pixel City Character Element -->
+        <div class="character alex">
+            <div class="hair"></div>
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="left-arm"></div>
+            <div class="right-arm"></div>
+            <div class="left-leg"></div>
+            <div class="right-leg"></div>
+        </div>
+
+        <div class="character maya">
+            <div class="hair"></div>
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="left-arm"></div>
+            <div class="right-arm"></div>
+            <div class="left-leg"></div>
+            <div class="right-leg"></div>
+        </div>
+    </div>
+</body>
+</html>

@@ -46,6 +46,8 @@ or run **`python3 dev-server.py 8080`** with the same env vars (it serves a gene
 
 Open [http://localhost:8080](http://localhost:8080). Do not use `file://` for the game; use a local server.
 
+**Art reference:** [`alex-maya-character-demo.html`](alex-maya-character-demo.html) is a standalone page with div/CSS mockups for Alex and Maya (the game itself still draws avatars on the canvas in `index.html`).
+
 ## Deploy (GitHub Pages)
 
 The workflow runs `npm ci`, builds CSS, copies static files, then writes **`supabase-config.js`** **and embeds the same keys inside `index.html`** (marker `<!--SUPABASE_BUILD_INJECT-->`). So sign-in works even if a host only syncs **`index.html`**. No `cdn.tailwindcss.com` or `esm.sh`.
