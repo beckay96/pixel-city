@@ -61,17 +61,32 @@
             border-radius: 16px;
             padding: 15px;
             display: none;
-            width: 280px;
+            box-sizing: border-box;
+            width: min(280px, calc(100vw - 24px));
+            max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
+            max-height: min(88dvh, calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px));
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
             z-index: 100;
         }
-        /* True Split Screen Viewport Positioning */
+        /* True Split Screen Viewport Positioning (wide layouts) */
         .p0-view .modal { left: 25%; transform: translate(-50%, -50%); }
         .p1-view .modal { left: 75%; transform: translate(-50%, -50%); }
         .solo-view .modal { left: 50%; transform: translate(-50%, -50%); }
+        /* Phones / tablets: center modals — avoids dealer & store clipped off the left edge in 1P */
+        @media (max-width: 900px) {
+            #p0-modals.p0-view .modal,
+            #p1-modals.p1-view .modal {
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+            }
+        }
 
         .list-item-btn {
             background: rgba(30, 41, 59, 0.7);
@@ -1244,10 +1259,10 @@
         </div>
 
         <!-- Viewport Aware Modals for P1 -->
-        <div id="p0-modals" class="p0-view">
-            <div id="store-modal-0" class="modal interactive">
-                <h2 id="store-title-0" class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
-                <div class="job-list space-y-2 mb-4"></div>
+        <div id="p0-modals" class="p0-view solo-view">
+            <div id="store-modal-0" class="modal interactive flex flex-col min-h-0">
+                <h2 id="store-title-0" class="text-xl font-bold mb-4 text-green-400 text-center uppercase shrink-0">🛒 Store</h2>
+                <div class="job-list space-y-2 mb-4 flex-1 min-h-0 overflow-y-auto"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to select</div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
             </div>
@@ -1268,9 +1283,9 @@
                 </div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded mt-4 font-bold" onclick="window.closePlayerModal(0)">Quit Job</button>
             </div>
-            <div id="dealer-modal-0" class="modal interactive">
-                <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase">🏎️ Dealer</h2>
-                <div class="car-list space-y-2 mb-4"></div>
+            <div id="dealer-modal-0" class="modal interactive flex flex-col min-h-0">
+                <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase shrink-0">🏎️ Dealer</h2>
+                <div class="car-list space-y-2 mb-4 flex-1 min-h-0 overflow-y-auto"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to buy</div>
                 <button type="button" id="dealer-buy-friend-0" class="w-full bg-amber-800/90 hover:bg-amber-700 text-amber-100 text-xs font-bold py-2 rounded-lg mb-2 interactive border border-amber-600/60">🎁 Buy for friend (tap twice)</button>
                 <p id="dealer-friend-hint-0" class="text-[9px] text-amber-200/80 text-center mb-2 min-h-[1rem]"></p>
@@ -1315,9 +1330,9 @@
 
         <!-- Viewport Aware Modals for P2 -->
         <div id="p1-modals" class="p1-view hidden">
-            <div id="store-modal-1" class="modal interactive">
-                <h2 id="store-title-1" class="text-xl font-bold mb-4 text-green-400 text-center uppercase">🛒 Store</h2>
-                <div class="job-list space-y-2 mb-4"></div>
+            <div id="store-modal-1" class="modal interactive flex flex-col min-h-0">
+                <h2 id="store-title-1" class="text-xl font-bold mb-4 text-green-400 text-center uppercase shrink-0">🛒 Store</h2>
+                <div class="job-list space-y-2 mb-4 flex-1 min-h-0 overflow-y-auto"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to select</div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
@@ -1338,9 +1353,9 @@
                 </div>
                 <button class="bg-slate-700 text-white w-full py-2 rounded mt-4 font-bold" onclick="window.closePlayerModal(1)">Quit Job</button>
             </div>
-            <div id="dealer-modal-1" class="modal interactive">
-                <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase">🏎️ Dealer</h2>
-                <div class="car-list space-y-2 mb-4"></div>
+            <div id="dealer-modal-1" class="modal interactive flex flex-col min-h-0">
+                <h2 class="text-xl font-bold mb-4 text-blue-400 text-center uppercase shrink-0">🏎️ Dealer</h2>
+                <div class="car-list space-y-2 mb-4 flex-1 min-h-0 overflow-y-auto"></div>
                 <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to buy</div>
                 <button type="button" id="dealer-buy-friend-1" class="w-full bg-amber-800/90 hover:bg-amber-700 text-amber-100 text-xs font-bold py-2 rounded-lg mb-2 interactive border border-amber-600/60">🎁 Buy for friend (tap twice)</button>
                 <p id="dealer-friend-hint-1" class="text-[9px] text-amber-200/80 text-center mb-2 min-h-[1rem]"></p>
@@ -1479,11 +1494,11 @@
             </div>
         </div>
 
-        <div id="ben-code-modal" class="modal fixed inset-0 z-[420] items-center justify-center pointer-events-auto" style="display:none;">
-            <div class="w-full max-w-sm mx-4 bg-slate-900 border-2 border-violet-600 rounded-2xl p-5 shadow-2xl text-white text-center">
+        <div id="ben-code-modal" class="fixed inset-0 z-[420] flex items-center justify-center pointer-events-auto overflow-y-auto bg-black/80 p-3" style="display:none;">
+            <div id="ben-code-panel" class="w-full max-w-sm mx-4 my-4 max-h-[min(90dvh,560px)] overflow-y-auto bg-slate-900 border-2 border-violet-600 rounded-2xl p-5 shadow-2xl text-white text-center pointer-events-auto">
                 <h2 class="text-lg font-black text-violet-300 mb-1 uppercase">Ben&rsquo;s place</h2>
                 <p class="text-[10px] text-slate-400 mb-3">Entry code required. No hints.</p>
-                <input type="password" inputmode="numeric" pattern="[0-9]*" id="ben-code-input" class="w-full bg-slate-800 border border-violet-500/50 rounded-lg px-3 py-2 text-center text-2xl font-mono tracking-[0.4em] text-white mb-2 interactive" placeholder="&bull;&bull;&bull;&bull;" maxlength="4" autocomplete="off" />
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="ben-code-input" class="w-full bg-slate-800 border border-violet-500/50 rounded-lg px-3 py-2 text-center text-2xl font-mono tracking-[0.4em] text-white mb-2 interactive" placeholder="4 digits" maxlength="4" autocomplete="one-time-code" autocorrect="off" spellcheck="false" enterkeyhint="done" />
                 <p id="ben-code-err" class="text-xs text-red-400 min-h-[1.25rem] mb-2"></p>
                 <button type="button" id="ben-code-submit" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-2 rounded-lg mb-2">Enter</button>
                 <button type="button" id="ben-code-cancel" class="w-full bg-slate-700 text-slate-200 font-bold py-2 rounded-lg">Back</button>
@@ -4330,9 +4345,18 @@
             if (inp) inp.value = '';
             if (modal) {
                 modal.style.display = 'flex';
-                modal.classList.add('items-center', 'justify-center', 'bg-black/80', 'p-4');
             }
-            setTimeout(() => inp && inp.focus(), 50);
+            setTimeout(() => {
+                if (!inp) return;
+                try {
+                    inp.focus({ preventScroll: false });
+                } catch (_) {
+                    inp.focus();
+                }
+                try {
+                    inp.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                } catch (_) { /* */ }
+            }, 120);
         }
 
         function hideBenCodeModal() {
@@ -4520,6 +4544,7 @@
 
         function exitToLobby() {
             autosaveWorld();
+            dismissAllBuildingMenus();
             hideWastedOverlay();
             closeTutorialWelcomeOverlay();
             closeTutorialBuddyPanel();
@@ -8321,8 +8346,16 @@
             document.getElementById('victory-overlay').style.display = 'flex';
         }
 
+        function syncIngameModalLayout() {
+            const p0m = document.getElementById('p0-modals');
+            if (!p0m) return;
+            const split2pLocal = state.playerMode === 2 && state.playMode !== 'online';
+            p0m.classList.toggle('solo-view', !split2pLocal);
+        }
+
         function resize() {
             syncMobileViewport();
+            syncIngameModalLayout();
             if (!isInGame()) paintLobbyBeta3dQualityPreview();
         }
 
@@ -8498,6 +8531,7 @@
         };
 
         window.restartGame = () => {
+            dismissAllBuildingMenus();
             closeTutorialWelcomeOverlay();
             closeTutorialBuddyPanel();
             clearGpsRoute();
@@ -8640,6 +8674,17 @@
             const exitBtn = document.getElementById(`exit-rob-${pIdx}`);
             if(exitBtn) exitBtn.classList.remove('hidden');
         };
+
+        /** Close dealership / store / bank / rob / gadget / weapon / pet panels and Ben’s code overlay (DOM + state). */
+        function dismissAllBuildingMenus() {
+            hideBenCodeModal();
+            try {
+                window.closePlayerModal(0);
+                window.closePlayerModal(1);
+            } catch (_) { /* */ }
+            resetDealerFriendGiftUI(0);
+            resetDealerFriendGiftUI(1);
+        }
 
         function getStoreEarningsPerTap() {
             const baseBonus = typeof state.bestStoreBonus === 'number' ? state.bestStoreBonus : 10;
@@ -9735,6 +9780,7 @@
             closeLobbyStatsOverlay();
 
             document.getElementById('lobby-screen').style.display = 'none';
+            dismissAllBuildingMenus();
             state.isGameOver = false;
             state.gamePaused = false;
             if (!mergedSave) {
@@ -9800,6 +9846,7 @@
             if (hw1) hw1.classList.toggle('hidden', state.playerMode !== 2);
             updateLoadoutUI();
             updateHealthBars();
+            syncIngameModalLayout();
             
             if (state.deviceMode === 'phone') {
                 document.querySelectorAll('.nav-hint').forEach(el => el.style.display = 'none');
@@ -9867,6 +9914,7 @@
         }
 
         function initGameLoop() {
+            dismissAllBuildingMenus();
             generateCity();
             state.benCodeOkThisRun = false;
             state.wantedLevel = 0;
@@ -9881,6 +9929,14 @@
 
             window.onkeydown = e => {
                 if (e.repeat) return;
+                if (e.code === 'Escape') {
+                    const ben = document.getElementById('ben-code-modal');
+                    if (ben && ben.style.display === 'flex') {
+                        e.preventDefault();
+                        hideBenCodeModal();
+                        return;
+                    }
+                }
                 const t = e.target;
                 if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
                 if (e.code === 'Escape' && isInGame()) {
@@ -9900,6 +9956,18 @@
                     if (inv && !inv.classList.contains('hidden')) {
                         e.preventDefault();
                         hudOverlayClose(inv);
+                        return;
+                    }
+                    const p0e = state.players[0];
+                    const p1e = state.players[1];
+                    if (p0e && p0e.menuType) {
+                        e.preventDefault();
+                        window.closePlayerModal(0);
+                        return;
+                    }
+                    if (p1e && p1e.menuType) {
+                        e.preventDefault();
+                        window.closePlayerModal(1);
                         return;
                     }
                     e.preventDefault();
@@ -12676,6 +12744,9 @@
             });
             document.getElementById('ben-code-submit')?.addEventListener('click', tryBenCodeFromInput);
             document.getElementById('ben-code-cancel')?.addEventListener('click', () => { hideBenCodeModal(); });
+            document.getElementById('ben-code-modal')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'ben-code-modal') hideBenCodeModal();
+            });
             document.getElementById('ben-code-input')?.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); tryBenCodeFromInput(); }
             });
