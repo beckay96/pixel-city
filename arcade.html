@@ -18,8 +18,10 @@ body{font-family:'Rajdhani',sans-serif;background:radial-gradient(ellipse at cen
 .neon-cyan{text-shadow:0 0 10px #22d3ee,0 0 24px #0891b2;}
 .neon-amber{text-shadow:0 0 10px #fbbf24,0 0 24px #d97706;}
 #jumpCanvas,#chefCanvas{image-rendering:pixelated;image-rendering:crisp-edges;}
-.jump-cell{width:40px;height:40px;box-sizing:border-box;border:1px solid rgba(255,255,255,.08);cursor:crosshair;flex-shrink:0;}
-#jumpCustomGrid{display:flex;flex-wrap:wrap;width:400px;max-height:480px;overflow:auto;background:#0f0520;border:3px solid #6b21a8;}
+#jumpCanvas.jump-canvas-paint{cursor:crosshair;touch-action:none;}
+.jump-cell{width:40px;height:40px;box-sizing:border-box;border:1px solid rgba(255,255,255,.08);cursor:crosshair;flex-shrink:0;touch-action:none;}
+#jumpCustomGrid{display:flex;flex-wrap:wrap;width:400px;max-height:200px;overflow:auto;background:#0f0520;border:3px solid #6b21a8;}
+#screen-pixel-jump,#screen-burger-chef{max-height:min(78vh,640px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .screen-hidden{display:none!important;}
 #toast-container{pointer-events:none;}
 .toast-item{animation:toastIn .25s ease,toastOut .4s ease 2.2s forwards;}
@@ -89,7 +91,7 @@ body{font-family:'Rajdhani',sans-serif;background:radial-gradient(ellipse at cen
           <span id="jump-lives-label" class="text-pink-300">Lives: 3</span>
           <span id="jump-status-label" class="text-slate-400 text-xs"></span>
         </div>
-        <p class="text-[10px] text-slate-500 mt-1">← → move · Space jump · R restart · E editor tools when editing</p>
+        <p id="jump-controls-hint" class="text-[10px] text-slate-500 mt-1">← → move · Space jump · R restart</p>
       </div>
       <aside id="jump-side-panel" class="w-full lg:w-52 space-y-2 text-sm shrink-0">
         <label class="text-violet-300 text-xs font-bold">Saved levels</label>
@@ -101,6 +103,12 @@ body{font-family:'Rajdhani',sans-serif;background:radial-gradient(ellipse at cen
       </aside>
     </div>
     <div id="jump-editor-panel" class="screen-hidden mt-4">
+      <p class="text-[10px] text-cyan-300 mb-2 font-bold">Paint on the game screen above — pick a brush, then tap or drag on the canvas.</p>
+      <div class="flex flex-wrap gap-1 mb-2 items-center">
+        <button type="button" onclick="panJumpEditor(-4)" class="text-[10px] px-2 py-1 bg-slate-800 border border-slate-600 rounded">▲ Rows up</button>
+        <span id="jump-editor-row-label" class="text-[10px] text-cyan-400 font-mono px-1">Rows 93–99</span>
+        <button type="button" onclick="panJumpEditor(4)" class="text-[10px] px-2 py-1 bg-slate-800 border border-slate-600 rounded">▼ Rows down</button>
+      </div>
       <div class="flex flex-wrap gap-1 mb-2 items-center">
         <span class="text-xs text-violet-300 font-bold mr-1">Brush:</span>
         <button type="button" data-jtile="0" onclick="setJumpBrush(0)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-slate-950 border border-slate-600">Air</button>
@@ -211,6 +219,10 @@ let jumpScore = 0;
 let jumpCoins = 0;
 let jumpLives = 3;
 let jumpPainting = false;
+let jumpEditorRowStart = 0;
+let jumpEditorMouseUpBound = false;
+const JUMP_CANVAS_H = 300;
+const JUMP_EDITOR_VISIBLE_ROWS = Math.floor(JUMP_CANVAS_H / JCELL_SIZE);
 
 let chefGrills = [];
 let chefAssembly = [];
@@ -288,13 +300,25 @@ function enterPixelJump(mode) {
   if (badge) badge.textContent = jumpMode;
   const showEditor = jumpMode === 'edit' || jumpMode === 'sandbox';
   document.getElementById('jump-editor-panel').classList.toggle('screen-hidden', !showEditor);
+  const cv = document.getElementById('jumpCanvas');
+  if (cv) cv.classList.toggle('jump-canvas-paint', showEditor);
+  const hint = document.getElementById('jump-controls-hint');
+  if (hint) {
+    hint.textContent = showEditor
+      ? 'Tap or drag the canvas to paint · ▲/▼ change rows · Apply & play to test'
+      : '← → move · Space jump · R restart';
+  }
   refreshJumpLevelSelect();
   if (!jumpGrid.length) jumpGrid = makeEmptyJumpGrid();
+  jumpEditorRowStart = Math.max(0, JGRID_ROWS - JUMP_EDITOR_VISIBLE_ROWS);
+  updateJumpEditorRowLabel();
+  setJumpBrush(jumpBrush);
   buildJumpCustomGrid();
+  bindJumpCanvasEditor();
   resetJumpPlayer();
   updateJumpHud();
   startJumpLoop();
-  showToast('Pixel Jump: ' + jumpMode);
+  showToast(showEditor ? 'Pick a brush, then paint on the canvas' : ('Pixel Jump: ' + jumpMode));
 }
 
 function enterBurgerChef(mode) {
@@ -309,6 +333,7 @@ function enterBurgerChef(mode) {
   const recipePanel = document.getElementById('chef-recipe-panel');
   if (recipePanel) recipePanel.classList.toggle('screen-hidden', chefMode === 'play' && false);
   initChefGame();
+  if (chefMode === 'sandbox') initChefSandbox();
   showToast('Burger Chef: ' + chefMode);
 }
 
@@ -469,6 +494,89 @@ function setJumpBrush(t) {
   });
 }
 
+function updateJumpEditorRowLabel() {
+  const el = document.getElementById('jump-editor-row-label');
+  if (!el) return;
+  const end = Math.min(JGRID_ROWS - 1, jumpEditorRowStart + JUMP_EDITOR_VISIBLE_ROWS - 1);
+  el.textContent = 'Rows ' + jumpEditorRowStart + '–' + end;
+}
+
+function panJumpEditor(rowDelta) {
+  if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+  jumpEditorRowStart += rowDelta;
+  const maxStart = Math.max(0, JGRID_ROWS - JUMP_EDITOR_VISIBLE_ROWS);
+  if (jumpEditorRowStart < 0) jumpEditorRowStart = 0;
+  if (jumpEditorRowStart > maxStart) jumpEditorRowStart = maxStart;
+  updateJumpEditorRowLabel();
+  if (jumpMode === 'edit' || jumpMode === 'sandbox') jumpCamY = jumpEditorRowStart * JCELL_SIZE;
+}
+
+function paintJumpCellAt(rowWorld, col) {
+  if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+  if (rowWorld < 0 || rowWorld >= JGRID_ROWS || col < 0 || col >= JGRID_COLS) return;
+  jumpGrid[rowWorld][col] = jumpBrush;
+  syncJumpGridCellEl(rowWorld, col);
+}
+
+function syncJumpGridCellEl(rowWorld, col) {
+  const wrap = document.getElementById('jumpCustomGrid');
+  if (!wrap) return;
+  const cell = wrap.querySelector('[data-r="' + rowWorld + '"][data-c="' + col + '"]');
+  if (cell) paintJumpCellEl(cell, jumpGrid[rowWorld][col]);
+}
+
+function canvasEventToGrid(e, cv) {
+  const rect = cv.getBoundingClientRect();
+  const touch = e.touches && e.touches[0];
+  const clientX = touch ? touch.clientX : e.clientX;
+  const clientY = touch ? touch.clientY : e.clientY;
+  if (clientX == null || clientY == null) return null;
+  const x = (clientX - rect.left) * (cv.width / rect.width);
+  const y = (clientY - rect.top) * (cv.height / rect.height);
+  const col = Math.floor(x / JCELL_SIZE);
+  const rowLocal = Math.floor(y / JCELL_SIZE);
+  const rowWorld = jumpEditorRowStart + rowLocal;
+  if (col < 0 || col >= JGRID_COLS || rowLocal < 0 || rowLocal >= JUMP_EDITOR_VISIBLE_ROWS) return null;
+  return { rowWorld, col };
+}
+
+function bindJumpCanvasEditor() {
+  const cv = document.getElementById('jumpCanvas');
+  if (!cv || cv.dataset.editorBound === '1') return;
+  cv.dataset.editorBound = '1';
+  const paintFromEvent = (e) => {
+    if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+    const hit = canvasEventToGrid(e, cv);
+    if (!hit) return;
+    paintJumpCellAt(hit.rowWorld, hit.col);
+  };
+  cv.addEventListener('mousedown', e => {
+    if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+    e.preventDefault();
+    jumpPainting = true;
+    paintFromEvent(e);
+  });
+  cv.addEventListener('mousemove', e => {
+    if (jumpPainting) paintFromEvent(e);
+  });
+  cv.addEventListener('touchstart', e => {
+    if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+    e.preventDefault();
+    jumpPainting = true;
+    paintFromEvent(e);
+  }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    if (!jumpPainting || (jumpMode !== 'edit' && jumpMode !== 'sandbox')) return;
+    e.preventDefault();
+    paintFromEvent(e);
+  }, { passive: false });
+  cv.addEventListener('touchend', () => { jumpPainting = false; });
+  if (!jumpEditorMouseUpBound) {
+    jumpEditorMouseUpBound = true;
+    document.addEventListener('mouseup', () => { jumpPainting = false; });
+  }
+}
+
 function buildJumpCustomGrid() {
   const wrap = document.getElementById('jumpCustomGrid');
   if (!wrap) return;
@@ -483,16 +591,16 @@ function buildJumpCustomGrid() {
       paintJumpCellEl(cell, jumpGrid[r][c]);
       const paint = () => {
         if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
-        jumpGrid[r][c] = jumpBrush;
-        paintJumpCellEl(cell, jumpBrush);
+        paintJumpCellAt(r, c);
       };
       cell.addEventListener('mousedown', e => { e.preventDefault(); jumpPainting = true; paint(); });
       cell.addEventListener('mouseenter', () => { if (jumpPainting) paint(); });
-      cell.addEventListener('touchstart', e => { e.preventDefault(); paint(); }, { passive: false });
+      cell.addEventListener('touchstart', e => { e.preventDefault(); jumpPainting = true; paint(); }, { passive: false });
+      cell.addEventListener('touchmove', e => { if (jumpPainting) { e.preventDefault(); paint(); } }, { passive: false });
+      cell.addEventListener('touchend', () => { jumpPainting = false; });
       wrap.appendChild(cell);
     }
   }
-  document.addEventListener('mouseup', () => { jumpPainting = false; });
 }
 
 function paintJumpCellEl(el, t) {
@@ -575,7 +683,7 @@ function tryJumpAction() {
 
 function updateJumpPhysics() {
   if (!jumpPlayer || jumpPlayer.dead || jumpPlayer.won) return;
-  if (jumpMode === 'edit') return;
+  if (jumpMode === 'edit' || jumpMode === 'sandbox') return;
   const p = jumpPlayer;
   const spd = jumpMode === 'sandbox' ? 5.5 : 4.2;
   if (jumpKeys['ArrowLeft'] || jumpKeys['KeyA']) p.vx = -spd;
@@ -665,13 +773,15 @@ function drawJumpCanvas() {
   grad.addColorStop(1, '#1e3a5f');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
-  const y0 = Math.floor(jumpCamY / JCELL_SIZE);
-  const y1 = y0 + Math.ceil(H / JCELL_SIZE) + 2;
+  const editing = jumpMode === 'edit' || jumpMode === 'sandbox';
+  const viewY = editing ? jumpEditorRowStart * JCELL_SIZE : jumpCamY;
+  const y0 = editing ? jumpEditorRowStart : Math.floor(jumpCamY / JCELL_SIZE);
+  const y1 = editing ? (jumpEditorRowStart + JUMP_EDITOR_VISIBLE_ROWS) : (y0 + Math.ceil(H / JCELL_SIZE) + 2);
   for (let r = y0; r <= y1 && r < JGRID_ROWS; r++) {
     for (let c = 0; c < JGRID_COLS; c++) {
       const t = jumpGrid[r][c];
       const px = c * JCELL_SIZE;
-      const py = r * JCELL_SIZE - jumpCamY;
+      const py = r * JCELL_SIZE - viewY;
       if (py < -JCELL_SIZE || py > H + JCELL_SIZE) continue;
       if (t === JTILE.BLOCK) {
         ctx.fillStyle = '#78716c';
@@ -711,13 +821,29 @@ function drawJumpCanvas() {
       }
     }
   }
-  if (jumpPlayer) {
+  if (jumpPlayer && !editing) {
     const py = jumpPlayer.y - jumpCamY;
     ctx.fillStyle = jumpPlayer.dead ? '#64748b' : '#f472b6';
     ctx.fillRect(jumpPlayer.x, py, jumpPlayer.w, jumpPlayer.h);
     ctx.fillStyle = '#fbcfe8';
     ctx.fillRect(jumpPlayer.x + 6, py + 4, 8, 8);
     ctx.fillRect(jumpPlayer.x + 14, py + 4, 8, 8);
+  }
+  if (editing) {
+    ctx.strokeStyle = 'rgba(34,211,238,0.25)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += JCELL_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += JCELL_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
   }
 }
 
@@ -1065,6 +1191,7 @@ function bindJumpTouchControls() {
   cv.dataset.touchBound = '1';
   let touchLeft = false, touchRight = false;
   cv.addEventListener('touchstart', e => {
+    if (jumpMode === 'edit' || jumpMode === 'sandbox') return;
     const rect = cv.getBoundingClientRect();
     const x = e.touches[0].clientX - rect.left;
     if (x < rect.width / 2) touchLeft = true;
@@ -1074,6 +1201,9 @@ function bindJumpTouchControls() {
   cv.addEventListener('touchend', () => { touchLeft = touchRight = false; });
   setInterval(() => {
     if (document.getElementById('screen-pixel-jump').classList.contains('screen-hidden')) return;
+    if (jumpMode === 'edit' || jumpMode === 'sandbox') {
+      touchLeft = touchRight = false;
+    }
     jumpKeys['ArrowLeft'] = touchLeft;
     jumpKeys['ArrowRight'] = touchRight;
   }, 50);
@@ -1147,6 +1277,7 @@ window.onload = function () {
   if (typeof _origOnload === 'function') _origOnload();
   injectJumpPackButtons();
   bindJumpTouchControls();
+  bindJumpCanvasEditor();
   startJumpAutosave();
   if (chefMode === 'sandbox') chefAnimateCanvas();
 };
