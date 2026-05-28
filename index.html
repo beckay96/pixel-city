@@ -1500,6 +1500,10 @@
                         <span class="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center text-xl">🛒</span>
                         <span class="text-[9px] text-slate-300 font-bold">Store</span>
                     </button>
+                    <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="arcade">
+                        <span class="w-12 h-12 rounded-2xl bg-fuchsia-600 flex items-center justify-center text-xl">🕹️</span>
+                        <span class="text-[9px] text-slate-300 font-bold">Arcade</span>
+                    </button>
                     <button type="button" class="phone-app-btn flex flex-col items-center gap-1 interactive" data-phone-app="vidking">
                         <span class="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-xl">▶</span>
                         <span class="text-[9px] text-slate-300 font-bold">VidKing</span>
@@ -1529,7 +1533,7 @@
                         <span id="phone-app-community-label" class="text-[9px] text-slate-300 font-bold">Community</span>
                     </button>
                 </div>
-                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Web opens in a new tab. GPS draws a route on the world (Player 1) after you close the phone.</p>
+                <p class="text-[9px] text-slate-600 px-4 pb-4 text-center">Arcade runs inside the phone. Web opens in a new tab. GPS draws a route on the world (Player 1) after you close the phone.</p>
             </div>
             <div id="phone-view-creator" class="hidden flex flex-col flex-1 min-h-0 bg-slate-950">
                 <div class="flex items-center justify-between gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
@@ -1586,6 +1590,17 @@
                         <div class="font-bold text-white">Pixel Jump</div>
                         <div class="text-[10px] text-slate-400">Tap to hop obstacles</div>
                     </button>
+                </div>
+            </div>
+            <div id="phone-view-arcade" class="hidden flex flex-col bg-black h-full min-h-0">
+                <div class="flex items-center gap-2 p-2 border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button type="button" class="phone-back text-cyan-400 text-sm font-bold interactive px-2">← Home</button>
+                    <span class="text-white font-bold text-sm">Arcade</span>
+                </div>
+                <div class="flex-1 flex flex-col min-h-0 p-2">
+                    <div class="phone-iframe-wrap flex-1 rounded-lg overflow-hidden">
+                        <iframe id="arcade-frame" title="Arcade Hub" src="about:blank" allow="clipboard-write"></iframe>
+                    </div>
                 </div>
             </div>
             <div id="phone-view-vidking" class="hidden flex flex-col bg-black h-full min-h-0">
@@ -10502,19 +10517,30 @@
         }
 
         function phoneShowView(name) {
-            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-gps', 'phone-view-game', 'phone-view-creator', 'phone-view-modmods', 'phone-view-community'].forEach(id => {
+            ['phone-view-home', 'phone-view-messages', 'phone-view-store', 'phone-view-arcade', 'phone-view-vidking', 'phone-view-calc', 'phone-view-web', 'phone-view-gps', 'phone-view-game', 'phone-view-creator', 'phone-view-modmods', 'phone-view-community'].forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
                 const show = id === `phone-view-${name}`;
                 el.classList.toggle('hidden', !show);
-                el.classList.toggle('flex', show && (id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-gps' || id === 'phone-view-game' || id === 'phone-view-creator' || id === 'phone-view-modmods' || id === 'phone-view-community'));
+                el.classList.toggle('flex', show && (id === 'phone-view-arcade' || id === 'phone-view-vidking' || id === 'phone-view-web' || id === 'phone-view-gps' || id === 'phone-view-game' || id === 'phone-view-creator' || id === 'phone-view-modmods' || id === 'phone-view-community'));
             });
         }
 
         function phoneGoHome() {
             stopMiniGames();
             closeDeepCreatorModeOverlay();
+            const arcadeFrame = document.getElementById('arcade-frame');
+            if (arcadeFrame) arcadeFrame.src = 'about:blank';
             phoneShowView('home');
+        }
+
+        function initArcadeFrame() {
+            const frame = document.getElementById('arcade-frame');
+            if (!frame) return;
+            if (frame.dataset.arcadeLoaded === '1') return;
+            frame.dataset.arcadeLoaded = '1';
+            const base = new URL('.', window.location.href).href;
+            frame.src = new URL('arcade.html', base).href;
         }
 
         function stopMiniGames() {
@@ -11093,7 +11119,10 @@
                         phoneShowView('messages');
                         subscribePhoneChat();
                     } else if (app === 'store') phoneShowView('store');
-                    else if (app === 'vidking') {
+                    else if (app === 'arcade') {
+                        phoneShowView('arcade');
+                        initArcadeFrame();
+                    } else if (app === 'vidking') {
                         phoneShowView('vidking');
                         initVidKing();
                     } else if (app === 'calc') {
