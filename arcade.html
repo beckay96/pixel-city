@@ -686,8 +686,8 @@ function updateJumpPhysics() {
   if (jumpMode === 'edit' || jumpMode === 'sandbox') return;
   const p = jumpPlayer;
   const spd = jumpMode === 'sandbox' ? 5.5 : 4.2;
-  if (jumpKeys['ArrowLeft'] || jumpKeys['KeyA']) p.vx = -spd;
-  else if (jumpKeys['ArrowRight'] || jumpKeys['KeyD']) p.vx = spd;
+  if (jumpKeys['ArrowLeft'] || jumpKeys['KeyA']) p.vx = spd;
+  else if (jumpKeys['ArrowRight'] || jumpKeys['KeyD']) p.vx = -spd;
   else p.vx *= 0.72;
   p.vy += 0.58;
   if (p.vy > 16) p.vy = 16;
@@ -1194,8 +1194,8 @@ function bindJumpTouchControls() {
     if (jumpMode === 'edit' || jumpMode === 'sandbox') return;
     const rect = cv.getBoundingClientRect();
     const x = e.touches[0].clientX - rect.left;
-    if (x < rect.width / 2) touchLeft = true;
-    else touchRight = true;
+    if (x < rect.width / 2) touchRight = true;
+    else touchLeft = true;
     if (e.touches.length > 1 || x > rect.width * 0.7) tryJumpAction();
   }, { passive: true });
   cv.addEventListener('touchend', () => { touchLeft = touchRight = false; });
