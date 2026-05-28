@@ -1739,6 +1739,7 @@
         <p id="race-hud-title" class="text-center font-black text-lime-300 text-sm uppercase tracking-widest">Race</p>
         <p id="race-hud-mode" class="text-center text-[10px] text-slate-400 mb-2"></p>
         <ol id="race-hud-board" class="text-[11px] space-y-1 max-h-[120px] overflow-y-auto font-mono"></ol>
+        <p id="race-hud-timer" class="hidden text-center font-black text-amber-300 text-lg tabular-nums mt-2">1:00</p>
         <p id="race-hud-hint" class="text-[9px] text-slate-500 text-center mt-2">Hold W or ↑ to accelerate · avoid orange cones (speed race)</p>
     </div>
 
@@ -1820,7 +1821,7 @@
                 </div>
                 <p id="owner-event-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
                 <p class="text-[10px] font-black text-lime-300 uppercase tracking-widest mb-2 mt-4">Session racing (your room)</p>
-                <p class="text-[9px] text-slate-500 mb-2">Start a race for everyone in your multiplayer session. Hold <span class="text-slate-300">W / ↑</span> to drive. Fair mode gives everyone the same car speed; Speed mode uses each player&apos;s best purchased car. Obstacles appear in Speed mode only. Solo room? You race an NPC.</p>
+                <p class="text-[9px] text-slate-500 mb-2">Same city map — only a start/finish line is drawn on the road. When everyone crosses the finish, you get <span class="text-slate-300">1:00</span> on the clock (map back to normal, line stays). Fair = equal speed; Speed = your car (Subaru, 4WD, etc.). Solo room races an NPC.</p>
                 <div class="grid grid-cols-2 gap-2 mb-1">
                     <button type="button" id="owner-event-race-speed" class="bg-lime-700 hover:bg-lime-600 text-white py-2 rounded-lg font-bold text-xs">Race · your cars</button>
                     <button type="button" id="owner-event-race-fair" class="bg-emerald-800 hover:bg-emerald-700 text-white py-2 rounded-lg font-bold text-xs">Fair race · equal speed</button>
@@ -1877,6 +1878,7 @@
         const RACE_NPC_TOP_SPEED = 42;
         const RACE_LANE_SPACING = 58;
         const RACE_SYNC_MS = 180;
+        const RACE_COOLDOWN_MS = 60 * 1000;
         let lastRaceSyncBroadcast = 0;
         const VAULT_ARREST_JAIL_FRAMES = 15 * JAIL_FRAMES_PER_SEC;
         /** Persisted when toggled via ?schoolSafe= / ?school= or build flag; read on load. */
@@ -2223,6 +2225,7 @@
             { id: 'porsche', name: 'Porsche 911',       price: 10000,   topSpeed: 55,  accel: 2.0,  color: '#475569', tier: 3, storeBonus: 75  },
             { id: 'sportcoupe', name: 'Sports Coupe',   price: 50000,   topSpeed: 92,  accel: 3.1,  color: '#dc2626', tier: 3.5, storeBonus: 88 },
             { id: 'subaru',  name: 'Subaru',          price: 12000,   topSpeed: 48,  accel: 1.8,  color: '#1e3a5f', tier: 2.5, storeBonus: 65 },
+            { id: 'fourwd',  name: 'Four-Wheel Drive', price: 15000, topSpeed: 52,  accel: 0.24, color: '#475569', tier: 2.6, storeBonus: 68 },
             { id: 'lambo',   name: 'Aventador LAMBO',   price: 100000,  topSpeed: 140, accel: 4.0,  color: '#fbbf24', tier: 4, storeBonus: 100 },
             { id: 'bugatti', name: 'Bugatti Chiron',    price: 350000,  topSpeed: 160, accel: 4.5,  color: '#6366f1', tier: 5, storeBonus: 150 },
             { id: 'ferrari', name: 'Ferrari LaFerrari', price: 750000,  topSpeed: 175, accel: 5.0,  color: '#ef4444', tier: 6, storeBonus: 200 },
@@ -4069,6 +4072,53 @@
             return getBestOwnedVehicleType();
         }
 
+        function getRaceCarTypeForPlayer(pIdx, mode) {
+            if (mode === 'fair') return getRaceCarTypeForMode('fair');
+            const p = state.players[pIdx];
+            if (p && p.inVehicle && p.inVehicle.type && !p.inVehicle._raceOnly) {
+                return JSON.parse(JSON.stringify(p.inVehicle.type));
+            }
+            return getBestOwnedVehicleType();
+        }
+
+        function savePreRaceSnapshot() {
+            if (!state.race) return;
+            state.race.preRace = {
+                vehicles: serializeVehiclesForSave(),
+                players: state.players.map(p => {
+                    if (!p) return null;
+                    return {
+                        x: p.x,
+                        y: p.y,
+                        angle: p.angle || 0,
+                        inVehicleId: p.inVehicle && !p.inVehicle._raceOnly ? p.inVehicle.id : null
+                    };
+                })
+            };
+        }
+
+        function restorePreRaceWorld() {
+            const snap = state.race && state.race.preRace;
+            if (!snap) return;
+            state.vehicles = state.vehicles.filter(v => !v._raceOnly);
+            if (snap.vehicles && snap.vehicles.length) hydrateVehiclesFromSave(snap.vehicles);
+            (snap.players || []).forEach((row, i) => {
+                const p = state.players[i];
+                if (!p || !row) return;
+                p.x = row.x;
+                p.y = row.y;
+                p.angle = row.angle;
+                p.inVehicle = null;
+                if (row.inVehicleId != null) {
+                    const v = state.vehicles.find(veh => veh.id === row.inVehicleId);
+                    if (v) {
+                        v.occupied = true;
+                        p.inVehicle = v;
+                    }
+                }
+            });
+        }
+
         function buildRaceObstacles(seed) {
             const obstacles = [];
             let s = (seed >>> 0) || 1;
@@ -4148,7 +4198,8 @@
             let lane = 0;
             const entries = {};
             slots.forEach(s => {
-                const carType = getRaceCarTypeForMode(mode);
+                const pIdx = s.uid === state.supabaseUserId ? 0 : -1;
+                const carType = pIdx === 0 ? getRaceCarTypeForPlayer(0, mode) : getRaceCarTypeForMode(mode);
                 entries[s.uid] = {
                     progress: 0,
                     finished: false,
@@ -4174,6 +4225,8 @@
             }
             state.race = {
                 active: true,
+                closingPhase: false,
+                cooldownEndAt: 0,
                 mode: fair ? 'fair' : 'speed',
                 trackY: RACE_TRACK_Y,
                 startX: RACE_START_X,
@@ -4184,14 +4237,16 @@
                 npcEnabled,
                 startedFrame: state.frameCount,
                 finishOrder: [],
-                resultsShown: false
+                resultsShown: false,
+                preRace: null
             };
+            savePreRaceSnapshot();
             state.wantedLevel = 0;
             state.police = [];
             state.policeDelay = 0;
-            ensureRaceVehicleForPlayer(0, getRaceCarTypeForMode(mode), 0);
+            ensureRaceVehicleForPlayer(0, getRaceCarTypeForPlayer(0, mode), 0);
             if (state.playerMode === 2 && state.players[1]) {
-                ensureRaceVehicleForPlayer(1, getRaceCarTypeForMode(mode), 1);
+                ensureRaceVehicleForPlayer(1, getRaceCarTypeForPlayer(1, mode), 1);
             }
             updateRaceHud();
             const hud = document.getElementById('race-hud-overlay');
@@ -4204,8 +4259,9 @@
 
         function stopRaceEvent(opts) {
             const o = opts || {};
-            if (!state.race || !state.race.active) return false;
-            state.race.active = false;
+            if (!state.race) return false;
+            if (!state.race.active && !state.race.closingPhase) return false;
+            restorePreRaceWorld();
             state.vehicles = state.vehicles.filter(v => !v._raceOnly);
             const p0 = state.players[0];
             if (p0 && p0.inVehicle && p0.inVehicle._raceOnly) p0.inVehicle = null;
@@ -4237,12 +4293,38 @@
                 showMessage(`+$${prize.toLocaleString()} race prize`);
             }
             updateRaceHud();
-            const humanEntries = Object.keys(state.race.entries).filter(k => !state.race.entries[k].isNpc);
-            const allDone = humanEntries.every(k => state.race.entries[k].finished);
-            const npcDone = !state.race.npcEnabled || state.race.entries.npc_racer?.finished;
-            if (allDone && npcDone) {
-                setTimeout(() => stopRaceEvent({ quiet: false }), 3500);
+            checkRaceEveryoneFinished();
+        }
+
+        function checkRaceEveryoneFinished() {
+            if (!state.race || !state.race.active || state.race.closingPhase) return;
+            const allDone = Object.keys(state.race.entries).every(uid => state.race.entries[uid].finished);
+            if (!allDone) return;
+            if (state.isOnlineHost || state.playMode !== 'online') {
+                const endAt = performance.now() + RACE_COOLDOWN_MS;
+                beginRaceClosingPhase(endAt);
+                if (state.playMode === 'online' && onlineRealtimeReady) {
+                    void broadcastAdminCmd({ kind: 'race_cooldown', endAt });
+                }
             }
+        }
+
+        function beginRaceClosingPhase(endAt) {
+            if (!state.race || state.race.closingPhase) return;
+            state.race.active = false;
+            state.race.closingPhase = true;
+            state.race.cooldownEndAt = typeof endAt === 'number' ? endAt : (performance.now() + RACE_COOLDOWN_MS);
+            restorePreRaceWorld();
+            updateRaceHud();
+            showMessage('Everyone finished! Map back to normal — finish line stays for 1:00.');
+            showServerNoticeOverlay('🏁 All racers finished! 1 minute until race closes.', { from: 'owner', labelKind: 'dev' });
+        }
+
+        function updateRaceCooldown() {
+            if (!state.race || !state.race.closingPhase) return;
+            const leftMs = Math.max(0, state.race.cooldownEndAt - performance.now());
+            updateRaceHud();
+            if (leftMs <= 0) stopRaceEvent({ quiet: false });
         }
 
         function checkRaceObstacleHit(progress, lane) {
@@ -4258,7 +4340,7 @@
         }
 
         function updateRaceMovement() {
-            if (!state.race || !state.race.active || state.gamePaused) return;
+            if (!state.race || !state.race.active || state.race.closingPhase || state.gamePaused) return;
             const p = state.players[0];
             if (!p || p.dead || p.downed || state.isJailed) return;
             const myUid = state.supabaseUserId;
@@ -4336,12 +4418,28 @@
             const modeEl = document.getElementById('race-hud-mode');
             const board = document.getElementById('race-hud-board');
             const hint = document.getElementById('race-hud-hint');
-            if (!state.race || !state.race.active) return;
-            if (title) title.textContent = state.race.mode === 'fair' ? '🏁 Fair Race' : '🏁 Speed Race';
-            if (modeEl) modeEl.textContent = state.race.mode === 'fair' ? 'Everyone: same top speed' : 'Your best car vs the track';
-            if (hint) hint.textContent = state.race.obstacles.length
-                ? 'Hold W or ↑ · dodge orange cones'
-                : 'Hold W or ↑ · no obstacles in fair mode';
+            const timerEl = document.getElementById('race-hud-timer');
+            if (!state.race || (!state.race.active && !state.race.closingPhase)) return;
+            if (state.race.closingPhase) {
+                const leftMs = Math.max(0, state.race.cooldownEndAt - performance.now());
+                const sec = Math.ceil(leftMs / 1000);
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                if (title) title.textContent = '🏁 Race complete';
+                if (modeEl) modeEl.textContent = 'City map restored · finish line still visible';
+                if (timerEl) {
+                    timerEl.classList.remove('hidden');
+                    timerEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+                }
+                if (hint) hint.textContent = 'Drive anywhere until the timer ends';
+            } else {
+                if (timerEl) timerEl.classList.add('hidden');
+                if (title) title.textContent = state.race.mode === 'fair' ? '🏁 Fair Race' : '🏁 Speed Race';
+                if (modeEl) modeEl.textContent = state.race.mode === 'fair' ? 'Everyone: same top speed' : 'Your car speed vs the track';
+                if (hint) hint.textContent = state.race.obstacles.length
+                    ? 'Hold W or ↑ · dodge orange cones on the road'
+                    : 'Hold W or ↑ · same map, finish line ahead';
+            }
             if (!board) return;
             const rows = Object.keys(state.race.entries).map(uid => {
                 const e = state.race.entries[uid];
@@ -4361,31 +4459,37 @@
         }
 
         function drawRaceTrackDecor(c) {
-            if (!state.race || !state.race.active) return;
+            if (!state.race || (!state.race.active && !state.race.closingPhase)) return;
             c.save();
-            const z = 1;
             c.strokeStyle = '#fef08a';
-            c.lineWidth = 6;
-            c.setLineDash([18, 14]);
+            c.lineWidth = 5;
+            c.setLineDash([16, 12]);
             c.beginPath();
-            c.moveTo(RACE_START_X, RACE_TRACK_Y - 90);
-            c.lineTo(RACE_START_X, RACE_TRACK_Y + 90);
+            c.moveTo(RACE_START_X, RACE_TRACK_Y - 72);
+            c.lineTo(RACE_START_X, RACE_TRACK_Y + 72);
             c.stroke();
-            c.fillStyle = 'rgba(254,240,138,0.85)';
-            c.font = 'bold 14px Rajdhani, sans-serif';
-            c.fillText('START', RACE_START_X - 22, RACE_TRACK_Y - 100);
+            c.fillStyle = 'rgba(254,240,138,0.9)';
+            c.font = 'bold 13px Rajdhani, sans-serif';
+            c.fillText('START', RACE_START_X - 20, RACE_TRACK_Y - 82);
+            const fx = RACE_FINISH_X;
+            const fy = RACE_TRACK_Y;
+            const sq = 10;
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 2; col++) {
+                    c.fillStyle = (row + col) % 2 === 0 ? '#f8fafc' : '#0f172a';
+                    c.fillRect(fx - sq + col * sq, fy - 36 + row * sq, sq, sq);
+                }
+            }
             c.strokeStyle = '#4ade80';
-            c.beginPath();
-            c.moveTo(RACE_FINISH_X, RACE_TRACK_Y - 90);
-            c.lineTo(RACE_FINISH_X, RACE_TRACK_Y + 90);
-            c.stroke();
-            c.fillStyle = 'rgba(74,222,128,0.9)';
-            c.fillText('FINISH', RACE_FINISH_X - 28, RACE_TRACK_Y - 100);
+            c.lineWidth = 5;
             c.setLineDash([]);
-            c.strokeStyle = 'rgba(34,211,238,0.35)';
-            c.lineWidth = 3;
-            c.strokeRect(RACE_START_X, RACE_TRACK_Y - 70, RACE_TRACK_LENGTH, 140);
-            state.race.obstacles.forEach(ob => {
+            c.beginPath();
+            c.moveTo(fx, fy - 72);
+            c.lineTo(fx, fy + 72);
+            c.stroke();
+            c.fillStyle = 'rgba(74,222,128,0.95)';
+            c.fillText('FINISH', fx - 26, fy - 82);
+            if (state.race.active) state.race.obstacles.forEach(ob => {
                 const ox = RACE_START_X + ob.rel * RACE_TRACK_LENGTH;
                 const oy = raceLaneY(ob.lane);
                 c.fillStyle = '#ea580c';
@@ -5854,6 +5958,10 @@
                 if (payload.kind === 'race_stop') {
                     stopRaceEvent({ fromNetwork: true, quiet: false });
                     showMessage('Race ended by host.');
+                    return;
+                }
+                if (payload.kind === 'race_cooldown' && typeof payload.endAt === 'number') {
+                    beginRaceClosingPhase(payload.endAt);
                     return;
                 }
                 if (payload.kind === 'race_sync' && payload.uid && payload.uid !== myId) {
@@ -10005,6 +10113,7 @@
             processBleedAndDowned();
             processGlitchStormAndMobs();
             if (state.race && state.race.active) updateRaceMovement();
+            if (state.race && state.race.closingPhase) updateRaceCooldown();
             
             let customSpeed = 4;
             if (canUseGodPanelInGame()) {
@@ -10142,7 +10251,7 @@
                 const isThisPlayerSprinting = isSprinting && idx === 0;
                 const spd = (p.loadout.gadgetDashUntil > state.frameCount) ? pedSpeed * 1.12 : isThisPlayerSprinting ? pedSpeed * SPRINT_MULTIPLIER : pedSpeed;
                 if (p.inVehicle) {
-                    if (state.race && state.race.active) {
+                    if (state.race && state.race.active && !state.race.closingPhase) {
                         p._pedSpd = 0;
                         p._pedSprinting = false;
                         return;
