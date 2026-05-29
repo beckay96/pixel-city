@@ -549,27 +549,13 @@
             pointer-events: auto;
         }
         #owner-dashboard-overlay.open { display: flex; }
-        .pixel-bot-face {
-            display: grid;
-            grid-template-columns: repeat(6, 10px);
-            grid-template-rows: repeat(6, 10px);
-            gap: 0;
-            image-rendering: pixelated;
+        .byte-avatar-static {
+            width: 52px;
+            height: 52px;
+            flex-shrink: 0;
+            pointer-events: none;
+            cursor: default;
         }
-        .pixel-bot-face span {
-            width: 10px;
-            height: 10px;
-            background: #1e293b;
-            display: block;
-        }
-        .pixel-bot-face span.p-on { background: #fde047; }
-        .pixel-bot-face span.p-skin { background: #fcd34d; }
-        .pixel-bot-face span.p-blush { background: #f472b6; }
-        @keyframes pixel-blink {
-            0%, 92%, 100% { opacity: 1; }
-            94%, 98% { opacity: 0.15; }
-        }
-        .pixel-bot-face .p-eye { animation: pixel-blink 4s infinite; }
         #smartphone-overlay {
             position: fixed;
             inset: 0;
@@ -1356,8 +1342,8 @@
                         </span>
                     </div>
                     <div>
-                        <h2 id="tutorial-welcome-title" class="text-sky-300 font-black text-xs uppercase tracking-widest mb-1">Guide bot</h2>
-                        <p class="text-sm text-slate-200 leading-snug">Hi! I'm here to help. Want a quick tutorial tour of the controls and goals?</p>
+                        <h2 id="tutorial-welcome-title" class="text-sky-300 font-black text-xs uppercase tracking-widest mb-1">Byte</h2>
+                        <p class="text-sm text-slate-200 leading-snug">Hi! I'm Byte, your guide. Want a quick tour of the controls and goals?</p>
                     </div>
                 </div>
                 <div class="flex flex-col gap-2">
@@ -1369,7 +1355,7 @@
         </div>
 
         <div id="tutorial-buddy-dock" aria-live="polite">
-            <button type="button" id="tutorial-buddy-toggle" class="tutorial-buddy-toggle-btn interactive" title="Guide bot — tips &amp; help" aria-expanded="false" aria-controls="tutorial-buddy-panel">
+            <button type="button" id="tutorial-buddy-toggle" class="tutorial-buddy-toggle-btn interactive" title="Byte — tips &amp; help" aria-expanded="false" aria-controls="tutorial-buddy-panel">
                 <span class="tutorial-buddy-antenna" aria-hidden="true"></span>
                 <span class="tutorial-buddy-face">
                     <span class="tutorial-buddy-eyes" aria-hidden="true"><span class="tutorial-buddy-eye"></span><span class="tutorial-buddy-eye"></span></span>
@@ -1377,8 +1363,8 @@
                 </span>
             </button>
             <div id="tutorial-buddy-panel" class="hidden">
-                <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest mb-1">Guide bot</p>
-                <p id="tutorial-buddy-msg" class="text-[11px] text-slate-200 leading-snug mb-3 min-h-[3rem]">Pick a topic — I'm pre-programmed with answers!</p>
+                <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest mb-1">Byte</p>
+                <p id="tutorial-buddy-msg" class="text-[11px] text-slate-200 leading-snug mb-3 min-h-[3rem]">Pick a topic — Byte has answers!</p>
                 <label for="tutorial-buddy-topic" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Ask about…</label>
                 <select id="tutorial-buddy-topic" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-2 px-2 mb-2 interactive"></select>
                 <button type="button" id="tutorial-buddy-tell" class="w-full bg-sky-600 hover:bg-sky-500 text-white text-xs font-black py-2 rounded-lg interactive mb-2">Tell me</button>
@@ -1790,17 +1776,17 @@
             <button type="button" id="owner-dashboard-refresh" class="w-full bg-violet-600 hover:bg-violet-500 py-2 rounded-lg font-bold text-sm mb-6">Refresh analytics</button>
 
             <div class="border-t border-slate-700 pt-4 flex gap-3 items-start">
-                <div class="pixel-bot-face shrink-0" aria-hidden="true">
-                    <span></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span></span>
-                    <span class="p-skin"></span><span class="p-skin"></span><span class="p-eye p-on"></span><span class="p-skin"></span><span class="p-eye p-on"></span><span class="p-skin"></span>
-                    <span class="p-skin"></span><span class="p-blush"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-blush"></span>
-                    <span class="p-skin"></span><span class="p-skin"></span><span></span><span class="p-on"></span><span></span><span class="p-skin"></span>
-                    <span></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span class="p-skin"></span><span></span>
-                    <span></span><span></span><span class="p-skin"></span><span class="p-skin"></span><span></span><span></span>
+                <div class="tutorial-buddy-toggle-btn byte-avatar-static" aria-hidden="true">
+                    <span class="tutorial-buddy-antenna"></span>
+                    <span class="tutorial-buddy-face">
+                        <span class="tutorial-buddy-eyes"><span class="tutorial-buddy-eye"></span><span class="tutorial-buddy-eye"></span></span>
+                        <span class="tutorial-buddy-mouth"></span>
+                    </span>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-1">Assistant</p>
-                    <ul id="dash-assistant-tips" class="text-[11px] text-slate-300 space-y-2 leading-snug list-disc pl-4"></ul>
+                    <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest mb-1">Byte</p>
+                    <p class="text-[10px] text-slate-400 mb-2 leading-snug">Owner dashboard tips from your in-game guide.</p>
+                    <ul id="dash-byte-tips" class="text-[11px] text-slate-300 space-y-2 leading-snug list-disc pl-4"></ul>
                 </div>
             </div>
             <p class="text-[9px] text-slate-600 text-center mt-3">Sign in as <span class="font-mono text-violet-400">thomas</span> for this dashboard, owner tools, and global broadcasts.</p>
@@ -2019,7 +2005,7 @@
             return 'computer';
         }
 
-        /** Guide bot — 50 pre-programmed FAQ entries */
+        /** Byte — in-game guide topics (same character as owner dashboard) */
         const TUTORIAL_BUDDY_TOPICS = [
             { id: 'welcome', label: 'What do I do first?', answer: (ctx) => `Walk with ${ctx.moveKeys}. ${ctx.interactHint} Green buildings are shops. Save from the 🌍 menu.` },
             { id: 'goal', label: 'What is the goal?', answer: () => 'Grow your wallet — $100k on the HUD is the headline goal. Better cars earn more per tap at the store.' },
@@ -4823,7 +4809,7 @@
             updateLobbyStatsFabVisibility();
         }
 
-        const ASSISTANT_TIPS = [
+        const BYTE_ADMIN_TIPS = [
             '“Online right now” is based on players active in the last 90 seconds.',
             'If online sign-in fails, confirm the site was deployed with a working config and try another network.',
             'School networks sometimes block the game’s online service — use Play offline or ask IT to allowlist this site.',
@@ -4832,14 +4818,15 @@
             'For production, only browser-safe keys belong in the deployed site — never service role keys.',
             'If you use a custom domain, make sure it serves the current deploy, not an old cached copy.',
             'If jail time looks wrong, do a hard refresh — jail is timed in game frames (~60/sec).',
-            'Orb hunt only after the nuke; if stuck, use New run from the victory or orb screen.'
+            'Orb hunt only after the nuke; if stuck, use New run from the victory or orb screen.',
+            'In-game, tap the blue Byte button in the corner for the full help menu — same buddy as here!'
         ];
 
-        function renderAssistantTips() {
-            const ul = document.getElementById('dash-assistant-tips');
+        function renderByteDashboardTips() {
+            const ul = document.getElementById('dash-byte-tips');
             if (!ul) return;
             ul.innerHTML = '';
-            ASSISTANT_TIPS.forEach(tip => {
+            BYTE_ADMIN_TIPS.forEach(tip => {
                 const li = document.createElement('li');
                 li.textContent = tip;
                 ul.appendChild(li);
@@ -5001,7 +4988,7 @@
             const evErr = document.getElementById('owner-event-err');
             if (errB) errB.textContent = '';
             if (evErr) evErr.textContent = '';
-            renderAssistantTips();
+            renderByteDashboardTips();
             dashPlayersListMode = 'online';
             void refreshOwnerDashboardAnalytics();
         }
@@ -11911,11 +11898,11 @@
                 closeTutorialWelcomeOverlay();
                 openTutorialBuddyPanel();
                 showTutorialBuddyAnswer(0);
-                showMessage('Guide bot: tap the blue square anytime for tips!');
+                showMessage('Byte: tap the blue square anytime for tips!');
             });
             document.getElementById('tutorial-welcome-later')?.addEventListener('click', () => {
                 closeTutorialWelcomeOverlay();
-                showMessage('Ok — tap the little blue guide bot in the corner when you want tips.');
+                showMessage('Ok — tap Byte in the corner when you want tips.');
             });
             document.getElementById('tutorial-welcome-no')?.addEventListener('click', () => {
                 try {
