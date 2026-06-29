@@ -1851,18 +1851,19 @@
             </div>
             <div class="mb-4 border border-slate-700 rounded-xl bg-slate-950/80 p-3 text-left">
                 <div class="flex items-center justify-between gap-2 mb-2">
-                    <p class="text-[10px] font-black text-cyan-300 uppercase tracking-widest">Who is playing</p>
+                    <p class="text-[10px] font-black text-cyan-300 uppercase tracking-widest">Registered accounts</p>
                     <div class="flex gap-1 flex-wrap justify-end">
-                        <button type="button" id="dash-players-tab-online" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-800 text-white">Now</button>
-                        <button type="button" id="dash-players-tab-24h" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">24h</button>
-                        <button type="button" id="dash-players-tab-all" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">All</button>
+                        <button type="button" id="dash-players-tab-all" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-800 text-white">All accounts</button>
+                        <button type="button" id="dash-players-tab-online" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">Online now</button>
                     </div>
                 </div>
-                <p id="dash-owner-hint" class="hidden text-[8px] text-amber-300/90 mb-2 leading-snug">Thomas: double-tap a username to make them admin. Tap once to select for ban.</p>
-                <ul id="dash-players-list" class="text-[11px] text-slate-300 max-h-[140px] overflow-y-auto space-y-1 font-mono"></ul>
-                <p id="dash-players-empty" class="text-[10px] text-slate-500 italic hidden">No players in this window.</p>
-                <div id="dash-ban-row" class="hidden mt-2 flex gap-2 items-center">
-                    <span id="dash-ban-target" class="text-[10px] text-slate-400 flex-1 truncate">—</span>
+                <p class="text-[8px] text-slate-500 mb-2 leading-snug">Every username that ever created an account — not just who is playing right now.</p>
+                <p id="dash-owner-hint" class="hidden text-[8px] text-amber-300/90 mb-2 leading-snug">Thomas: tap a username, then <span class="text-white">Make admin</span> or <span class="text-white">Ban</span>. Double-tap also promotes to admin.</p>
+                <ul id="dash-players-list" class="text-[11px] text-slate-300 max-h-[220px] overflow-y-auto space-y-1 font-mono"></ul>
+                <p id="dash-players-empty" class="text-[10px] text-slate-500 italic hidden">No accounts yet.</p>
+                <div id="dash-account-actions" class="hidden mt-2 flex flex-wrap gap-2 items-center">
+                    <span id="dash-ban-target" class="text-[10px] text-slate-400 flex-1 min-w-[120px] truncate">—</span>
+                    <button type="button" id="dash-promote-btn" class="bg-amber-700 hover:bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Make admin</button>
                     <button type="button" id="dash-ban-btn" class="bg-red-800 hover:bg-red-700 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Ban forever</button>
                 </div>
                 <p id="dash-admin-action-msg" class="text-[9px] text-emerald-400 min-h-[1rem] mt-1"></p>
@@ -1895,11 +1896,12 @@
                 <p id="owner-broadcast-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
                 <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest mb-2 mt-4">Live events (signed-in players)</p>
                 <p class="text-[9px] text-slate-500 mb-2">Thomas ON/OFF toggles — glitch storm stays until turned off.</p>
+                <p class="text-[9px] text-slate-500 mb-2">Hotkeys while dashboard is open: <span class="text-fuchsia-300 font-bold">1</span> Glitch ON · <span class="text-fuchsia-300 font-bold">2</span> Glitch OFF · <span class="text-cyan-300 font-bold">3</span> Golden Orb ON · <span class="text-cyan-300 font-bold">4</span> Golden Orb OFF</p>
                 <div class="grid grid-cols-2 gap-2 mb-1">
-                    <button type="button" id="owner-event-golden-orb-on" class="bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb · ON</button>
-                    <button type="button" id="owner-event-golden-orb-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">Golden Orb · OFF</button>
-                    <button type="button" id="owner-event-glitch-on" class="bg-fuchsia-800 hover:bg-fuchsia-700 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm · ON</button>
-                    <button type="button" id="owner-event-glitch-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">Glitch Storm · OFF</button>
+                    <button type="button" id="owner-event-glitch-on" class="bg-fuchsia-800 hover:bg-fuchsia-700 text-white py-2 rounded-lg font-bold text-xs">1 · Glitch Storm ON</button>
+                    <button type="button" id="owner-event-glitch-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">2 · Glitch Storm OFF</button>
+                    <button type="button" id="owner-event-golden-orb-on" class="bg-cyan-700 hover:bg-cyan-600 text-white py-2 rounded-lg font-bold text-xs">3 · Golden Orb ON</button>
+                    <button type="button" id="owner-event-golden-orb-off" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">4 · Golden Orb OFF</button>
                 </div>
                 <p id="owner-event-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
                 <p class="text-[10px] font-black text-lime-300 uppercase tracking-widest mb-2 mt-4">Session racing (your room)</p>
@@ -4534,7 +4536,7 @@
             return true;
         }
 
-        let dashPlayersListMode = 'online';
+        let dashPlayersListMode = 'all';
         let dashPlayersOnlineList = [];
         let dashPlayers24hList = [];
         let dashPlayersAllList = [];
@@ -4543,9 +4545,38 @@
 
         function syncDashboardOwnerControls() {
             const hint = document.getElementById('dash-owner-hint');
-            const banRow = document.getElementById('dash-ban-row');
+            const actions = document.getElementById('dash-account-actions');
             if (hint) hint.classList.toggle('hidden', !isThomasOwner());
-            if (banRow) banRow.classList.toggle('hidden', !isThomasOwner() || !dashSelectedBanUser);
+            if (actions) actions.classList.toggle('hidden', !isThomasOwner() || !dashSelectedBanUser);
+        }
+
+        function isOwnerDashboardOpen() {
+            const ov = document.getElementById('owner-dashboard-overlay');
+            return !!(ov && ov.classList.contains('open'));
+        }
+
+        function flashOwnerEventStatus(errEl, okMsg) {
+            if (!errEl) return;
+            errEl.textContent = okMsg;
+            setTimeout(() => { errEl.textContent = ''; }, 2200);
+        }
+
+        async function triggerOwnerDashboardHotkeyEvent(kind, label) {
+            const err = document.getElementById('owner-event-err');
+            if (err) err.textContent = '';
+            const r = await sendGlobalOwnerGameEvent(kind);
+            if (r.ok) flashOwnerEventStatus(err, label);
+            else if (err) err.textContent = r.err || 'Failed';
+        }
+
+        function handleOwnerDashboardHotkey(e) {
+            if (!isOwnerDashboardOpen() || !isOwnerDashboardUser()) return;
+            const t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+            if (e.key === '1') { e.preventDefault(); void triggerOwnerDashboardHotkeyEvent('glitch_storm_on', 'Glitch Storm ON (key 1)'); }
+            else if (e.key === '2') { e.preventDefault(); void triggerOwnerDashboardHotkeyEvent('glitch_storm_off', 'Glitch Storm OFF (key 2)'); }
+            else if (e.key === '3') { e.preventDefault(); void triggerOwnerDashboardHotkeyEvent('golden_orb_hunt', 'Golden Orb ON (key 3)'); }
+            else if (e.key === '4') { e.preventDefault(); void triggerOwnerDashboardHotkeyEvent('golden_orb_hunt_off', 'Golden Orb OFF (key 4)'); }
         }
 
         async function adminPromoteUser(username) {
@@ -4614,24 +4645,21 @@
             const ul = document.getElementById('dash-players-list');
             const empty = document.getElementById('dash-players-empty');
             const tabOn = document.getElementById('dash-players-tab-online');
-            const tab24 = document.getElementById('dash-players-tab-24h');
             const tabAll = document.getElementById('dash-players-tab-all');
             if (!ul) return;
-            const list = dashPlayersListMode === 'all'
-                ? dashPlayersAllList
-                : (dashPlayersListMode === '24h' ? dashPlayers24hList : dashPlayersOnlineList);
+            const list = dashPlayersListMode === 'online' ? dashPlayersOnlineList : dashPlayersAllList;
             if (tabOn) {
                 tabOn.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === 'online' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
-            }
-            if (tab24) {
-                tab24.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === '24h' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
             }
             if (tabAll) {
                 tabAll.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === 'all' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
             }
             ul.innerHTML = '';
             if (!list.length) {
-                if (empty) empty.classList.remove('hidden');
+                if (empty) {
+                    empty.textContent = dashPlayersListMode === 'online' ? 'Nobody online right now.' : 'No accounts yet.';
+                    empty.classList.remove('hidden');
+                }
                 syncDashboardOwnerControls();
                 return;
             }
@@ -4640,7 +4668,10 @@
                 const li = document.createElement('li');
                 const un = row.username || '?';
                 const unEsc = escapeHtml(un);
-                const when = row.last_seen ? ` <span class="text-slate-500">· ${escapeHtml(row.last_seen)}</span>` : '';
+                const meta = [];
+                if (dashPlayersListMode === 'all' && row.created_at) meta.push(`joined ${escapeHtml(row.created_at)}`);
+                if (row.last_seen) meta.push(`last ${escapeHtml(row.last_seen)}`);
+                const metaHtml = meta.length ? ` <span class="text-slate-500 text-[9px]">· ${meta.join(' · ')}</span>` : '';
                 const badges = [];
                 if (row.is_owner) badges.push('<span class="text-violet-400">owner</span>');
                 else if (row.is_admin) badges.push('<span class="text-amber-400">admin</span>');
@@ -4648,7 +4679,7 @@
                 const badgeHtml = badges.length ? ` <span class="text-[9px]">(${badges.join(' · ')})</span>` : '';
                 const wins = dashPlayersListMode === 'all' && typeof row.win_count === 'number'
                     ? ` <span class="text-yellow-600">🏆${row.win_count}</span>` : '';
-                li.innerHTML = `<button type="button" class="dash-player-name text-cyan-200 hover:text-white interactive text-left">${unEsc}</button>${badgeHtml}${wins}${when}`;
+                li.innerHTML = `<button type="button" class="dash-player-name text-cyan-200 hover:text-white interactive text-left font-bold">${unEsc}</button>${badgeHtml}${wins}${metaHtml}`;
                 li.querySelector('.dash-player-name')?.addEventListener('click', () => onDashPlayerUsernameTap(un, row));
                 ul.appendChild(li);
             });
@@ -5616,7 +5647,7 @@
             if (errB) errB.textContent = '';
             if (evErr) evErr.textContent = '';
             renderByteDashboardTips();
-            dashPlayersListMode = 'online';
+            dashPlayersListMode = 'all';
             syncDashboardOwnerControls();
             void refreshOwnerDashboardAnalytics();
         }
@@ -13281,11 +13312,6 @@
                     setTimeout(() => { if (err) err.textContent = ''; }, 2000);
                 } else if (err) err.textContent = r.err || 'Failed';
             });
-            const flashOwnerEventStatus = (errEl, okMsg) => {
-                if (!errEl) return;
-                errEl.textContent = okMsg;
-                setTimeout(() => { errEl.textContent = ''; }, 2200);
-            };
             document.getElementById('owner-event-golden-orb-on')?.addEventListener('click', async () => {
                 const err = document.getElementById('owner-event-err');
                 if (err) err.textContent = '';
@@ -13318,15 +13344,15 @@
                 dashPlayersListMode = 'online';
                 renderDashPlayersList();
             });
-            document.getElementById('dash-players-tab-24h')?.addEventListener('click', () => {
-                dashPlayersListMode = '24h';
-                renderDashPlayersList();
-            });
             document.getElementById('dash-players-tab-all')?.addEventListener('click', () => {
                 dashPlayersListMode = 'all';
                 renderDashPlayersList();
             });
+            document.getElementById('dash-promote-btn')?.addEventListener('click', () => {
+                if (dashSelectedBanUser) void adminPromoteUser(dashSelectedBanUser);
+            });
             document.getElementById('dash-ban-btn')?.addEventListener('click', () => { void adminBanSelectedUser(); });
+            document.addEventListener('keydown', handleOwnerDashboardHotkey);
             document.getElementById('lobby-profile-avatar-upload')?.addEventListener('change', (e) => {
                 const f = e.target && e.target.files && e.target.files[0];
                 if (f) void uploadProfilePicture(f);
