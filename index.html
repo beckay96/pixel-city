@@ -1862,6 +1862,7 @@
         const LS_SERVER_CODE = 'pixelCityServerCode';
         const LS_SAVED_PROGRESS = 'pixelCitySavedProgress';
         const LS_AUTOSAVE = 'pixelCityAutosave';
+        const LS_MP_SESSION_PREFIX = 'pixelCityMpSave_';
         const AUTOSAVE_INTERVAL_FRAMES = 60 * 60; // every 60 seconds
         /** Dev-only: optional URL/key override (see README; not shown in the public UI). */
         const LS_SUPABASE_URL_OVERRIDE = 'pixelCitySupabaseUrl';
@@ -2230,9 +2231,9 @@
         const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
         const JOBS = [{ id: 'shelves', name: 'Stock Shelves' }, { id: 'floor', name: 'Mop Floor' }, { id: 'customers', name: 'Cashier' }];
         const HOUSE_TIERS = [
-            { tier: 0, name: 'Starter Home',      price: 10000,    policeBreakIn: 0.50, playerBreakIn: 0.50, color: '#64748b' },
-            { tier: 1, name: 'Secure Mansion',    price: 100000,   policeBreakIn: 0.20, playerBreakIn: 0.20, color: '#3b82f6' },
-            { tier: 2, name: 'Fortress Estate',   price: 1000000,  policeBreakIn: 0.05, playerBreakIn: 0.03, color: '#fbbf24' }
+            { tier: 0, name: 'Starter Home',      price: 10000,    policeBreakIn: 0.50, playerBreakIn: 0.50, playerStealFraction: 0.50, color: '#64748b' },
+            { tier: 1, name: 'Secure Mansion',    price: 100000,   policeBreakIn: 0.20, playerBreakIn: 0.20, playerStealFraction: 0.20, color: '#3b82f6' },
+            { tier: 2, name: 'Fortress Estate',   price: 1000000,  policeBreakIn: 0.05, playerBreakIn: 0.03, playerStealFraction: 0.50, color: '#fbbf24' }
         ];
         const VEHICLE_TYPES = [
             { id: 'compact', name: 'City Compact',      price: 250,     topSpeed: 6,   accel: 0.2,  color: '#22c55e', tier: 0, storeBonus: 11  },
@@ -2393,6 +2394,8 @@
             pendingLobbySave: null,
             /** Experimental Beta 3D first-person (1P); persisted in LS_BETA_3D — allowed in online multiplayer when solo player mode */
             beta3dMode: initialBeta3d,
+            /** Claimed houses from MP save — applied after generateCity */
+            pendingClaimedHouses: null,
             /** First-person yaw (radians), mouse-driven in Beta 3D */
             beta3dYaw: 0,
             /** First-person pitch (radians), mouse Y while Ctrl+look is active */
@@ -2556,10 +2559,82 @@
             } catch (_) {}
         }
 
-        function houseLootForTier(tier) {
-            if (tier >= 2) return 10000;
-            if (tier >= 1) return 5000;
-            return 2000;
+        function houseMoneyStealFraction(tier) {
+            const def = getHouseTierDef(tier);
+            return def ? def.playerStealFraction : 0.5;
+        }
+
+        function serializeClaimedHousesForSync() {
+            return state.buildings
+                .filter(b => !isPlayerHomeLot(b) && b.ownerUid && typeof b.homeTier === 'number')
+                .map(b => ({
+                    x: b.x, y: b.y,
+                    ownerUid: b.ownerUid,
+                    ownerName: b.ownerName || 'Player',
+                    homeTier: b.homeTier
+                }));
+        }
+
+        function applyClaimedHousesFromSave(houses) {
+            if (!Array.isArray(houses)) return;
+            houses.forEach(h => applyRemoteHouseClaim(h));
+        }
+
+        function broadcastWorldHousesSync() {
+            if (state.playMode !== 'online' || !state.isOnlineHost || !supabaseRealtimeChannel) return;
+            const houses = serializeClaimedHousesForSync();
+            if (!houses.length) return;
+            try {
+                supabaseRealtimeChannel.send({
+                    type: 'broadcast',
+                    event: 'admin_cmd',
+                    payload: { kind: 'houses_sync', houses }
+                });
+            } catch (_) {}
+        }
+
+        function getRemotePlayerMoney(uid) {
+            if (!uid) return 0;
+            const rp = state.remotePlayers[uid];
+            return rp && typeof rp.money === 'number' ? rp.money : 0;
+        }
+
+        function attemptPlayerHouseBreakIn(pIdx, victimUid, victimName, tier) {
+            const def = getHouseTierDef(tier);
+            const breakPct = Math.round(playerBreakInChance(tier) * 100);
+            const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
+            state.wantedLevel = 1;
+            state.policeDelay = 180;
+            const stars = document.getElementById('wanted-stars');
+            if (stars) stars.classList.remove('hidden');
+            if (Math.random() >= playerBreakInChance(tier)) {
+                showMessage(`${victimName}'s ${def ? def.name : 'house'} held — break-in failed (${breakPct}% chance)!`);
+                return;
+            }
+            if (state.playMode === 'online' && supabaseRealtimeChannel && victimUid && victimUid !== state.supabaseUserId) {
+                try {
+                    supabaseRealtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'pvp_fx',
+                        payload: {
+                            k: 'house_rob_request',
+                            victimUid,
+                            robberUid: state.supabaseUserId,
+                            robberName: state.profileUsername || state.playerName || 'Player',
+                            tier
+                        }
+                    });
+                } catch (_) {}
+                showMessage(`Broke into ${victimName}'s ${def ? def.name : 'house'}! Stealing up to ${stealPct}% of their cash…`);
+            } else {
+                const hint = getRemotePlayerMoney(victimUid);
+                const steal = Math.max(0, Math.floor(hint * houseMoneyStealFraction(tier)));
+                if (steal > 0) {
+                    state.money += steal;
+                    updateMoneyUI();
+                }
+                showMessage(`Broke in! Took $${steal.toLocaleString()} (${stealPct}% of their stash).`);
+            }
         }
 
         function applyHouseTierToBuilding(b, tier) {
@@ -2621,20 +2696,22 @@
             if (o.remoteHome) {
                 const rp = o.remoteHome.rp;
                 const tier = rp.homeTier >= 0 ? rp.homeTier : 0;
-                const pct = Math.round(playerBreakInChance(tier) * 100);
+                const breakPct = Math.round(playerBreakInChance(tier) * 100);
+                const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
                 const def = getHouseTierDef(tier);
                 if (title) title.textContent = `🏠 ${rp.username || 'Player'}'s Home`;
-                if (blurb) blurb.textContent = `${def ? def.name : 'Home'} — break in (${pct}% chance for you) or leave.`;
-                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${pct}% chance)`; }
+                if (blurb) blurb.textContent = `${def ? def.name : 'Home'} — ${breakPct}% break-in · steal ${stealPct}% of their money if you get in.`;
+                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${breakPct}% · steal ${stealPct}%)`; }
                 if (buyBtn) buyBtn.classList.add('hidden');
                 if (wheelBtn) wheelBtn.classList.add('hidden');
             } else if (building && buildingOwnedByOther(building)) {
                 const tier = typeof building.homeTier === 'number' ? building.homeTier : 0;
-                const pct = Math.round(playerBreakInChance(tier) * 100);
+                const breakPct = Math.round(playerBreakInChance(tier) * 100);
+                const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
                 const def = getHouseTierDef(tier);
                 if (title) title.textContent = `🏠 ${building.ownerName || 'Player'}'s House`;
-                if (blurb) blurb.textContent = `${def ? def.name : 'House'} — you must break in to rob (${pct}% chance) or buy them out.`;
-                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${pct}% chance)`; }
+                if (blurb) blurb.textContent = `${def ? def.name : 'House'} — ${breakPct}% break-in · steal ${stealPct}% of owner cash, or buy them out.`;
+                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${breakPct}% · steal ${stealPct}%)`; }
                 if (buyBtn) { buyBtn.classList.remove('hidden'); buyBtn.textContent = 'Buy Property (take over)'; }
                 if (wheelBtn) wheelBtn.classList.add('hidden');
             } else if (building && !building.ownerUid) {
@@ -2692,41 +2769,13 @@
         function executeBreakInOnBuilding(pIdx, building) {
             if (!building || !building.ownerUid || !buildingOwnedByOther(building)) return;
             const tier = typeof building.homeTier === 'number' ? building.homeTier : 0;
-            const def = getHouseTierDef(tier);
             const owner = building.ownerName || 'player';
-            const pct = Math.round(playerBreakInChance(tier) * 100);
-            state.wantedLevel = 1;
-            state.policeDelay = 180;
-            const stars = document.getElementById('wanted-stars');
-            if (stars) stars.classList.remove('hidden');
-            if (Math.random() < playerBreakInChance(tier)) {
-                const loot = houseLootForTier(tier);
-                state.money += loot;
-                updateMoneyUI();
-                showMessage(`Broke into ${owner}'s ${def ? def.name : 'house'}! Stole $${loot.toLocaleString()}! (${pct}% roll)`);
-            } else {
-                showMessage(`${owner}'s ${def ? def.name : 'house'} held — your break-in failed! Cops alerted!`);
-            }
+            attemptPlayerHouseBreakIn(pIdx, building.ownerUid, owner, tier);
         }
 
         function tryRobRemotePlayerHome(pIdx, uid, rp) {
             if (!rp || !rp.hasHome || rp.homeTier < 0) return;
-            const tier = rp.homeTier;
-            const def = getHouseTierDef(tier);
-            const owner = rp.username || 'player';
-            const pct = Math.round(playerBreakInChance(tier) * 100);
-            state.wantedLevel = 1;
-            state.policeDelay = 180;
-            const stars = document.getElementById('wanted-stars');
-            if (stars) stars.classList.remove('hidden');
-            if (Math.random() < playerBreakInChance(tier)) {
-                const loot = houseLootForTier(tier);
-                state.money += loot;
-                updateMoneyUI();
-                showMessage(`Broke into ${owner}'s home! Stole $${loot.toLocaleString()}! (${pct}% break-in)`);
-            } else {
-                showMessage(`${owner}'s ${def ? def.name : 'home'} stopped you — break-in failed! Cops alerted!`);
-            }
+            attemptPlayerHouseBreakIn(pIdx, uid, rp.username || 'player', rp.homeTier);
         }
 
         function purchaseHouseTier(pIdx, tier) {
@@ -6126,16 +6175,20 @@
                     raceProgress: payload.rp != null ? Number(payload.rp) : (prev && prev.raceProgress),
                     hasHome: !!payload.hasHome,
                     homeTier: typeof payload.homeTier === 'number' ? payload.homeTier : -1,
+                    money: typeof payload.money === 'number' ? payload.money : (prev && typeof prev.money === 'number' ? prev.money : 0),
                     lastSeen: performance.now()
                 };
                 if (state.race && state.race.active && state.race.entries[payload.uid] && payload.rp != null) {
                     state.race.entries[payload.uid].progress = Number(payload.rp);
                 }
-                // When a new peer appears, host re-sends active secrets so they join in the same mode
-                if (isNew && state.isOnlineHost && state.activeSecrets.length > 0 && supabaseRealtimeChannel) {
-                    try {
-                        supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload: { kind: 'secrets_sync', secrets: state.activeSecrets } });
-                    } catch (_) { /* best-effort */ }
+                // When a new peer appears, host re-sends active secrets and world house claims
+                if (isNew && state.isOnlineHost && supabaseRealtimeChannel) {
+                    if (state.activeSecrets.length > 0) {
+                        try {
+                            supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload: { kind: 'secrets_sync', secrets: state.activeSecrets } });
+                        } catch (_) { /* best-effort */ }
+                    }
+                    broadcastWorldHousesSync();
                 }
             });
             ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
@@ -6243,6 +6296,41 @@
                         }
                     }
                 }
+                if (payload.k === 'house_rob_request' && payload.victimUid === state.supabaseUserId) {
+                    const tier = typeof payload.tier === 'number' ? payload.tier : 0;
+                    const frac = houseMoneyStealFraction(tier);
+                    const steal = Math.max(0, Math.floor(state.money * frac));
+                    if (steal > 0) {
+                        state.money -= steal;
+                        updateMoneyUI();
+                    }
+                    const stealPct = Math.round(frac * 100);
+                    showMessage(`🏠 ${payload.robberName || 'Someone'} broke in and stole $${steal.toLocaleString()} (${stealPct}% of your cash)!`);
+                    if (payload.robberUid && supabaseRealtimeChannel) {
+                        try {
+                            supabaseRealtimeChannel.send({
+                                type: 'broadcast',
+                                event: 'pvp_fx',
+                                payload: {
+                                    k: 'house_rob_payout',
+                                    robberUid: payload.robberUid,
+                                    amount: steal,
+                                    victimName: state.profileUsername || state.playerName || 'Player'
+                                }
+                            });
+                        } catch (_) {}
+                    }
+                }
+                if (payload.k === 'house_rob_payout' && payload.robberUid === state.supabaseUserId) {
+                    const amt = Math.max(0, payload.amount || 0);
+                    if (amt > 0) {
+                        state.money += amt;
+                        updateMoneyUI();
+                        showMessage(`💰 House robbery — took $${amt.toLocaleString()} from ${payload.victimName || 'their stash'}!`);
+                    } else {
+                        showMessage(`Broke in, but ${payload.victimName || 'they'} had no cash to steal.`);
+                    }
+                }
             });
             ch.on('broadcast', { event: 'admin_cmd' }, ({ payload }) => {
                 if (!payload || !payload.kind) return;
@@ -6269,6 +6357,10 @@
                 }
                 if (payload.kind === 'world_obliterate') {
                     applyExplodeDestroyWorld({ fromNetwork: true });
+                }
+                if (payload.kind === 'houses_sync' && Array.isArray(payload.houses)) {
+                    applyClaimedHousesFromSave(payload.houses);
+                    return;
                 }
                 if (payload.kind === 'secrets_sync' && Array.isArray(payload.secrets)) {
                     const allowed = ['SONIC','RICH','GHOST','MURDER','REALITY','RARITY DROP','GODLY','ZOMBIE','4789'];
@@ -6635,7 +6727,8 @@
                     downed: !!p.downed,
                     ...racePayload,
                     hasHome: !!state.hasHome,
-                    homeTier: state.hasHome ? state.homeTier : -1
+                    homeTier: state.hasHome ? state.homeTier : -1,
+                    money: state.money
                 }
             });
         }
@@ -9290,7 +9383,8 @@
                         btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''} ${owned ? 'opacity-50' : ''}`;
                         const policePct = Math.round(h.policeBreakIn * 100);
                         const playerPct = Math.round(h.playerBreakIn * 100);
-                        btn.innerHTML = `<div class="font-bold uppercase text-sm">${h.name}${owned ? ' ✓' : ''}</div><div class="text-amber-400 font-bold text-xs">$${h.price.toLocaleString()} · police ${policePct}% · players ${playerPct}%</div>`;
+                        const stealPct = Math.round(h.playerStealFraction * 100);
+                        btn.innerHTML = `<div class="font-bold uppercase text-sm">${h.name}${owned ? ' ✓' : ''}</div><div class="text-amber-400 font-bold text-xs">$${h.price.toLocaleString()} · police ${policePct}% · players ${playerPct}% in · steal ${stealPct}%</div>`;
                         btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
                         hList.appendChild(btn);
                     });
@@ -9616,51 +9710,10 @@
             } catch { return null; }
         }
 
-        // ---------- Progress Save / Load / Delete ----------
-        function saveProgress() {
+        function buildWorldSaveData() {
             const p0 = state.players[0];
             const p1 = state.players[1];
-            const data = {
-                money: state.money,
-                winCount: state.winCount,
-                skin: getSavedPlayerSkin(),
-                activeSecrets: state.activeSecrets.slice(),
-                schoolGameMode: state.schoolGameMode,
-                worldSeed: state.worldSeed,
-                bestCarTier: state.bestCarTier,
-                bestStoreBonus: state.bestStoreBonus,
-                inventoryGadgetCounts: { ...state.inventoryGadgetCounts },
-                inventoryWeaponCounts: { ...state.inventoryWeaponCounts },
-                vehicles: serializeVehiclesForSave(),
-                nextVehicleId: state.nextVehicleId,
-                playerX: p0 ? Math.round(p0.x) : null,
-                playerY: p0 ? Math.round(p0.y) : null,
-                playerLoadout: p0 && p0.loadout ? JSON.parse(JSON.stringify(p0.loadout)) : null,
-                player2X: p1 ? Math.round(p1.x) : null,
-                player2Y: p1 ? Math.round(p1.y) : null,
-                player2Loadout: p1 && p1.loadout ? JSON.parse(JSON.stringify(p1.loadout)) : null,
-                savedAt: Date.now()
-            };
-            try { localStorage.setItem(LS_SAVED_PROGRESS, JSON.stringify(data)); } catch (_) {}
-        }
-
-        function loadSavedProgress() {
-            try {
-                const raw = localStorage.getItem(LS_SAVED_PROGRESS);
-                return raw ? JSON.parse(raw) : null;
-            } catch { return null; }
-        }
-
-        function deleteSavedProgress() {
-            try { localStorage.removeItem(LS_SAVED_PROGRESS); } catch (_) {}
-        }
-
-        // ---------- World Autosave ----------
-        function autosaveWorld() {
-            if (!isInGame() || state.gamePaused || state.isGameOver) return;
-            const p0 = state.players[0];
-            const p1 = state.players[1];
-            const data = {
+            return {
                 money: state.money,
                 winCount: state.winCount,
                 worldSeed: state.worldSeed,
@@ -9680,16 +9733,55 @@
                 loadoutP2: p1 && p1.loadout ? JSON.parse(JSON.stringify(p1.loadout)) : null,
                 hasHome: state.hasHome,
                 homeTier: state.homeTier,
+                onlineSessionCode: state.onlineSessionCode,
+                playMode: state.playMode,
+                isOnlineHost: state.isOnlineHost,
+                claimedHouses: serializeClaimedHousesForSync(),
                 playerX: p0 ? Math.round(p0.x) : null,
                 playerY: p0 ? Math.round(p0.y) : null,
                 player2X: p1 ? Math.round(p1.x) : null,
                 player2Y: p1 ? Math.round(p1.y) : null,
                 savedAt: Date.now()
             };
-            try { localStorage.setItem(LS_AUTOSAVE, JSON.stringify(data)); } catch (_) {}
         }
 
-        function loadAutosave() {
+        function writeSaveToStorage(data) {
+            try { localStorage.setItem(LS_AUTOSAVE, JSON.stringify(data)); } catch (_) {}
+            if (state.playMode === 'online' && state.onlineSessionCode && !state.isSoloAutoHost) {
+                try { localStorage.setItem(LS_MP_SESSION_PREFIX + state.onlineSessionCode, JSON.stringify(data)); } catch (_) {}
+            }
+        }
+
+        // ---------- Progress Save / Load / Delete ----------
+        function saveProgress() {
+            const data = buildWorldSaveData();
+            writeSaveToStorage(data);
+            try { localStorage.setItem(LS_SAVED_PROGRESS, JSON.stringify(data)); } catch (_) {}
+        }
+
+        function loadSavedProgress() {
+            try {
+                const raw = localStorage.getItem(LS_SAVED_PROGRESS);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function deleteSavedProgress() {
+            try { localStorage.removeItem(LS_SAVED_PROGRESS); } catch (_) {}
+        }
+
+        function autosaveWorld() {
+            if (!isInGame() || state.gamePaused || state.isGameOver) return;
+            writeSaveToStorage(buildWorldSaveData());
+        }
+
+        function loadAutosave(preferredSessionCode) {
+            if (preferredSessionCode) {
+                try {
+                    const mpRaw = localStorage.getItem(LS_MP_SESSION_PREFIX + preferredSessionCode);
+                    if (mpRaw) return JSON.parse(mpRaw);
+                } catch (_) {}
+            }
             try {
                 const raw = localStorage.getItem(LS_AUTOSAVE);
                 return raw ? JSON.parse(raw) : null;
@@ -9726,6 +9818,7 @@
             if (typeof save.nextVehicleId === 'number' && save.nextVehicleId > 0) state.nextVehicleId = save.nextVehicleId;
             if (save.hasHome) state.hasHome = true;
             if (typeof save.homeTier === 'number') state.homeTier = save.homeTier;
+            if (Array.isArray(save.claimedHouses)) state.pendingClaimedHouses = save.claimedHouses;
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
             }
@@ -10076,7 +10169,7 @@
         }
 
         async function joinRoom({ autosave, savedSeed } = {}) {
-            const mergedSave = autosave || state.pendingLobbySave;
+            let mergedSave = autosave || state.pendingLobbySave;
             state.pendingLobbySave = null;
             if (state.playMode === 'online') {
                 // MULTIPLAYER mode: user explicitly chose to play with others
@@ -10303,6 +10396,9 @@
             updateLoadoutUI();
 
             // If loading a saved world, restore money, vehicles, positions, and inventory
+            if (!mergedSave && state.playMode === 'online' && state.onlineSessionCode && !state.isSoloAutoHost) {
+                mergedSave = loadAutosave(state.onlineSessionCode);
+            }
             if (mergedSave) {
                 applyAutosaveToState(mergedSave);
                 updateMoneyUI();
@@ -10310,11 +10406,14 @@
                 updateLoadoutUI();
             }
 
-            // Broadcast active secret modes to all peers so everyone plays the same game
-            if (state.playMode === 'online' && state.isOnlineHost && onlineRealtimeReady && supabaseRealtimeChannel && state.activeSecrets.length > 0) {
-                try {
-                    supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload: { kind: 'secrets_sync', secrets: state.activeSecrets } });
-                } catch (_) { /* best-effort */ }
+            // Broadcast active secret modes and house claims so everyone shares the same world
+            if (state.playMode === 'online' && state.isOnlineHost && onlineRealtimeReady && supabaseRealtimeChannel) {
+                if (state.activeSecrets.length > 0) {
+                    try {
+                        supabaseRealtimeChannel.send({ type: 'broadcast', event: 'admin_cmd', payload: { kind: 'secrets_sync', secrets: state.activeSecrets } });
+                    } catch (_) { /* best-effort */ }
+                }
+                broadcastWorldHousesSync();
             }
 
             initGameLoop();
@@ -10342,6 +10441,10 @@
             dismissAllBuildingMenus();
             generateCity();
             syncMyHomeLotBuilding();
+            if (state.pendingClaimedHouses) {
+                applyClaimedHousesFromSave(state.pendingClaimedHouses);
+                state.pendingClaimedHouses = null;
+            }
             state.benCodeOkThisRun = false;
             state.wantedLevel = 0;
             state.policeDelay = 0;
@@ -10749,16 +10852,18 @@
                                 }
                                 else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid && buildingOwnedByOther(bNear)) {
                                     const tier = typeof bNear.homeTier === 'number' ? bNear.homeTier : 0;
-                                    const pct = Math.round(playerBreakInChance(tier) * 100);
-                                    subEl.innerText = `${bNear.ownerName || 'player'}'s house — E rob/buy (${pct}% break-in)`;
+                                    const breakPct = Math.round(playerBreakInChance(tier) * 100);
+                                    const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
+                                    subEl.innerText = `${bNear.ownerName || 'player'}'s house — E (${breakPct}% in, steal ${stealPct}%)`;
                                 }
                                 else if (bNear.type === 'house' && state.playMode === 'online' && !bNear.ownerUid) subEl.innerText = 'house — E rob wheel or buy';
                                 else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid && !buildingOwnedByOther(bNear)) subEl.innerText = 'your house — E to upgrade';
                                 else subEl.innerText = bNear.type;
                             } else if (remoteHome) {
                                 const tier = remoteHome.rp.homeTier >= 0 ? remoteHome.rp.homeTier : 0;
-                                const pct = Math.round(playerBreakInChance(tier) * 100);
-                                subEl.innerText = `${remoteHome.rp.username || 'player'} nearby — E break into home (${pct}%)`;
+                                const breakPct = Math.round(playerBreakInChance(tier) * 100);
+                                const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
+                                subEl.innerText = `${remoteHome.rp.username || 'player'} nearby — E break in (${breakPct}%, steal ${stealPct}%)`;
                             } else subEl.innerText = vNear ? vNear.type.name : '';
                         }
                     } else pr.style.opacity = "0";
@@ -12758,7 +12863,9 @@
             document.getElementById('menu-save-btn')?.addEventListener('click', () => {
                 saveProgress();
                 const msg = document.getElementById('menu-save-msg');
-                if (msg) { msg.textContent = '✅ Saved!'; setTimeout(() => { msg.textContent = ''; }, 2000); }
+                const mpNote = (state.playMode === 'online' && state.onlineSessionCode && !state.isSoloAutoHost)
+                    ? ` (room ${state.onlineSessionCode})` : '';
+                if (msg) { msg.textContent = `✅ Saved${mpNote}!`; setTimeout(() => { msg.textContent = ''; }, 2500); }
             });
 
             document.getElementById('menu-save-leave-btn')?.addEventListener('click', () => {
