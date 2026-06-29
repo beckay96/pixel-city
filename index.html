@@ -699,6 +699,13 @@
                 <button id="start-rob-0" class="bg-orange-500 text-white w-full py-3 rounded-lg font-bold mb-2" onclick="window.startRobbery(0)">Spin Wheel</button>
                 <button id="exit-rob-0" class="bg-slate-700 text-white w-full py-2 rounded-lg font-bold" onclick="window.closePlayerModal(0)">Leave</button>
             </div>
+            <div id="house-modal-0" class="modal interactive">
+                <h2 id="house-title-0" class="text-xl font-bold mb-2 text-amber-400 text-center uppercase">🏠 Property</h2>
+                <p id="house-blurb-0" class="text-[9px] text-slate-400 mb-3 text-center">Buy or upgrade — stronger homes resist police break-ins.</p>
+                <div class="house-list-0 space-y-2 mb-4"></div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">W/S to navigate • E to buy</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(0)">Exit</button>
+            </div>
             <div id="gadget-modal-0" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
                 <h2 class="text-lg font-bold mb-2 text-violet-300 text-center uppercase">Gizmo &amp; Gadgets</h2>
                 <p class="text-[9px] text-slate-400 mb-2">You get <b class="text-white">2 link pads</b> per buy. After buying, stand where you want a pad and press <b class="text-cyan-300">Q</b> to place. Pads cannot be picked up. Walk into one to warp to the other. Stand still on a pad: it does <b>not</b> warp.</p>
@@ -760,6 +767,13 @@
                 </div>
                 <button id="start-rob-1" class="bg-orange-500 text-white w-full py-3 rounded-lg font-bold mb-2" onclick="window.startRobbery(1)">Spin Wheel</button>
                 <button id="exit-rob-1" class="bg-slate-700 text-white w-full py-2 rounded-lg font-bold" onclick="window.closePlayerModal(1)">Leave</button>
+            </div>
+            <div id="house-modal-1" class="modal interactive">
+                <h2 id="house-title-1" class="text-xl font-bold mb-2 text-amber-400 text-center uppercase">🏠 Property</h2>
+                <p id="house-blurb-1" class="text-[9px] text-slate-400 mb-3 text-center">Buy or upgrade — stronger homes resist police break-ins.</p>
+                <div class="house-list-1 space-y-2 mb-4"></div>
+                <div class="text-[10px] text-slate-400 text-center uppercase mb-2 nav-hint">UP/DOWN to nav • SHIFT to buy</div>
+                <button class="bg-slate-700 text-white w-full py-2 rounded font-bold" onclick="window.closePlayerModal(1)">Exit</button>
             </div>
             <div id="gadget-modal-1" class="modal interactive text-left max-h-[80vh] overflow-y-auto">
                 <h2 class="text-lg font-bold mb-2 text-violet-300 text-center uppercase">Gizmo &amp; Gadgets</h2>
@@ -1271,6 +1285,11 @@
         const WORLD_SIZE = 4000;
         const COLORS = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8', '#c084fc', '#f472b6'];
         const JOBS = [{ id: 'shelves', name: 'Stock Shelves' }, { id: 'floor', name: 'Mop Floor' }, { id: 'customers', name: 'Cashier' }];
+        const HOUSE_TIERS = [
+            { tier: 0, name: 'Starter Home',      price: 10000,    policeBreakIn: 0.50, color: '#64748b' },
+            { tier: 1, name: 'Secure Mansion',    price: 100000,   policeBreakIn: 0.20, color: '#3b82f6' },
+            { tier: 2, name: 'Fortress Estate',   price: 1000000,  policeBreakIn: 0.05, color: '#fbbf24' }
+        ];
         const VEHICLE_TYPES = [
             { id: 'sedan',   name: 'Standard Sedan',    price: 400,     topSpeed: 6,   accel: 0.2,  color: '#3b82f6', tier: 0, storeBonus: 10  },
             { id: 'truck',   name: 'Ironclad Truck',    price: 1500,    topSpeed: 5,   accel: 0.15, color: '#94a3b8', tier: 1, storeBonus: 20  },
@@ -1369,6 +1388,10 @@
             sessionSettings: { infiniteRevive: false, friendlyFire: false },
             /** Highest car tier bought this run — controls store earnings per tap */
             bestCarTier: -1,
+            /** Player owns a safe house at the home lot (not free at game start). */
+            hasHome: false,
+            /** 0 = $10k, 1 = $100k, 2 = $1M — police break-in odds scale with tier. */
+            homeTier: -1,
             /** 'boy' | 'girl' | 'circle' — controls in-game avatar shape */
             characterType: 'circle',
             /** Sprint stamina: 0-100. Drains while sprinting, regens while walking. */
@@ -1449,6 +1472,7 @@
             if (t === 'invisible') return '';
             if (t === 'school' || (t === 'store' && state.schoolGameMode)) return 'SCHOOL';
             if (t === 'home') return 'HOME';
+            if (t === 'home_lot') return 'LOT';
             if (t === 'house') return 'HOUSE';
             if (t === 'ruins') return 'RUINS';
             if (t === 'jail') return 'POLICE';
@@ -1461,8 +1485,175 @@
         const BEN_HOUSE_LOT_Y = 3100;
         const HOME_LOT_X = 2100;
         const HOME_LOT_Y = 2100;
+
+        function isPlayerHomeLot(b) {
+            return b && b.x === HOME_LOT_X && b.y === HOME_LOT_Y;
+        }
+
+        function getHomeLotBuilding() {
+            return state.buildings.find(b => isPlayerHomeLot(b)) || null;
+        }
+
+        function getHouseTierDef(tier) {
+            return HOUSE_TIERS.find(h => h.tier === tier) || null;
+        }
+
+        function policeBreakInChance(tier) {
+            const def = getHouseTierDef(tier);
+            return def ? def.policeBreakIn : 1;
+        }
+
+        function houseRobSuccessChance(tier) {
+            return policeBreakInChance(tier);
+        }
+
+        function houseLootForTier(tier) {
+            if (tier >= 2) return 10000;
+            if (tier >= 1) return 5000;
+            return 2000;
+        }
+
+        function applyHouseTierToBuilding(b, tier) {
+            const def = getHouseTierDef(tier);
+            if (!b || !def) return;
+            b.type = isPlayerHomeLot(b) ? 'home' : 'house';
+            b.homeTier = tier;
+            b.color = def.color;
+        }
+
+        function syncMyHomeLotBuilding() {
+            const lot = state.buildings.find(b => isPlayerHomeLot(b));
+            if (!lot) return;
+            if (state.hasHome && state.homeTier >= 0) {
+                applyHouseTierToBuilding(lot, state.homeTier);
+                lot.ownerUid = state.supabaseUserId || 'local';
+                lot.ownerName = state.profileUsername || state.playerName || 'You';
+            } else {
+                lot.type = 'home_lot';
+                lot.color = '#374151';
+                delete lot.homeTier;
+                delete lot.ownerUid;
+                delete lot.ownerName;
+            }
+        }
+
+        function getHouseTierForBuilding(b) {
+            if (!b) return -1;
+            if (isPlayerHomeLot(b) && b.ownerUid === (state.supabaseUserId || 'local')) return state.homeTier;
+            return typeof b.homeTier === 'number' ? b.homeTier : -1;
+        }
+
+        function openHouseModal(pIdx, building) {
+            const p = state.players[pIdx];
+            if (!p) return;
+            p.menuType = 'house';
+            p.menuHouseLot = building || state.buildings.find(b => isPlayerHomeLot(b)) || null;
+            const cur = getHouseTierForBuilding(p.menuHouseLot);
+            p.menuSelection = cur >= 0 ? Math.min(cur + 1, HOUSE_TIERS.length - 1) : 0;
+            if (p.menuSelection < 0) p.menuSelection = 0;
+            document.getElementById(`house-modal-${pIdx}`).style.display = 'block';
+            updateMenuUI(pIdx);
+        }
+
+        function purchaseHouseTier(pIdx, tier) {
+            const p = state.players[pIdx];
+            if (!p) return false;
+            const lot = p.menuHouseLot;
+            const def = getHouseTierDef(tier);
+            if (!def || !lot) return false;
+            const curTier = getHouseTierForBuilding(lot);
+            if (curTier >= tier) {
+                showMessage('You already own this tier or better here.');
+                return false;
+            }
+            if (state.money < def.price) {
+                showMessage('Not enough money for ' + def.name);
+                return false;
+            }
+            state.money -= def.price;
+            updateMoneyUI();
+            if (isPlayerHomeLot(lot)) {
+                state.hasHome = true;
+                state.homeTier = tier;
+                syncMyHomeLotBuilding();
+            } else {
+                lot.ownerUid = state.supabaseUserId || 'local';
+                lot.ownerName = state.profileUsername || state.playerName || 'You';
+                applyHouseTierToBuilding(lot, tier);
+                if (state.playMode === 'online' && supabaseRealtimeChannel) {
+                    try {
+                        supabaseRealtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'house_claim',
+                            payload: {
+                                x: lot.x, y: lot.y,
+                                ownerUid: state.supabaseUserId,
+                                ownerName: lot.ownerName,
+                                homeTier: tier
+                            }
+                        });
+                    } catch (_) {}
+                }
+            }
+            window.closePlayerModal(pIdx);
+            const pct = Math.round(def.policeBreakIn * 100);
+            showMessage(`Purchased ${def.name}! Police break-in chance: ${pct}%`);
+            return true;
+        }
+
+        function tryHideAtHome(pIdx) {
+            if (!state.hasHome || state.homeTier < 0) {
+                showMessage('You need to buy a house first ($10,000 at your lot).');
+                return;
+            }
+            const chance = policeBreakInChance(state.homeTier);
+            if (Math.random() < chance) {
+                showMessage('POLICE BROKE IN! Your security failed — run!');
+                state.policeDelay = Math.max(state.policeDelay, 60);
+            } else {
+                state.wantedLevel = 0;
+                state.police = [];
+                const stars = document.getElementById('wanted-stars');
+                if (stars) stars.classList.add('hidden');
+                showMessage('SAFE AT HOME — cops could not break in!');
+            }
+        }
+
+        function tryRobPlayerHouse(pIdx, building) {
+            if (!building || !building.ownerUid) return;
+            if (building.ownerUid === state.supabaseUserId) {
+                openHouseModal(pIdx, building);
+                return;
+            }
+            const tier = typeof building.homeTier === 'number' ? building.homeTier : 0;
+            const def = getHouseTierDef(tier);
+            const owner = building.ownerName || 'player';
+            state.wantedLevel = 1;
+            state.policeDelay = 180;
+            const stars = document.getElementById('wanted-stars');
+            if (stars) stars.classList.remove('hidden');
+            if (Math.random() < houseRobSuccessChance(tier)) {
+                const loot = houseLootForTier(tier);
+                state.money += loot;
+                updateMoneyUI();
+                showMessage(`Broke into ${owner}'s ${def ? def.name : 'house'}! Stole $${loot.toLocaleString()}!`);
+            } else {
+                showMessage(`${owner}'s ${def ? def.name : 'house'} held — break-in failed! Cops alerted!`);
+            }
+        }
+
+        function applyRemoteHouseClaim(payload) {
+            if (!payload || payload.x == null || payload.y == null) return;
+            const b = state.buildings.find(x => x.x === payload.x && x.y === payload.y);
+            if (!b || isPlayerHomeLot(b)) return;
+            b.ownerUid = payload.ownerUid;
+            b.ownerName = payload.ownerName || 'Player';
+            const tier = typeof payload.homeTier === 'number' ? payload.homeTier : 0;
+            applyHouseTierToBuilding(b, tier);
+        }
+
         const GPS_LANDMARKS = [
-            { id: 'home', name: 'My home' },
+            { id: 'home', name: 'Home lot' },
             { id: 'house', name: 'Houses' },
             { id: 'ben', name: "Ben's house" },
             { id: 'admin', name: 'Admin house' },
@@ -1495,7 +1686,7 @@
             if (gpsId === 'gadget') return t === 'shop_g';
             if (gpsId === 'weapons') return t === 'shop_w';
             if (gpsId === 'home') {
-                return t === 'home' || (t === 'ruins' && b.x === HOME_LOT_X && b.y === HOME_LOT_Y);
+                return isPlayerHomeLot(b) || (t === 'home' && isPlayerHomeLot(b)) || (t === 'ruins' && b.x === HOME_LOT_X && b.y === HOME_LOT_Y);
             }
             if (gpsId === 'ben') {
                 if (state.benHouseRobbed) {
@@ -1507,7 +1698,7 @@
                 if (b.x === BEN_HOUSE_LOT_X && b.y === BEN_HOUSE_LOT_Y) return false;
                 if (t === 'house') return true;
                 if (isZombieSecretActive() && t === 'ruins' && b.zombieOrigKind === 'house' && b.zombieHouseLooted === false) return true;
-                if (isZombieSecretActive() && t === 'ruins' && b.zombieOrigKind === 'home' && b.zombieHouseLooted === false) return true;
+                if (isZombieSecretActive() && t === 'ruins' && (b.zombieOrigKind === 'home' || b.zombieOrigKind === 'home_lot') && b.zombieHouseLooted === false) return true;
                 return false;
             }
             if (gpsId === 'store') {
@@ -1842,8 +2033,8 @@
                 p.downed = false;
                 p.bleedFrames = 0;
                 p.corpseX = null; p.corpseY = null;
-                const home = state.buildings.find(b => b.type === 'home');
-                if (home) { p.x = home.x + home.w / 2; p.y = home.y + home.h + 30; }
+                const home = getHomeLotBuilding();
+                if (home && state.hasHome) { p.x = home.x + home.w / 2; p.y = home.y + home.h + 30; }
                 else { p.x = 2000 + pIdx * 30; p.y = 2200; }
                 showMessage('♻️ Infinite revive — back in the game!');
                 updateHealthBars();
@@ -2096,6 +2287,7 @@
             if (!p || !p.menuType) return 0;
             if (p.menuType === 'store') return (state.schoolGameMode ? SCHOOL_JOBS.length : JOBS.length) - 1;
             if (p.menuType === 'dealer') return VEHICLE_TYPES.length - 1;
+            if (p.menuType === 'house') return HOUSE_TIERS.length - 1;
             if (p.menuType === 'gadget') return GADGET_ITEMS.length - 1;
             if (p.menuType === 'weapon') return WEAPON_ITEMS.length - 1;
             return 0;
@@ -2416,7 +2608,7 @@
                     if (b.type === 'hospital' || b.type === 'admin_hall') return true;
                     if (b.type === 'ben_hall' && !state.benHouseRobbed) return true;
                     if (b.zombieBank && !state.zombieBankRobbed) return true;
-                    if (b.type === 'ruins' && !b.zombieBank && b.zombieHouseLooted === false && (b.zombieOrigKind === 'house' || b.zombieOrigKind === 'home')) return true;
+                    if (b.type === 'ruins' && !b.zombieBank && b.zombieHouseLooted === false && (b.zombieOrigKind === 'house' || b.zombieOrigKind === 'home' || b.zombieOrigKind === 'home_lot')) return true;
                     return false;
                 });
             }
@@ -2941,12 +3133,12 @@
                     b.zombieBank = true;
                     b.type = 'ruins';
                     b.color = '#365314';
-                } else if (b.type === 'house' || b.type === 'home' || b.type === 'store' || b.type === 'school' || b.type === 'shop_g' || b.type === 'shop_w' || b.type === 'dealership') {
+                } else if (b.type === 'house' || b.type === 'home' || b.type === 'home_lot' || b.type === 'store' || b.type === 'school' || b.type === 'shop_g' || b.type === 'shop_w' || b.type === 'dealership') {
                     const orig = b.type;
                     b.zombieOrigKind = orig;
                     b.type = 'ruins';
                     b.color = '#1f2937';
-                    b.zombieHouseLooted = orig === 'house' || orig === 'home' ? false : true;
+                    b.zombieHouseLooted = orig === 'house' || orig === 'home' || orig === 'home_lot' ? false : true;
                 } else if (b.type === 'ruins' && b.zombieHouseLooted == null) {
                     b.zombieHouseLooted = true;
                 }
@@ -3035,7 +3227,7 @@
             for (let x = 0; x < WORLD_SIZE; x += GRID_SIZE) {
                 for (let y = 0; y < WORLD_SIZE; y += GRID_SIZE) {
                     let type = 'house', color = COLORS[Math.floor(rnd() * COLORS.length)];
-                    if (x === 2000 && y === 2000) { type = 'home'; color = '#000'; }
+                    if (x === 2000 && y === 2000) { type = 'home_lot'; color = '#374151'; }
                     else if (x === 0 && y === 0) { type = 'hospital'; color = '#0f766e'; }    // top-left
                     else if (x === 3500 && y === 0) { type = 'dealership'; color = '#3b82f6'; } // top-right
                     else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }    // bottom-right
@@ -3459,6 +3651,8 @@
                     hp: payload.hp != null ? payload.hp : PLAYER_MAX_HP,
                     dead: !!payload.dead,
                     downed: !!payload.downed,
+                    hasHome: !!payload.hasHome,
+                    homeTier: typeof payload.homeTier === 'number' ? payload.homeTier : -1,
                     lastSeen: performance.now()
                 };
                 // When a new peer appears, host re-sends active secrets so they join in the same mode
@@ -3470,6 +3664,9 @@
             });
             ch.on('broadcast', { event: 'leave' }, ({ payload }) => {
                 if (payload && payload.uid) delete state.remotePlayers[payload.uid];
+            });
+            ch.on('broadcast', { event: 'house_claim' }, ({ payload }) => {
+                applyRemoteHouseClaim(payload);
             });
             ch.on('broadcast', { event: 'pvp_fx' }, ({ payload }) => {
                 if (!payload) return;
@@ -3767,7 +3964,9 @@
                     c: p.color || DEFAULT_PLAYER_COLOR,
                     hp: p.hp != null ? Math.max(0, Math.ceil(p.hp)) : PLAYER_MAX_HP,
                     dead: !!p.dead,
-                    downed: !!p.downed
+                    downed: !!p.downed,
+                    hasHome: !!state.hasHome,
+                    homeTier: state.hasHome ? state.homeTier : -1
                 }
             });
         }
@@ -4030,7 +4229,7 @@
             flash.style.display = 'block';
             flash.style.opacity = '1';
 
-            const home = state.buildings.find(b => b.type === 'home');
+            const home = getHomeLotBuilding();
             const cx = home ? home.x + home.w / 2 : 2150;
             const cy = home ? home.y + home.h / 2 : 2150;
             state.orb = { x: cx, y: cy };
@@ -4084,6 +4283,8 @@
             state.money = 0;
             state.stamina = 100;
             state.bestCarTier = -1;
+            state.hasHome = false;
+            state.homeTier = -1;
             state.wantedLevel = 0;
             state.policeDelay = 0;
             state.arrestCount = 0;
@@ -4157,6 +4358,7 @@
             
             // Re-roll the city map
             generateCity();
+            syncMyHomeLotBuilding();
             updateMoneyUI();
             
             document.getElementById('victory-overlay').style.display = 'none';
@@ -4176,6 +4378,7 @@
                 state.players[pIdx].activeJob = null;
                 state.players[pIdx].schoolTask = null;
                 state.players[pIdx].menuType = null;
+                state.players[pIdx].menuHouseLot = null;
                 state.players[pIdx].isRobbing = false;
             }
             const res = document.getElementById(`rob-result-${pIdx}`);
@@ -4354,6 +4557,33 @@
                     btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
                     dealerList.appendChild(btn);
                 });
+            } else if (p.menuType === 'house') {
+                const hList = document.querySelector(`.house-list-${pIdx}`);
+                const hTitle = document.getElementById(`house-title-${pIdx}`);
+                const hBlurb = document.getElementById(`house-blurb-${pIdx}`);
+                const lot = p.menuHouseLot;
+                const curTier = getHouseTierForBuilding(lot);
+                if (hTitle) hTitle.textContent = isPlayerHomeLot(lot) ? '🏠 My Home Lot' : '🏠 Property';
+                if (hBlurb) {
+                    if (curTier >= 0) {
+                        const cur = getHouseTierDef(curTier);
+                        hBlurb.textContent = `Current: ${cur ? cur.name : 'owned'} — pick a higher tier to upgrade.`;
+                    } else {
+                        hBlurb.textContent = 'No house here yet — buy one to hide from police and store loot.';
+                    }
+                }
+                if (hList) {
+                    hList.innerHTML = '';
+                    HOUSE_TIERS.forEach((h, i) => {
+                        const owned = curTier >= h.tier;
+                        const btn = document.createElement('div');
+                        btn.className = `list-item-btn interactive ${p.menuSelection === i ? 'highlighted' : ''} ${owned ? 'opacity-50' : ''}`;
+                        const pct = Math.round(h.policeBreakIn * 100);
+                        btn.innerHTML = `<div class="font-bold uppercase text-sm">${h.name}${owned ? ' ✓' : ''}</div><div class="text-amber-400 font-bold text-xs">$${h.price.toLocaleString()} · ${pct}% police break-in</div>`;
+                        btn.onclick = () => { p.menuSelection = i; selectMenuItem(pIdx); };
+                        hList.appendChild(btn);
+                    });
+                }
             } else if (p.menuType === 'gadget' && gList) {
                 gList.innerHTML = '';
                 GADGET_ITEMS.forEach((g, i) => {
@@ -4467,6 +4697,9 @@
                         showMessage(`Purchased ${car.name}! Store now earns $${bonus}/tap!`);
                     }
                 } else showMessage("Insufficient Funds!");
+            } else if (p.menuType === 'house') {
+                const tier = HOUSE_TIERS[p.menuSelection];
+                if (tier) purchaseHouseTier(pIdx, tier.tier);
             } else if (p.menuType === 'rob') {
                 window.startRobbery(pIdx);
             }
@@ -4565,12 +4798,19 @@
                 else if (bNear.type === 'shop_w') { openWeaponModal(pIdx); }
                 else if (bNear.type === 'dealership') { p.menuType = 'dealer'; p.menuSelection = 0; updateMenuUI(pIdx); document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block'; }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
-                else if (bNear.type === 'house') { p.menuType = 'rob'; document.getElementById(`rob-modal-${pIdx}`).style.display = 'block'; }
-                else if (bNear.type === 'home' && state.wantedLevel > 0) { 
-                    state.wantedLevel = 0; state.police = []; 
-                    const stars = document.getElementById('wanted-stars');
-                    if(stars) stars.classList.add('hidden'); 
-                    showMessage("SAFE HOUSE REACHED!"); 
+                else if (isPlayerHomeLot(bNear)) {
+                    if (state.wantedLevel > 0 && state.hasHome) tryHideAtHome(pIdx);
+                    else openHouseModal(pIdx, bNear);
+                }
+                else if (bNear.type === 'house') {
+                    if (state.playMode === 'online' && bNear.ownerUid) {
+                        tryRobPlayerHouse(pIdx, bNear);
+                    } else if (state.playMode === 'online' && !bNear.ownerUid) {
+                        openHouseModal(pIdx, bNear);
+                    } else {
+                        p.menuType = 'rob';
+                        document.getElementById(`rob-modal-${pIdx}`).style.display = 'block';
+                    }
                 }
                 }
             }
@@ -4643,6 +4883,8 @@
                 cityNuked: state.cityNuked,
                 benHouseRobbed: state.benHouseRobbed,
                 isPresident: state.isPresident,
+                hasHome: state.hasHome,
+                homeTier: state.homeTier,
                 playerX: p0 ? Math.round(p0.x) : null,
                 playerY: p0 ? Math.round(p0.y) : null,
                 savedAt: Date.now()
@@ -4675,6 +4917,8 @@
             if (save.cityNuked) state.cityNuked = true;
             if (save.benHouseRobbed) state.benHouseRobbed = true;
             if (save.isPresident) state.isPresident = true;
+            if (save.hasHome) state.hasHome = true;
+            if (typeof save.homeTier === 'number') state.homeTier = save.homeTier;
             if (typeof save.skin === 'string' && save.skin) {
                 try { localStorage.setItem(LS_PLAYER_SKIN, save.skin); } catch (_) {}
             }
@@ -4979,6 +5223,8 @@
             state.isGameOver = false;
             state.gamePaused = false;
             state.bestCarTier = -1;
+            state.hasHome = false;
+            state.homeTier = -1;
             state.stamina = 100;
             hideWastedOverlay();
             const xb = document.getElementById('exit-to-lobby-btn');
@@ -5073,6 +5319,7 @@
 
         function initGameLoop() {
             generateCity();
+            syncMyHomeLotBuilding();
             state.benCodeOkThisRun = false;
             hideBenCodeModal();
             updateMoneyUI();
@@ -5358,6 +5605,18 @@
                                 else if (isZombieSecretActive() && bNear.zombieBank && bNear.type === 'ruins' && !state.zombieBankRobbed) subEl.innerText = 'bank ruins — E to loot $2000 (once)';
                                 else if (isZombieSecretActive() && bNear.type === 'ruins' && bNear.zombieHouseLooted === false) subEl.innerText = 'house ruin — E to loot $1000 (this lot once)';
                                 else if (bNear.type === 'hospital') subEl.innerText = 'hospital';
+                                else if (isPlayerHomeLot(bNear)) {
+                                    if (state.wantedLevel > 0 && state.hasHome) subEl.innerText = 'home — E to hide (security roll)';
+                                    else if (!state.hasHome) subEl.innerText = 'home lot — E to buy ($10k+)';
+                                    else subEl.innerText = 'home — E to upgrade';
+                                }
+                                else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid && bNear.ownerUid !== state.supabaseUserId) {
+                                    const tier = typeof bNear.homeTier === 'number' ? bNear.homeTier : 0;
+                                    const pct = Math.round(houseRobSuccessChance(tier) * 100);
+                                    subEl.innerText = `${bNear.ownerName || 'player'}'s house — E to rob (${pct}% chance)`;
+                                }
+                                else if (bNear.type === 'house' && state.playMode === 'online' && !bNear.ownerUid) subEl.innerText = 'house — E to claim ($10k)';
+                                else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid === state.supabaseUserId) subEl.innerText = 'your house — E to upgrade';
                                 else subEl.innerText = bNear.type;
                             } else subEl.innerText = vNear ? vNear.type.name : '';
                         }
@@ -5409,7 +5668,7 @@
                         if (jt) jt.textContent = state.jailReleasePhase ? `${Math.max(0, Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC))}s` : 'Complete tasks';
                         if (state.jailTime <= 0) {
                             applyJailReleaseCommon();
-                            const h = state.buildings.find(b => b.type === 'home');
+                            const h = getHomeLotBuilding();
                             state.players.forEach((p, i) => {
                                 if (!p) return;
                                 if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
@@ -5425,7 +5684,7 @@
                     if (jt) jt.textContent = `${Math.ceil(state.jailTime / JAIL_FRAMES_PER_SEC)}s`;
                     if (state.jailTime <= 0) {
                         state.isJailed = false; document.getElementById('jail-overlay').style.display = 'none';
-                        const h = state.buildings.find(b => b.type === 'home');
+                        const h = getHomeLotBuilding();
                         state.players.forEach((p, i) => {
                             if (!p) return;
                             if (h) { p.x = h.x + h.w / 2 + (i * 20); p.y = h.y + h.h + 30; }
@@ -5535,16 +5794,19 @@
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
                 let short = b.type === 'hospital' ? 'Hospital' : b.type === 'jail' ? 'Police Station' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type))));
+                if (isPlayerHomeLot(b) && !state.hasHome) short = 'HOME LOT';
+                else if (isPlayerHomeLot(b) && state.hasHome) short = 'MY HOME';
+                else if (b.ownerUid && (b.type === 'house' || b.type === 'home') && !isPlayerHomeLot(b)) short = (b.ownerName || 'PLAYER').slice(0, 8).toUpperCase();
                 if (isZombieSecretActive() && b.type === 'ruins' && b.zombieBank) short = 'BANK (ruin)';
                 else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'house' && b.zombieHouseLooted === false) short = 'HOUSE (ruin)';
-                else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'home' && b.zombieHouseLooted === false) short = 'HOME (ruin)';
+                else if (isZombieSecretActive() && b.type === 'ruins' && (b.zombieOrigKind === 'home' || b.zombieOrigKind === 'home_lot') && b.zombieHouseLooted === false) short = 'HOME (ruin)';
                 c.save();
                 c.font = (b.type === 'hospital' || b.type === 'admin_hall' || b.type === 'ben_hall' || b.type === 'shop_g' || b.type === 'shop_w' || (isZombieSecretActive() && b.type === 'ruins' && (b.zombieBank || b.zombieHouseLooted === false))) ? 'bold 9px system-ui,Segoe UI,sans-serif' : 'bold 12px system-ui,Segoe UI,sans-serif';
                 c.textAlign = 'center';
                 c.textBaseline = 'middle';
                 c.lineWidth = 3;
                 c.strokeStyle = 'rgba(0,0,0,0.85)';
-                c.fillStyle = b.type === 'hospital' ? '#5eead4' : b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'shop_w' ? '#fecdd3' : (b.zombieBank ? '#facc15' : (b.zombieHouseLooted === false && b.zombieOrigKind && (b.zombieOrigKind === 'house' || b.zombieOrigKind === 'home') ? '#86efac' : '#e2e8f0'))));
+                c.fillStyle = b.type === 'hospital' ? '#5eead4' : b.type === 'admin_hall' ? '#a5f3fc' : (b.type === 'ben_hall' ? '#e9d5ff' : (b.type === 'shop_w' ? '#fecdd3' : (b.zombieBank ? '#facc15' : (b.zombieHouseLooted === false && b.zombieOrigKind && (b.zombieOrigKind === 'house' || b.zombieOrigKind === 'home' || b.zombieOrigKind === 'home_lot') ? '#86efac' : '#e2e8f0'))));
                 c.strokeText(b.type === 'hospital' ? 'HOSP' : short, cx, cy);
                 c.fillText(b.type === 'hospital' ? 'HOSP' : short, cx, cy);
                 c.restore();
@@ -6079,7 +6341,7 @@
                 return { ok: true, lines: ['Event fired.'] };
             }
             if (lower === '/spawn') {
-                const h = state.buildings.find(b => b.type === 'home');
+                const h = getHomeLotBuilding();
                 if (state.players[0]) {
                     if (h) {
                         state.players[0].x = h.x + h.w / 2;
@@ -7131,7 +7393,7 @@
                     state.money -= state.bailPrice;
                     applyJailReleaseCommon();
                     updateMoneyUI();
-                    const h = state.buildings.find(b => b.type === 'home');
+                    const h = getHomeLotBuilding();
                     state.players.forEach((p, i) => {
                         if (!p) return;
                         if (h) { p.x = h.x + (h.w / 2) + (i * 20); p.y = h.y + h.h + 30; }
