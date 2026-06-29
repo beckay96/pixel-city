@@ -351,6 +351,12 @@
         }
         #lobby-settings-overlay.open { display: flex; }
 
+        #friend-profile-overlay {
+            position: fixed; inset: 0; z-index: 1185; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.82); padding: 16px; pointer-events: auto;
+        }
+        #friend-profile-overlay.open { display: flex; }
+
         #creator-mode-overlay {
             position: fixed; inset: 0; z-index: 1190; display: none; align-items: center; justify-content: center;
             background: rgba(0,0,0,0.86); padding: 16px; pointer-events: auto;
@@ -754,7 +760,8 @@
 
             <div class="pt-2 border-t border-slate-700 text-left">
                 <h2 class="text-[10px] font-bold mb-1 text-slate-400 uppercase tracking-widest text-center">👫 Friends</h2>
-                <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Type a friend's <span class="text-white font-bold">username</span> to add them. When they're playing you can join them with one tap!</p>
+                <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Share your <span class="text-white font-bold">username</span> — they add you and you're friends instantly. Tap a friend for their profile, or <span class="text-emerald-400 font-bold">Join</span> to jump into their world.</p>
+                <button type="button" id="friends-host-server-btn" class="hidden w-full mb-2 bg-cyan-700 hover:bg-cyan-600 text-white text-[10px] font-black py-2 rounded-lg interactive border border-cyan-500/50">🌐 Host a server for friends</button>
                 <p id="friends-network-msg" class="text-[9px] text-slate-500 mb-2 text-center hidden">Sign in to sync friends across devices.</p>
                 <div class="flex gap-2 mb-1">
                     <input type="text" id="friend-add-input" placeholder="Their username" class="bg-slate-900 border border-slate-600 p-2 rounded text-white text-base flex-1 interactive" autocomplete="off" autocapitalize="none">
@@ -858,6 +865,20 @@
                 </button>
             </label>
             <p id="lobby-settings-debug-hint" class="text-[8px] text-slate-500">Adds ?debug=1 style logs or turn off. Errors always log.</p>
+            <div id="lobby-my-profile-block" class="border-t border-slate-700 mt-4 pt-4 space-y-3">
+                <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">My profile</p>
+                <div class="flex items-center gap-3">
+                    <span id="lobby-profile-avatar-display" class="text-4xl leading-none" aria-hidden="true">😀</span>
+                    <div class="min-w-0 flex-1 text-left">
+                        <p id="lobby-profile-username" class="text-sm font-black text-white truncate">—</p>
+                        <p id="lobby-profile-userid" class="text-[9px] text-slate-500 font-mono truncate">ID: —</p>
+                        <p id="lobby-profile-wins" class="text-[10px] text-yellow-400 font-bold">🏆 0 wins</p>
+                    </div>
+                </div>
+                <p class="text-[9px] text-slate-500 uppercase font-bold text-left">Profile picture</p>
+                <div id="lobby-profile-avatar-grid" class="grid grid-cols-8 gap-1"></div>
+                <p id="lobby-profile-save-msg" class="text-[9px] text-emerald-400 min-h-[1rem] text-left"></p>
+            </div>
             <div class="border-t border-slate-700 mt-4 pt-4 space-y-3">
                 <p class="text-[10px] font-black text-fuchsia-300 uppercase tracking-widest">Pixel City Creator</p>
                 <label class="flex items-center justify-between gap-3 cursor-pointer interactive">
@@ -876,6 +897,38 @@
                 <p id="lobby-settings-creator-deep-hint" class="text-[8px] text-slate-500 leading-snug mb-2">Unlocks Mod Mods on your phone and the full Creator lab (still local-only).</p>
                 <button type="button" id="lobby-open-creator-board" class="w-full bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-xs font-black py-2.5 rounded-xl interactive border border-fuchsia-500/60">Creator hub</button>
             </div>
+        </div>
+    </div>
+
+    <div id="friend-profile-overlay" role="dialog" aria-modal="true" aria-labelledby="friend-profile-title" aria-hidden="true">
+        <div class="bg-slate-900 border-2 border-indigo-500/50 rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+            <div class="flex justify-between items-start gap-2 mb-3">
+                <h2 id="friend-profile-title" class="text-indigo-300 font-black text-base uppercase tracking-widest">Friend profile</h2>
+                <button type="button" id="friend-profile-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
+            </div>
+            <div class="flex items-center gap-3 mb-4">
+                <span id="friend-profile-avatar" class="text-5xl leading-none">😀</span>
+                <div class="min-w-0 flex-1 text-left">
+                    <p id="friend-profile-username" class="text-lg font-black text-white truncate">—</p>
+                    <p id="friend-profile-status" class="text-[10px] font-bold text-slate-400">—</p>
+                </div>
+            </div>
+            <dl class="text-left space-y-2 text-xs mb-4">
+                <div class="flex justify-between gap-2 border-b border-slate-800 pb-1.5">
+                    <dt class="text-slate-500 font-bold uppercase text-[9px]">Player ID</dt>
+                    <dd id="friend-profile-userid" class="text-slate-300 font-mono text-[10px] truncate max-w-[60%]">—</dd>
+                </div>
+                <div class="flex justify-between gap-2 border-b border-slate-800 pb-1.5">
+                    <dt class="text-slate-500 font-bold uppercase text-[9px]">Wins</dt>
+                    <dd id="friend-profile-wins" class="text-yellow-400 font-black">0</dd>
+                </div>
+                <div class="flex justify-between gap-2">
+                    <dt class="text-slate-500 font-bold uppercase text-[9px]">World</dt>
+                    <dd id="friend-profile-world" class="text-slate-300 font-mono text-[10px]">—</dd>
+                </div>
+            </dl>
+            <button type="button" id="friend-profile-join-btn" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl interactive mb-2">▶ Join their world</button>
+            <button type="button" id="friend-profile-host-btn" class="hidden w-full bg-cyan-700 hover:bg-cyan-600 text-white font-black py-2 rounded-xl interactive text-sm">🌐 Host server — invite them</button>
         </div>
     </div>
 
@@ -1905,6 +1958,8 @@
         const MINIMAP_PX = 200;
         const DEFAULT_PLAYER_COLOR = '#2563eb';
         const LS_PLAYER_SKIN = 'pixelCityPlayerSkin';
+        const LS_PROFILE_AVATAR = 'pixelCityProfileAvatar';
+        const PROFILE_AVATARS = ['😀', '😎', '🤠', '🥷', '👾', '🦊', '🐱', '🐶', '🦁', '🐸', '🦄', '🐲', '🤖', '👻', '💀', '🎮', '🏆', '⭐', '🔥', '💎', '🌈', '🍕', '🚀', '⚡'];
         const SKIN_PRESETS = [
             { id: 'blue', label: 'Blue', color: '#2563eb' },
             { id: 'cyan', label: 'Cyan', color: '#22d3ee' },
@@ -2264,6 +2319,11 @@
         }
 
         let savedWins = parseInt(localStorage.getItem('pixelCityWins') || '0');
+        let savedProfileAvatar = '😀';
+        try {
+            const av = localStorage.getItem(LS_PROFILE_AVATAR);
+            if (av && PROFILE_AVATARS.includes(av)) savedProfileAvatar = av;
+        } catch (_) { /* */ }
 
         let initialBeta3d = false;
         try { initialBeta3d = localStorage.getItem(LS_BETA_3D) === '1'; } catch (_) { /* */ }
@@ -2317,6 +2377,7 @@
             winCount: savedWins,
             playerName: '',
             profileUsername: '',
+            profileAvatar: savedProfileAvatar,
             supabaseUserId: null,
             playMode: 'solo',
             worldSeed: null,
@@ -5699,7 +5760,229 @@
         }
 
         const friendSessionCache = {}; // username -> { code, checkedAt }
+        const friendProfileCache = {}; // username -> { avatar, winCount, userId }
         const FRIEND_SESSION_CACHE_MS = 20000; // re-check every 20s
+        let friendProfileJoinCode = null;
+        let friendProfileJoinName = null;
+
+        function getSavedProfileAvatar() {
+            try {
+                const raw = localStorage.getItem(LS_PROFILE_AVATAR);
+                if (raw && PROFILE_AVATARS.includes(raw)) return raw;
+            } catch (_) { /* */ }
+            return '😀';
+        }
+
+        function persistProfileAvatar(emoji) {
+            state.profileAvatar = emoji;
+            try { localStorage.setItem(LS_PROFILE_AVATAR, emoji); } catch (_) { /* */ }
+        }
+
+        async function reportActiveSession(code) {
+            if (!supabase || !state.supabaseUserId) return;
+            const sessionArg = code ? String(code).trim().toUpperCase() : 'CLEAR';
+            try {
+                await supabase.rpc('user_heartbeat', {
+                    p_user_id: state.supabaseUserId,
+                    p_session_code: sessionArg
+                });
+            } catch (_) { /* best-effort */ }
+        }
+
+        async function syncWinCountToCloud() {
+            if (!supabase || !state.supabaseUserId) return;
+            try {
+                const { data } = await supabase.rpc('sync_user_win_count', {
+                    p_user_id: state.supabaseUserId,
+                    p_win_count: state.winCount || 0
+                });
+                if (data && data.ok && typeof data.win_count === 'number') {
+                    state.winCount = data.win_count;
+                    localStorage.setItem('pixelCityWins', state.winCount);
+                    if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+                    refreshMyProfileUI();
+                }
+            } catch (_) { /* */ }
+        }
+
+        function refreshMyProfileUI() {
+            const avEl = document.getElementById('lobby-profile-avatar-display');
+            const unEl = document.getElementById('lobby-profile-username');
+            const idEl = document.getElementById('lobby-profile-userid');
+            const winsEl = document.getElementById('lobby-profile-wins');
+            const block = document.getElementById('lobby-my-profile-block');
+            if (!block) return;
+            const signed = !!(state.supabaseUserId && state.profileUsername);
+            block.classList.toggle('opacity-50', !signed);
+            if (avEl) avEl.textContent = state.profileAvatar || '😀';
+            if (unEl) unEl.textContent = signed ? state.profileUsername : 'Sign in to edit profile';
+            if (idEl) idEl.textContent = signed ? `ID: ${state.supabaseUserId}` : 'ID: —';
+            if (winsEl) winsEl.textContent = `🏆 ${state.winCount || 0} wins`;
+            const grid = document.getElementById('lobby-profile-avatar-grid');
+            if (grid && !grid.dataset.built) {
+                grid.dataset.built = '1';
+                grid.innerHTML = '';
+                PROFILE_AVATARS.forEach(emoji => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'text-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg py-1 interactive';
+                    b.textContent = emoji;
+                    b.title = 'Set profile picture';
+                    b.onclick = () => { void saveMyProfileAvatar(emoji); };
+                    grid.appendChild(b);
+                });
+            }
+            grid?.querySelectorAll('button').forEach(btn => {
+                btn.classList.toggle('ring-2', btn.textContent === (state.profileAvatar || '😀'));
+                btn.classList.toggle('ring-indigo-400', btn.textContent === (state.profileAvatar || '😀'));
+            });
+        }
+
+        async function saveMyProfileAvatar(emoji) {
+            if (!PROFILE_AVATARS.includes(emoji)) return;
+            persistProfileAvatar(emoji);
+            refreshMyProfileUI();
+            const msg = document.getElementById('lobby-profile-save-msg');
+            if (!supabase || !state.supabaseUserId) {
+                if (msg) msg.textContent = 'Saved on this device — sign in to sync.';
+                return;
+            }
+            if (msg) msg.textContent = 'Saving…';
+            try {
+                const { data, error } = await supabase.rpc('update_user_profile', {
+                    p_user_id: state.supabaseUserId,
+                    p_avatar: emoji
+                });
+                if (error || !data || !data.ok) {
+                    if (msg) msg.textContent = (data && data.error) || error?.message || 'Could not save.';
+                    return;
+                }
+                if (msg) msg.textContent = 'Profile picture saved!';
+            } catch (e) {
+                if (msg) msg.textContent = 'Could not save profile picture.';
+            }
+        }
+
+        function closeFriendProfileOverlay() {
+            const o = document.getElementById('friend-profile-overlay');
+            if (!o) return;
+            o.classList.remove('open');
+            o.setAttribute('aria-hidden', 'true');
+            friendProfileJoinCode = null;
+            friendProfileJoinName = null;
+        }
+
+        async function openFriendProfile(username) {
+            const o = document.getElementById('friend-profile-overlay');
+            if (!o) return;
+            const un = normalizeUsername(username);
+            friendProfileJoinName = un;
+            friendProfileJoinCode = null;
+            const avEl = document.getElementById('friend-profile-avatar');
+            const unEl = document.getElementById('friend-profile-username');
+            const stEl = document.getElementById('friend-profile-status');
+            const idEl = document.getElementById('friend-profile-userid');
+            const winsEl = document.getElementById('friend-profile-wins');
+            const worldEl = document.getElementById('friend-profile-world');
+            const joinBtn = document.getElementById('friend-profile-join-btn');
+            const hostBtn = document.getElementById('friend-profile-host-btn');
+            if (unEl) unEl.textContent = un;
+            if (stEl) stEl.textContent = 'Loading…';
+            if (idEl) idEl.textContent = '—';
+            if (winsEl) winsEl.textContent = '—';
+            if (worldEl) worldEl.textContent = '—';
+            if (joinBtn) joinBtn.classList.add('hidden');
+            if (hostBtn) hostBtn.classList.add('hidden');
+            o.classList.add('open');
+            o.setAttribute('aria-hidden', 'false');
+
+            const cached = friendProfileCache[un];
+            if (cached) {
+                if (avEl) avEl.textContent = cached.avatar || '😀';
+                if (winsEl) winsEl.textContent = String(cached.winCount ?? 0);
+                if (idEl) idEl.textContent = cached.userId || '—';
+            }
+
+            if (!supabase || !state.supabaseUserId) {
+                if (stEl) stEl.textContent = '⚪ Offline (sign in for live info)';
+                if (avEl && !cached) avEl.textContent = '😀';
+                if (winsEl && !cached) winsEl.textContent = '0';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.rpc('get_friend_profile', {
+                    p_user_id: state.supabaseUserId,
+                    p_friend_username: un
+                });
+                if (error || !data || !data.ok) {
+                    if (stEl) stEl.textContent = 'Could not load profile';
+                    return;
+                }
+                friendProfileCache[un] = {
+                    avatar: data.avatar,
+                    winCount: data.win_count,
+                    userId: data.user_id
+                };
+                if (avEl) avEl.textContent = data.avatar || '😀';
+                if (winsEl) winsEl.textContent = String(data.win_count ?? 0);
+                if (idEl) idEl.textContent = data.user_id || '—';
+                if (data.online) {
+                    if (data.in_game) {
+                        if (stEl) stEl.textContent = data.is_hosting ? '🎮 In their world (hosting)' : '🎮 In a multiplayer world';
+                        if (worldEl) worldEl.textContent = data.session_code || 'Active';
+                        friendProfileJoinCode = data.session_code || null;
+                        if (joinBtn && data.session_code) {
+                            joinBtn.classList.remove('hidden');
+                            joinBtn.textContent = '▶ Join their world';
+                        }
+                    } else {
+                        if (stEl) stEl.textContent = '🟢 Online — in lobby';
+                        if (worldEl) worldEl.textContent = 'Not in a world yet';
+                        if (hostBtn) hostBtn.classList.remove('hidden');
+                    }
+                } else {
+                    if (stEl) stEl.textContent = '⚪ Offline';
+                    if (worldEl) worldEl.textContent = '—';
+                }
+            } catch (_) {
+                if (stEl) stEl.textContent = 'Could not load profile';
+            }
+        }
+
+        async function joinFriendWorldInstant(sessionCode) {
+            const code = (sessionCode || '').trim().toUpperCase();
+            if (!code) return;
+            document.getElementById('mode-online')?.click();
+            state.multiplayerIntendsHost = false;
+            const inp = document.getElementById('online-join-code-input');
+            if (inp) inp.value = code;
+            await joinOnlineSession(code);
+            if (!state.onlineSessionCode) return;
+            closeFriendProfileOverlay();
+            await joinRoom();
+        }
+
+        async function hostServerForFriends(andPlay) {
+            if (!supabase || !state.supabaseUserId) {
+                setSessionMsg('👤 Sign in first to host a server!', false);
+                return;
+            }
+            document.getElementById('mode-online')?.click();
+            state.multiplayerIntendsHost = true;
+            await hostOnlineSession();
+            if (!state.onlineSessionCode) return;
+            const msg = document.getElementById('friend-add-msg');
+            if (msg) msg.textContent = `🌐 Hosting! Share code ${state.onlineSessionCode} or tell friends to tap Join on your profile.`;
+            if (andPlay) await joinRoom();
+        }
+
+        function updateFriendsHostButtonVisibility() {
+            const btn = document.getElementById('friends-host-server-btn');
+            if (!btn) return;
+            const show = !!(supabase && state.supabaseUserId && !state.onlineSessionCode);
+            btn.classList.toggle('hidden', !show);
+        }
 
         async function getFriendSessionCode(username) {
             const cached = friendSessionCache[username];
@@ -5736,6 +6019,8 @@
 
             friends.forEach(name => {
                 const li = document.createElement('li');
+                const prof = friendProfileCache[name] || {};
+                const avatar = prof.avatar || '😀';
                 const online = friendOnlineStatus[name];
                 const inGame = !!(online && sessionCodes[name]);
                 const sessionCode = sessionCodes[name];
@@ -5749,31 +6034,27 @@
                 }
 
                 const statusDot = inGame ? '🎮' : (online ? '🟢' : '⚪');
-                const statusLabel = inGame ? '<span class="text-[8px] text-emerald-400 font-bold block">In game!</span>' : '';
-                li.innerHTML = `<div class="min-w-0"><span class="text-slate-200 font-bold">${statusDot} ${escapeHtml(name)}</span>${statusLabel}</div><div class="flex gap-1 shrink-0 items-center"></div>`;
+                const statusLabel = inGame ? '<span class="text-[8px] text-emerald-400 font-bold block">In game!</span>' : (online ? '<span class="text-[8px] text-cyan-400/90 font-bold block">Online</span>' : '');
+                const winsHint = typeof prof.winCount === 'number' ? `<span class="text-[8px] text-yellow-500/80 block">🏆 ${prof.winCount}</span>` : '';
+                li.innerHTML = `<div class="min-w-0 flex items-center gap-1.5"><button type="button" class="friend-profile-open text-lg leading-none shrink-0 interactive" title="View profile">${avatar}</button><div class="min-w-0 text-left"><button type="button" class="friend-profile-open text-slate-200 font-bold truncate max-w-full interactive text-left">${statusDot} ${escapeHtml(name)}</button>${statusLabel}${winsHint}</div></div><div class="flex gap-1 shrink-0 items-center"></div>`;
+                li.querySelectorAll('.friend-profile-open').forEach(btn => {
+                    btn.onclick = (e) => { e.stopPropagation(); void openFriendProfile(name); };
+                });
                 const wrap = li.querySelector('div:last-child');
 
                 if (inGame && supabase && state.supabaseUserId) {
-                    // One-click join
                     const j = document.createElement('button');
                     j.type = 'button';
                     j.className = 'text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg font-black interactive';
                     j.textContent = '▶ Join';
-                    j.onclick = () => {
-                        document.getElementById('mode-online')?.click();
-                        state.multiplayerIntendsHost = false;
-                        const inp = document.getElementById('online-join-code-input');
-                        if (inp) inp.value = sessionCode;
-                        joinOnlineSession(sessionCode);
-                    };
+                    j.onclick = () => { void joinFriendWorldInstant(sessionCode); };
                     wrap.appendChild(j);
                 } else if (online && supabase && state.supabaseUserId) {
-                    // Online but no active session
                     const j = document.createElement('button');
                     j.type = 'button';
-                    j.className = 'text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded font-bold interactive';
+                    j.className = 'text-[10px] bg-cyan-700 hover:bg-cyan-600 text-white px-2 py-0.5 rounded font-bold interactive';
                     j.textContent = 'Invite';
-                    j.onclick = () => startOnlineWithFriend(name);
+                    j.onclick = () => { void hostServerForFriends(false); };
                     wrap.appendChild(j);
                 }
 
@@ -5794,6 +6075,7 @@
                 wrap.appendChild(rm);
                 ul.appendChild(li);
             });
+            updateFriendsHostButtonVisibility();
         }
 
         function updateFriendsListUI() {
@@ -5807,7 +6089,7 @@
             if (friends.length === 0) return;
             const { data, error } = await supabase
                 .from('users')
-                .select('username, last_seen')
+                .select('username, last_seen, avatar, win_count, id')
                 .in('username', friends);
             if (error || !data) return;
             const now = Date.now();
@@ -5815,6 +6097,11 @@
                 const un = row.username;
                 const seen = row.last_seen ? new Date(row.last_seen).getTime() : 0;
                 friendOnlineStatus[un] = now - seen < 90000;
+                friendProfileCache[un] = {
+                    avatar: row.avatar || '😀',
+                    winCount: row.win_count ?? 0,
+                    userId: row.id
+                };
             });
         }
 
@@ -5822,7 +6109,11 @@
 
         async function upsertMyPresence() {
             if (!supabase || !state.supabaseUserId) return;
-            await supabase.rpc('user_heartbeat', { p_user_id: state.supabaseUserId });
+            const sessionArg = state.onlineSessionCode ? state.onlineSessionCode : 'CLEAR';
+            await supabase.rpc('user_heartbeat', {
+                p_user_id: state.supabaseUserId,
+                p_session_code: sessionArg
+            });
         }
 
         async function addFriendByUsername(raw) {
@@ -5850,7 +6141,7 @@
                         : errText;
                     return;
                 }
-                if (msg) msg.textContent = `✅ ${un} added! You'll see a 🎮 Join button when they're in a game.`;
+                if (msg) msg.textContent = `✅ You're now friends with ${un}! Tap their name for profile — Join jumps straight into their world.`;
                 // Remove from local list to prevent duplicates (cloud is authoritative)
                 saveLocalFriends(loadLocalFriends().filter(n => n.toLowerCase() !== un.toLowerCase()));
             } else {
@@ -5890,6 +6181,7 @@
             state.isOnlineHost = false;
             state.isSoloAutoHost = false;
             state.multiplayerIntendsHost = true;
+            void reportActiveSession(null);
             const badge = document.getElementById('session-code-badge');
             if (badge) badge.classList.add('hidden');
             const invite = document.getElementById('online-invite-block');
@@ -6718,6 +7010,7 @@
                 payload: {
                     uid: state.supabaseUserId,
                     u: state.profileUsername || state.playerName || 'player',
+                    av: state.profileAvatar || '😀',
                     x: bx, y: by, angle: p.angle,
                     inVehicle: !!p.inVehicle,
                     inJail: !!state.isJailed,
@@ -6811,6 +7104,7 @@
                     return;
                 }
                 pcDebug('info', 'host_online_session_ok', { code });
+                void reportActiveSession(code);
                 if (el) el.textContent = `Your code: ${code} — friend opens invite link or types code`;
                 updateOnlineInviteUI(code);
             } finally {
@@ -6852,6 +7146,7 @@
                     return;
                 }
                 pcDebug('info', 'join_online_session_ok', { code, isHost: state.isOnlineHost });
+                void reportActiveSession(code);
                 state.multiplayerIntendsHost = !!state.isOnlineHost;
                 setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
                 applyModeButtonStyles();
@@ -7282,6 +7577,7 @@
             updateBeta3dQualityReadout();
             syncPhoneCreatorAppsVisibility();
             syncCreatorStudioIngameLayout();
+            refreshMyProfileUI();
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
         }
@@ -8825,6 +9121,7 @@
             state.isPresident = true;
             state.winCount++;
             localStorage.setItem('pixelCityWins', state.winCount);
+            void syncWinCountToCloud();
             
             if (state.winCount >= 10) {
                 document.getElementById('murder-code-reveal').classList.remove('hidden');
@@ -9684,18 +9981,41 @@
         }
 
         async function loadMyProfile() {
-            if (!supabase || !state.supabaseUserId) { recomputeIsAdmin(); updateOwnerDashboardFabVisibility(); return; }
+            state.profileAvatar = getSavedProfileAvatar();
+            if (!supabase || !state.supabaseUserId) {
+                recomputeIsAdmin();
+                updateOwnerDashboardFabVisibility();
+                refreshMyProfileUI();
+                updateFriendsHostButtonVisibility();
+                return;
+            }
             try {
-                const { data, error } = await supabase.from('users').select('username').eq('id', state.supabaseUserId).maybeSingle();
-                if (!error && data && data.username) {
-                    state.profileUsername = data.username;
-                    state.playerName = data.username;
+                const { data, error } = await supabase.from('users').select('username, avatar, win_count').eq('id', state.supabaseUserId).maybeSingle();
+                if (!error && data) {
+                    if (data.username) {
+                        state.profileUsername = data.username;
+                        state.playerName = data.username;
+                    }
+                    if (data.avatar && PROFILE_AVATARS.includes(data.avatar)) {
+                        persistProfileAvatar(data.avatar);
+                    } else if (data.avatar) {
+                        persistProfileAvatar(data.avatar);
+                    }
+                    if (typeof data.win_count === 'number' && data.win_count > (state.winCount || 0)) {
+                        state.winCount = data.win_count;
+                        localStorage.setItem('pixelCityWins', state.winCount);
+                        if (lobbyWinsDisplay) lobbyWinsDisplay.innerText = `🏆 Wins: ${state.winCount}`;
+                    } else {
+                        void syncWinCountToCloud();
+                    }
                 }
             } catch (e) {
                 console.warn('loadMyProfile', e);
             }
             recomputeIsAdmin();
             updateOwnerDashboardFabVisibility();
+            refreshMyProfileUI();
+            updateFriendsHostButtonVisibility();
         }
 
         function saveSession(userId, username) {
@@ -10294,6 +10614,10 @@
                 }
             }
             closeLobbyStatsOverlay();
+
+            if (state.playMode === 'online' && state.onlineSessionCode) {
+                void reportActiveSession(state.onlineSessionCode);
+            }
 
             document.getElementById('lobby-screen').style.display = 'none';
             dismissAllBuildingMenus();
@@ -12768,6 +13092,15 @@
             document.getElementById('friend-add-input')?.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); document.getElementById('friend-add-btn').click(); }
             });
+            document.getElementById('friends-host-server-btn')?.addEventListener('click', () => { void hostServerForFriends(false); });
+            document.getElementById('friend-profile-close')?.addEventListener('click', () => closeFriendProfileOverlay());
+            document.getElementById('friend-profile-overlay')?.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'friend-profile-overlay') closeFriendProfileOverlay();
+            });
+            document.getElementById('friend-profile-join-btn')?.addEventListener('click', () => {
+                if (friendProfileJoinCode) void joinFriendWorldInstant(friendProfileJoinCode);
+            });
+            document.getElementById('friend-profile-host-btn')?.addEventListener('click', () => { void hostServerForFriends(false); });
 
             document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
             document.getElementById('online-join-btn').onclick = async () => {
