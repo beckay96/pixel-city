@@ -6122,7 +6122,7 @@
 
             const cached = friendProfileCache[un];
             if (cached) {
-                if (avEl) avEl.textContent = cached.avatar || '😀';
+                if (avEl) setAvatarOnElement(avEl, cached.avatar || '😀', 'w-full h-full object-cover');
                 if (winsEl) winsEl.textContent = String(cached.winCount ?? 0);
                 if (idEl) idEl.textContent = cached.userId || '—';
             }
