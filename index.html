@@ -193,6 +193,11 @@
             background: rgba(0,0,0,0.7); padding: 20px; pointer-events: auto;
         }
         #admin-global-broadcast.open { display: flex; }
+        #banned-account-overlay {
+            position: fixed; inset: 0; z-index: 2500; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.92); padding: 20px; pointer-events: auto;
+        }
+        #banned-account-overlay.open { display: flex; }
         .admin-broadcast-bubble {
             max-width: 90vw; width: 420px; background: linear-gradient(145deg, #1e1b4b, #0f172a);
             border: 3px solid #a855f7; border-radius: 20px; padding: 1.25rem; box-shadow: 0 0 40px rgba(168,85,247,0.45);
@@ -681,6 +686,15 @@
             <button type="button" id="auth-signin-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-full py-3 rounded-lg font-bold interactive text-sm">Play online</button>
             <p class="text-[8px] text-slate-500 text-center -mt-1">New username? An account is created for you automatically.</p>
             <button type="button" id="auth-guest-btn" class="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest w-full interactive">Play offline (no account)</button>
+        </div>
+    </div>
+
+    <div id="banned-account-overlay" role="alertdialog" aria-modal="true" aria-labelledby="banned-account-title" aria-hidden="true">
+        <div class="bg-slate-900 border-2 border-red-600 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+            <p class="text-4xl mb-3" aria-hidden="true">🚫</p>
+            <h2 id="banned-account-title" class="text-xl font-black text-red-400 uppercase tracking-widest mb-2">Account banned</h2>
+            <p id="banned-account-msg" class="text-sm text-slate-300 leading-snug mb-4">Your account has been permanently banned. You cannot play online or start a game on this account.</p>
+            <button type="button" id="banned-account-signout" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg font-bold text-sm interactive">Sign out</button>
         </div>
     </div>
 
@@ -1865,6 +1879,7 @@
                     <span id="dash-ban-target" class="text-[10px] text-slate-400 flex-1 min-w-[120px] truncate">—</span>
                     <button type="button" id="dash-promote-btn" class="bg-amber-700 hover:bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Make admin</button>
                     <button type="button" id="dash-ban-btn" class="bg-red-800 hover:bg-red-700 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Ban forever</button>
+                    <button type="button" id="dash-unban-btn" class="hidden bg-emerald-800 hover:bg-emerald-700 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Unban</button>
                 </div>
                 <p id="dash-admin-action-msg" class="text-[9px] text-emerald-400 min-h-[1rem] mt-1"></p>
             </div>
@@ -2118,7 +2133,7 @@
             { id: 'phone', label: 'What is the phone icon?', answer: () => 'Bottom-left PixelPhone: GPS routes, mini-games, chat commands like /help.' },
             { id: 'health', label: 'Health & hospital?', answer: () => 'Green HP bar. Hospital heals for cash. Downed players can be helped by teammates in co-op or online.' },
             { id: 'vault', label: 'Bank vault robbery?', answer: () => 'Vault pays $10,000 but police chase much faster than house jobs. If caught you lose the loot and may pay a fine, wait, or go bankrupt.' },
-            { id: 'house_rob', label: 'House robbery basics?', answer: () => 'Enter houses on the map, spin the wheel for loot. Easier police response than the vault — good for practice.' },
+            { id: 'house_rob', label: 'House robbery basics?', answer: () => 'Rob houses for $200 every time (20s cooldown per house — hop to another lot). 5% chance for $1M jackpot, 20% for a $1k bonus. Police still show up.' },
             { id: 'tyre', label: 'What is a tyre trap?', answer: () => 'Gadget shop item — drops a ring that stuns police ~10s when they cross it. Place like other gadgets from your loadout.' },
             { id: 'landmine', label: 'Landmine placement?', answer: () => 'Drops slightly in front of you so you do not blow yourself up. Damages actors that enter the blast radius.' },
             { id: 'inventory', label: 'Inventory vs loadout?', answer: () => 'Inventory lists everything you bought this run. Loadout is what you carry — open Inventory to equip gadgets/weapons you own.' },
@@ -2395,6 +2410,9 @@
             profileAvatar: savedProfileAvatar,
             isOwner: false,
             isDashboardAdmin: false,
+            isBanned: false,
+            houseRobCooldowns: {},
+            adminPresenceBroadcastDone: false,
             supabaseUserId: null,
             playMode: 'solo',
             worldSeed: null,
@@ -2593,6 +2611,10 @@
             [1500, 2500], [2500, 1500], [500, 2000], [2000, 500], [2500, 2500]
         ];
         const MAX_HOMES_PER_PLAYER = 1;
+        const HOUSE_ROB_BASE_PAYOUT = 200;
+        const HOUSE_ROB_COOLDOWN_MS = 20000;
+        const HOUSE_ROB_JACKPOT_CHANCE = 0.05;
+        const HOUSE_ROB_BONUS_1K_CHANCE = 0.20;
         const HOME_LOT_X = 2100;
         const HOME_LOT_Y = 2100;
 
@@ -2713,42 +2735,100 @@
             return rp && typeof rp.money === 'number' ? rp.money : 0;
         }
 
-        function attemptPlayerHouseBreakIn(pIdx, victimUid, victimName, tier) {
-            const def = getHouseTierDef(tier);
-            const breakPct = Math.round(playerBreakInChance(tier) * 100);
-            const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
+        function houseRobKey(building) {
+            if (!building || building.x == null || building.y == null) return null;
+            return `${building.x},${building.y}`;
+        }
+
+        function getHouseRobCooldownRemainingMs(building) {
+            const key = houseRobKey(building);
+            if (!key) return 0;
+            const until = (state.houseRobCooldowns && state.houseRobCooldowns[key]) || 0;
+            return Math.max(0, until - Date.now());
+        }
+
+        function setHouseRobCooldown(building) {
+            const key = houseRobKey(building);
+            if (!key) return;
+            if (!state.houseRobCooldowns) state.houseRobCooldowns = {};
+            state.houseRobCooldowns[key] = Date.now() + HOUSE_ROB_COOLDOWN_MS;
+        }
+
+        function rollHouseRobPayout() {
+            let total = HOUSE_ROB_BASE_PAYOUT;
+            const parts = [`$${HOUSE_ROB_BASE_PAYOUT}`];
+            if (Math.random() < HOUSE_ROB_JACKPOT_CHANCE) {
+                total += 1000000;
+                parts.push('JACKPOT $1,000,000');
+            }
+            if (Math.random() < HOUSE_ROB_BONUS_1K_CHANCE) {
+                total += 1000;
+                parts.push('bonus $1,000');
+            }
+            return { total, label: parts.join(' + ') };
+        }
+
+        function alertPoliceAfterRobbery() {
             state.wantedLevel = 1;
             state.policeDelay = 180;
             const stars = document.getElementById('wanted-stars');
             if (stars) stars.classList.remove('hidden');
-            if (Math.random() >= playerBreakInChance(tier)) {
-                showMessage(`${victimName}'s ${def ? def.name : 'house'} held — break-in failed (${breakPct}% chance)!`);
-                return;
+        }
+
+        function finalizeHouseRobPayout(pIdx, building, victimUid, victimName, opts) {
+            const o = opts || {};
+            const cd = getHouseRobCooldownRemainingMs(building);
+            if (cd > 0) {
+                showMessage(`This house was robbed recently — wait ${Math.ceil(cd / 1000)}s (try another house).`);
+                return { ok: false };
             }
+            const { total, label } = rollHouseRobPayout();
+            setHouseRobCooldown(building);
+            state.money += total;
+            updateMoneyUI();
+            alertPoliceAfterRobbery();
+            if (total >= 1000000) {
+                const flash = document.getElementById('jackpot-flash');
+                if (flash) {
+                    flash.style.display = 'flex';
+                    setTimeout(() => { flash.style.display = 'none'; }, 3000);
+                }
+            }
+            const who = victimName ? `${victimName}'s house` : 'House';
+            showMessage(`${who}: ${label} = $${total.toLocaleString()}! Police alerted.`);
             if (state.playMode === 'online' && supabaseRealtimeChannel && victimUid && victimUid !== state.supabaseUserId) {
                 try {
                     supabaseRealtimeChannel.send({
                         type: 'broadcast',
                         event: 'pvp_fx',
                         payload: {
-                            k: 'house_rob_request',
+                            k: 'house_rob_notify',
                             victimUid,
-                            robberUid: state.supabaseUserId,
                             robberName: state.profileUsername || state.playerName || 'Player',
-                            tier
+                            amount: total
                         }
                     });
                 } catch (_) {}
-                showMessage(`Broke into ${victimName}'s ${def ? def.name : 'house'}! Stealing up to ${stealPct}% of their cash…`);
-            } else {
-                const hint = getRemotePlayerMoney(victimUid);
-                const steal = Math.max(0, Math.floor(hint * houseMoneyStealFraction(tier)));
-                if (steal > 0) {
-                    state.money += steal;
-                    updateMoneyUI();
-                }
-                showMessage(`Broke in! Took $${steal.toLocaleString()} (${stealPct}% of their stash).`);
             }
+            if (o.closeModal && typeof pIdx === 'number') {
+                setTimeout(() => { window.closePlayerModal(pIdx); }, o.closeModalDelay || 1500);
+            }
+            return { ok: true, total, label };
+        }
+
+        function attemptPlayerHouseBreakIn(pIdx, victimUid, victimName, tier, building) {
+            const def = getHouseTierDef(tier);
+            const breakPct = Math.round(playerBreakInChance(tier) * 100);
+            if (building && getHouseRobCooldownRemainingMs(building) > 0) {
+                showMessage(`This house was robbed recently — wait ${Math.ceil(getHouseRobCooldownRemainingMs(building) / 1000)}s.`);
+                return;
+            }
+            alertPoliceAfterRobbery();
+            if (Math.random() >= playerBreakInChance(tier)) {
+                showMessage(`${victimName}'s ${def ? def.name : 'house'} held — break-in failed (${breakPct}% chance)!`);
+                return;
+            }
+            finalizeHouseRobPayout(pIdx, building, victimUid, victimName, { closeModal: true, closeModalDelay: 1200 });
         }
 
         function applyHouseTierToBuilding(b, tier) {
@@ -2820,26 +2900,24 @@
                 const rp = o.remoteHome.rp;
                 const tier = rp.homeTier >= 0 ? rp.homeTier : 0;
                 const breakPct = Math.round(playerBreakInChance(tier) * 100);
-                const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
                 const def = getHouseTierDef(tier);
                 if (title) title.textContent = `🏠 ${rp.username || 'Player'}'s Home`;
-                if (blurb) blurb.textContent = `${def ? def.name : 'Home'} — ${breakPct}% break-in · steal ${stealPct}% of their money if you get in.`;
-                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${breakPct}% · steal ${stealPct}%)`; }
+                if (blurb) blurb.textContent = `${def ? def.name : 'Home'} — ${breakPct}% break-in · $200 base + bonuses (20s cooldown per house).`;
+                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${breakPct}% chance)`; }
                 if (buyBtn) buyBtn.classList.add('hidden');
                 if (wheelBtn) wheelBtn.classList.add('hidden');
             } else if (building && buildingOwnedByOther(building)) {
                 const tier = typeof building.homeTier === 'number' ? building.homeTier : 0;
                 const breakPct = Math.round(playerBreakInChance(tier) * 100);
-                const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
                 const def = getHouseTierDef(tier);
                 if (title) title.textContent = `🏠 ${building.ownerName || 'Player'}'s House`;
-                if (blurb) blurb.textContent = `${def ? def.name : 'House'} — ${breakPct}% break-in · steal ${stealPct}% of owner cash, or buy them out.`;
-                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${breakPct}% · steal ${stealPct}%)`; }
+                if (blurb) blurb.textContent = `${def ? def.name : 'House'} — ${breakPct}% break-in · $200 base + bonuses, or buy them out.`;
+                if (breakBtn) { breakBtn.classList.remove('hidden'); breakBtn.textContent = `Break In (${breakPct}% chance)`; }
                 if (buyBtn) { buyBtn.classList.remove('hidden'); buyBtn.textContent = 'Buy Property (take over)'; }
                 if (wheelBtn) wheelBtn.classList.add('hidden');
             } else if (building && !building.ownerUid) {
                 if (title) title.textContent = '🏠 Vacant House';
-                if (blurb) blurb.textContent = 'Spin the rob wheel or buy this lot for yourself.';
+                if (blurb) blurb.textContent = 'Spin the rob wheel ($200 base, 5% $1M jackpot, 20% $1k bonus) or buy this lot.';
                 if (breakBtn) breakBtn.classList.add('hidden');
                 if (buyBtn) { buyBtn.classList.remove('hidden'); buyBtn.textContent = 'Buy Property ($10k+)'; }
                 if (wheelBtn) wheelBtn.classList.remove('hidden');
@@ -2871,6 +2949,7 @@
         window.houseInteractRobWheel = (pIdx) => {
             const p = state.players[pIdx];
             if (!p || p.menuType !== 'house_interact') return;
+            p.robTargetBuilding = p.menuHouseLot || null;
             window.closePlayerModal(pIdx);
             p.menuType = 'rob';
             document.getElementById(`rob-modal-${pIdx}`).style.display = 'block';
@@ -2893,12 +2972,14 @@
             if (!building || !building.ownerUid || !buildingOwnedByOther(building)) return;
             const tier = typeof building.homeTier === 'number' ? building.homeTier : 0;
             const owner = building.ownerName || 'player';
-            attemptPlayerHouseBreakIn(pIdx, building.ownerUid, owner, tier);
+            attemptPlayerHouseBreakIn(pIdx, building.ownerUid, owner, tier, building);
         }
 
         function tryRobRemotePlayerHome(pIdx, uid, rp) {
             if (!rp || !rp.hasHome || rp.homeTier < 0) return;
-            attemptPlayerHouseBreakIn(pIdx, uid, rp.username || 'player', rp.homeTier);
+            const homeB = state.buildings.find(b => isHomeLotBuilding(b) && b.ownerUid === uid && b.type === 'home')
+                || state.buildings.find(b => b.ownerUid === uid && (b.type === 'house' || b.type === 'home'));
+            attemptPlayerHouseBreakIn(pIdx, uid, rp.username || 'player', rp.homeTier, homeB || { x: rp.x, y: rp.y });
         }
 
         function purchaseHouseTier(pIdx, tier) {
@@ -4424,7 +4505,10 @@
             const label = document.getElementById('lobby-signed-in-as');
             const btn = document.getElementById('lobby-signout-btn');
             if (state.supabaseUserId && state.profileUsername) {
-                if (label) { label.textContent = `Signed in as ${state.profileUsername}`; label.classList.remove('hidden'); }
+                let suffix = '';
+                if (state.isOwner) suffix = ' · OWNER';
+                else if (state.isDashboardAdmin) suffix = ' · ADMIN';
+                if (label) { label.textContent = `Signed in as ${state.profileUsername}${suffix}`; label.classList.remove('hidden'); }
                 if (btn) btn.classList.remove('hidden');
             } else {
                 if (label) label.classList.add('hidden');
@@ -4434,7 +4518,77 @@
             syncCreatorStudioIngameLayout();
         }
 
+        function showBannedOverlay(message) {
+            const ov = document.getElementById('banned-account-overlay');
+            const msg = document.getElementById('banned-account-msg');
+            if (msg && message) msg.textContent = message;
+            if (ov) {
+                ov.classList.add('open');
+                ov.setAttribute('aria-hidden', 'false');
+            }
+            state.gamePaused = true;
+        }
+
+        function hideBannedOverlay() {
+            const ov = document.getElementById('banned-account-overlay');
+            if (ov) {
+                ov.classList.remove('open');
+                ov.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function isPlayBlockedByBan() {
+            return !!state.isBanned;
+        }
+
+        function applyBannedState(message) {
+            if (state.isBanned) {
+                showBannedOverlay(message);
+                return;
+            }
+            state.isBanned = true;
+            state.adminPresenceBroadcastDone = false;
+            teardownOnlineRealtime({ skipDelete: true });
+            state.gamePaused = true;
+            try {
+                document.getElementById('lobby-screen').style.display = 'none';
+                document.getElementById('sign-in-screen').style.display = 'none';
+            } catch (_) {}
+            showBannedOverlay(message || 'Your account has been permanently banned. You cannot play online or start a game on this account.');
+        }
+
+        async function checkBanStatusAsync() {
+            if (!supabase || !state.supabaseUserId || state.isBanned) return;
+            try {
+                const { data, error } = await supabase.from('users').select('banned_at, ban_reason').eq('id', state.supabaseUserId).maybeSingle();
+                if (!error && data && data.banned_at) {
+                    const extra = data.ban_reason ? ` Reason: ${data.ban_reason}.` : '';
+                    applyBannedState(`Your account has been permanently banned.${extra} You cannot play online or start a game on this account.`);
+                }
+            } catch (_) {}
+        }
+
+        async function maybeBroadcastAdminPresence(force) {
+            if (!state.supabaseUserId || !isOwnerDashboardUser()) return;
+            if (!force && state.adminPresenceBroadcastDone) return;
+            if (!supabase) return;
+            state.adminPresenceBroadcastDone = true;
+            const name = state.profileUsername || 'Admin';
+            const role = state.isOwner ? 'owner' : 'admin';
+            try {
+                await ensureGlobalServerNoticeSubscribedAsync();
+                if (globalNoticeChannel) {
+                    await globalNoticeChannel.send({
+                        type: 'broadcast',
+                        event: 'server_notice',
+                        payload: { text: `${name} (${role}) is online.`, from: 'admin' }
+                    });
+                }
+            } catch (_) {}
+        }
+
         function showLobbyFromSignIn() {
+            if (isPlayBlockedByBan()) return;
             document.getElementById('sign-in-screen').style.display = 'none';
             document.getElementById('lobby-screen').style.display = 'flex';
             closeTutorialWelcomeOverlay();
@@ -4543,11 +4697,25 @@
         let dashSelectedBanUser = null;
         const dashUserTapState = {};
 
+        function getDashSelectedAccountRow() {
+            if (!dashSelectedBanUser) return null;
+            const un = normalizeUsername(dashSelectedBanUser);
+            return dashPlayersAllList.find(r => normalizeUsername(r.username) === un) || null;
+        }
+
         function syncDashboardOwnerControls() {
             const hint = document.getElementById('dash-owner-hint');
             const actions = document.getElementById('dash-account-actions');
+            const row = getDashSelectedAccountRow();
+            const banned = !!(row && row.banned);
             if (hint) hint.classList.toggle('hidden', !isThomasOwner());
             if (actions) actions.classList.toggle('hidden', !isThomasOwner() || !dashSelectedBanUser);
+            const banBtn = document.getElementById('dash-ban-btn');
+            const unbanBtn = document.getElementById('dash-unban-btn');
+            const promoteBtn = document.getElementById('dash-promote-btn');
+            if (banBtn) banBtn.classList.toggle('hidden', banned);
+            if (unbanBtn) unbanBtn.classList.toggle('hidden', !banned);
+            if (promoteBtn) promoteBtn.classList.toggle('hidden', banned);
         }
 
         function isOwnerDashboardOpen() {
@@ -4602,7 +4770,7 @@
             if (!isThomasOwner() || !supabase || !dashSelectedBanUser) return;
             const un = normalizeUsername(dashSelectedBanUser);
             if (!un || un === OWNER_DASHBOARD_USERNAME) return;
-            if (!confirm(`Ban ${un} forever? They will never be able to sign in again.`)) return;
+            if (!confirm(`Ban ${un} forever? They will not be able to play on this account.`)) return;
             if (msg) msg.textContent = `Banning ${un}…`;
             const { data, error } = await supabase.rpc('admin_ban_user', {
                 p_user_id: state.supabaseUserId,
@@ -4616,6 +4784,27 @@
             dashSelectedBanUser = null;
             syncDashboardOwnerControls();
             if (msg) msg.textContent = `🚫 ${un} banned permanently.`;
+            void refreshOwnerDashboardAnalytics();
+        }
+
+        async function adminUnbanSelectedUser() {
+            const msg = document.getElementById('dash-admin-action-msg');
+            if (!isThomasOwner() || !supabase || !dashSelectedBanUser) return;
+            const un = normalizeUsername(dashSelectedBanUser);
+            if (!un) return;
+            if (!confirm(`Unban ${un}? They will be able to sign in and play again.`)) return;
+            if (msg) msg.textContent = `Unbanning ${un}…`;
+            const { data, error } = await supabase.rpc('admin_unban_user', {
+                p_user_id: state.supabaseUserId,
+                p_target_username: un
+            });
+            if (error || !data || !data.ok) {
+                if (msg) msg.textContent = (data && data.error) || error?.message || 'Unban failed.';
+                return;
+            }
+            dashSelectedBanUser = null;
+            syncDashboardOwnerControls();
+            if (msg) msg.textContent = `✅ ${un} unbanned.`;
             void refreshOwnerDashboardAnalytics();
         }
 
@@ -5526,8 +5715,9 @@
             const lab = document.getElementById('admin-global-broadcast-label');
             if (!ov || !tx) return;
             const fromDev = opts && (opts.from === 'owner' || opts.labelKind === 'dev');
-            if (lab) lab.textContent = fromDev ? 'Message from the dev' : 'Message from the server';
-            ov.setAttribute('aria-label', fromDev ? 'Message from the dev' : 'Server message');
+            const fromAdmin = opts && opts.from === 'admin';
+            if (lab) lab.textContent = fromDev ? 'Message from the dev' : fromAdmin ? 'Server admin' : 'Message from the server';
+            ov.setAttribute('aria-label', fromDev ? 'Message from the dev' : fromAdmin ? 'Server admin message' : 'Server message');
             tx.textContent = t;
             ov.classList.add('open');
             ov.setAttribute('aria-hidden', 'false');
@@ -6719,6 +6909,8 @@
                     hp: payload.hp != null ? payload.hp : PLAYER_MAX_HP,
                     dead: !!payload.dead,
                     downed: !!payload.downed,
+                    isAdmin: !!payload.adm,
+                    isOwner: !!payload.own,
                     raceProgress: payload.rp != null ? Number(payload.rp) : (prev && prev.raceProgress),
                     hasHome: !!payload.hasHome,
                     homeTier: typeof payload.homeTier === 'number' ? payload.homeTier : -1,
@@ -6843,40 +7035,9 @@
                         }
                     }
                 }
-                if (payload.k === 'house_rob_request' && payload.victimUid === state.supabaseUserId) {
-                    const tier = typeof payload.tier === 'number' ? payload.tier : 0;
-                    const frac = houseMoneyStealFraction(tier);
-                    const steal = Math.max(0, Math.floor(state.money * frac));
-                    if (steal > 0) {
-                        state.money -= steal;
-                        updateMoneyUI();
-                    }
-                    const stealPct = Math.round(frac * 100);
-                    showMessage(`🏠 ${payload.robberName || 'Someone'} broke in and stole $${steal.toLocaleString()} (${stealPct}% of your cash)!`);
-                    if (payload.robberUid && supabaseRealtimeChannel) {
-                        try {
-                            supabaseRealtimeChannel.send({
-                                type: 'broadcast',
-                                event: 'pvp_fx',
-                                payload: {
-                                    k: 'house_rob_payout',
-                                    robberUid: payload.robberUid,
-                                    amount: steal,
-                                    victimName: state.profileUsername || state.playerName || 'Player'
-                                }
-                            });
-                        } catch (_) {}
-                    }
-                }
-                if (payload.k === 'house_rob_payout' && payload.robberUid === state.supabaseUserId) {
-                    const amt = Math.max(0, payload.amount || 0);
-                    if (amt > 0) {
-                        state.money += amt;
-                        updateMoneyUI();
-                        showMessage(`💰 House robbery — took $${amt.toLocaleString()} from ${payload.victimName || 'their stash'}!`);
-                    } else {
-                        showMessage(`Broke in, but ${payload.victimName || 'they'} had no cash to steal.`);
-                    }
+                if (payload.k === 'house_rob_notify' && payload.victimUid === state.supabaseUserId) {
+                    const amt = Math.max(0, Number(payload.amount) || 0);
+                    showMessage(`🏠 ${payload.robberName || 'Someone'} robbed near your house and got $${amt.toLocaleString()}! (Your cash is safe.)`);
                 }
             });
             ch.on('broadcast', { event: 'admin_cmd' }, ({ payload }) => {
@@ -7276,7 +7437,9 @@
                     ...racePayload,
                     hasHome: !!state.hasHome,
                     homeTier: state.hasHome ? state.homeTier : -1,
-                    money: state.money
+                    money: state.money,
+                    adm: isOwnerDashboardUser(),
+                    own: !!state.isOwner
                 }
             });
         }
@@ -7294,6 +7457,10 @@
         }
 
         async function hostOnlineSession(fixedCode) {
+            if (isPlayBlockedByBan()) {
+                applyBannedState();
+                return;
+            }
             lobbyHostUpsertSuppressed = true;
             try {
                 const el = document.getElementById('online-session-msg');
@@ -7368,6 +7535,10 @@
         }
 
         async function joinOnlineSession(rawCode) {
+            if (isPlayBlockedByBan()) {
+                applyBannedState();
+                return;
+            }
             lobbyHostUpsertSuppressed = true;
             try {
                 const code = (rawCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
@@ -9799,71 +9970,43 @@
             }
             const p = state.players[pIdx];
             if (!p || p.isRobbing) return;
+            const building = p.robTargetBuilding || p.menuHouseLot || findInteractableBuilding(p);
+            if (building && getHouseRobCooldownRemainingMs(building) > 0) {
+                showMessage(`This house was robbed recently — wait ${Math.ceil(getHouseRobCooldownRemainingMs(building) / 1000)}s.`);
+                return;
+            }
             p.isRobbing = true;
-            
+
             const display = document.getElementById(`rob-result-${pIdx}`);
             const startBtn = document.getElementById(`start-rob-${pIdx}`);
             const exitBtn = document.getElementById(`exit-rob-${pIdx}`);
-            
-            if(startBtn) startBtn.classList.add('opacity-50', 'pointer-events-none');
-            if(exitBtn) exitBtn.classList.add('hidden');
-            
+
+            if (startBtn) startBtn.classList.add('opacity-50', 'pointer-events-none');
+            if (exitBtn) exitBtn.classList.add('hidden');
+
             let ticks = 0;
             display.classList.add('spin-anim');
-            
+
             const interval = setInterval(() => {
-                const vals = [0, 20, 50, 100, 100000];
-                display.innerText = "$" + vals[Math.floor(Math.random() * vals.length)];
+                const vals = [200, 1000, 200, 1000000, 200, 1200];
+                display.innerText = '$' + vals[Math.floor(Math.random() * vals.length)];
                 ticks++;
-                
+
                 if (ticks > 20) {
                     clearInterval(interval);
                     display.classList.remove('spin-anim');
-                    
-                    const roll = Math.random() * 100;
-                    let prize = 0;
-                    
-                    const jackpotChance = state.activeSecrets.includes('RARITY DROP') ? 99.999 : 0.1;
-                    
-                    if (roll < jackpotChance) prize = 100000; 
-                    else if (roll < 50) prize = 0;
-                    else if (roll < 80) prize = 20;
-                    else if (roll < 95) prize = 50;
-                    else prize = 100;
-
-                    display.innerText = `$${prize}`;
-                    
-                    // ALWAYS ALERT COPS ON ATTEMPT (3 seconds = 180 frames)
-                    state.wantedLevel = 1;
-                    state.policeDelay = 180; 
-                    const stars = document.getElementById('wanted-stars');
-                    if(stars) stars.classList.remove('hidden');
-
-                    if (prize > 0) {
-                        state.money += prize;
-                        updateMoneyUI();
+                    const result = finalizeHouseRobPayout(pIdx, building, null, null, { closeModal: false });
+                    display.innerText = result.ok ? `$${result.total.toLocaleString()}` : '$0';
+                    if (result.ok) {
                         display.classList.remove('text-white');
                         display.classList.add('text-green-400');
-                        
-                        if (prize === 100000) {
-                            const flash = document.getElementById('jackpot-flash');
-                            if(flash) {
-                                flash.style.display = 'flex';
-                                setTimeout(() => { flash.style.display = 'none'; }, 3000);
-                            }
-                            showMessage(`MEGA JACKPOT! Stole $100,000! POLICE ALERTED!`);
-                        } else {
-                            showMessage(`Stole $${prize}! POLICE ALERTED!`);
-                        }
                     } else {
                         display.classList.remove('text-white');
                         display.classList.add('text-red-400');
-                        showMessage(`Attempted robbery failed! POLICE ALERTED!`);
                     }
-
-                    setTimeout(() => {
-                        window.closePlayerModal(pIdx);
-                    }, 2000);
+                    p.robTargetBuilding = null;
+                    p.isRobbing = false;
+                    setTimeout(() => { window.closePlayerModal(pIdx); }, 2000);
                 }
             }, 60);
         };
@@ -10230,6 +10373,7 @@
                     } else if (state.playMode === 'online') {
                         openHouseInteractModal(pIdx, bNear);
                     } else {
+                        p.robTargetBuilding = bNear;
                         p.menuType = 'rob';
                         document.getElementById(`rob-modal-${pIdx}`).style.display = 'block';
                     }
@@ -10260,9 +10404,7 @@
                 const { data, error } = await supabase.from('users').select('username, avatar, win_count, is_admin, banned_at').eq('id', state.supabaseUserId).maybeSingle();
                 if (!error && data) {
                     if (data.banned_at) {
-                        invalidateStaleOnlineSession('banned_account');
-                        const signInMsg = document.getElementById('sign-in-msg');
-                        if (signInMsg) signInMsg.textContent = 'This account has been banned permanently.';
+                        applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
                         return;
                     }
                     if (data.username) {
@@ -10287,6 +10429,7 @@
             updateOwnerDashboardFabVisibility();
             refreshMyProfileUI();
             updateFriendsHostButtonVisibility();
+            if (!state.isBanned) void maybeBroadcastAdminPresence();
         }
 
         function saveSession(userId, username) {
@@ -10526,7 +10669,10 @@
             state.supabaseUserId = null;
             state.profileUsername = '';
             state.playerName = '';
+            state.isBanned = false;
+            state.adminPresenceBroadcastDone = false;
             state.multiplayerIntendsHost = true;
+            hideBannedOverlay();
             stopPresenceLoop();
             try {
                 if (globalNoticeChannel) globalNoticeChannel.unsubscribe();
@@ -10552,10 +10698,10 @@
             }
             if (data.banned_at) {
                 pcDebug('warn', 'validate_session_user_banned', { userId });
-                try {
-                    const signInMsg = document.getElementById('sign-in-msg');
-                    if (signInMsg) signInMsg.textContent = 'This account has been banned permanently.';
-                } catch (_) {}
+                state.supabaseUserId = userId;
+                state.profileUsername = data.username || '';
+                state.playerName = data.username || '';
+                applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
                 return false;
             }
             state.isOwner = normalizeUsername(data.username) === OWNER_DASHBOARD_USERNAME;
@@ -10587,6 +10733,8 @@
             if (!state.supabaseUserId) return;
             if (presenceInterval) clearInterval(presenceInterval);
             presenceInterval = setInterval(async () => {
+                await checkBanStatusAsync();
+                if (state.isBanned) return;
                 await upsertMyPresence();
                 await refreshFriendPresence();
                 updateFriendsListUIAsync();
@@ -10625,7 +10773,7 @@
                 if (saved && saved.userId) {
                     const userOk = await validateRestoredSessionUser(saved.userId);
                     if (!userOk) {
-                        invalidateStaleOnlineSession('restored_user_id_not_in_db');
+                        if (!state.isBanned) invalidateStaleOnlineSession('restored_user_id_not_in_db');
                     } else {
                         state.supabaseUserId = saved.userId;
                         state.profileUsername = saved.username || '';
@@ -10770,6 +10918,10 @@
         }
 
         async function joinRoom({ autosave, savedSeed } = {}) {
+            if (isPlayBlockedByBan()) {
+                applyBannedState();
+                return;
+            }
             let mergedSave = autosave || state.pendingLobbySave;
             state.pendingLobbySave = null;
             if (state.playMode === 'online') {
@@ -11465,17 +11617,15 @@
                                 else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid && buildingOwnedByOther(bNear)) {
                                     const tier = typeof bNear.homeTier === 'number' ? bNear.homeTier : 0;
                                     const breakPct = Math.round(playerBreakInChance(tier) * 100);
-                                    const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
-                                    subEl.innerText = `${bNear.ownerName || 'player'}'s house — E (${breakPct}% in, steal ${stealPct}%)`;
+                                    subEl.innerText = `${bNear.ownerName || 'player'}'s house — E break in (${breakPct}%, $200+)`;
                                 }
-                                else if (bNear.type === 'house' && state.playMode === 'online' && !bNear.ownerUid) subEl.innerText = 'house — E rob wheel or buy';
+                                else if (bNear.type === 'house' && state.playMode === 'online' && !bNear.ownerUid) subEl.innerText = 'house — E rob wheel ($200 base) or buy';
                                 else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid && !buildingOwnedByOther(bNear)) subEl.innerText = 'your house — E to upgrade';
                                 else subEl.innerText = bNear.type;
                             } else if (remoteHome) {
                                 const tier = remoteHome.rp.homeTier >= 0 ? remoteHome.rp.homeTier : 0;
                                 const breakPct = Math.round(playerBreakInChance(tier) * 100);
-                                const stealPct = Math.round(houseMoneyStealFraction(tier) * 100);
-                                subEl.innerText = `${remoteHome.rp.username || 'player'} nearby — E break in (${breakPct}%, steal ${stealPct}%)`;
+                                subEl.innerText = `${remoteHome.rp.username || 'player'} nearby — E break in (${breakPct}%, $200+)`;
                             } else subEl.innerText = vNear ? vNear.type.name : '';
                         }
                     } else pr.style.opacity = "0";
@@ -11978,7 +12128,8 @@
                     c.fillStyle = '#fff';
                     c.font = 'bold 11px sans-serif';
                     c.textAlign = 'center';
-                    c.fillText(rp.username || 'Friend', 0, -16);
+                    const adminTag = rp.isOwner ? ' 👑' : (rp.isAdmin ? ' ★' : '');
+                    c.fillText((rp.username || 'Friend') + adminTag, 0, -16);
                     if (!rp.dead && rp.hp != null && rp.hp < PLAYER_MAX_HP) {
                         const hpFrac = Math.max(0, rp.hp / PLAYER_MAX_HP);
                         const barW = 24;
@@ -13088,6 +13239,10 @@
                 state.profileUsername = username;
                 state.playerName = username;
                 const ex = authExtra || {};
+                if (ex.banned || ex.banned_at) {
+                    applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
+                    return;
+                }
                 state.isOwner = !!ex.is_owner || normalizeUsername(username) === OWNER_DASHBOARD_USERNAME;
                 state.isDashboardAdmin = !!ex.is_admin || state.isOwner;
                 saveSession(userId, username);
@@ -13102,6 +13257,7 @@
                 loadMyProfile();
                 ensureGlobalServerNoticeSubscribed();
                 updateOwnerDashboardFabVisibility();
+                void maybeBroadcastAdminPresence();
             };
 
             document.getElementById('auth-signin-btn').onclick = async () => {
@@ -13352,6 +13508,20 @@
                 if (dashSelectedBanUser) void adminPromoteUser(dashSelectedBanUser);
             });
             document.getElementById('dash-ban-btn')?.addEventListener('click', () => { void adminBanSelectedUser(); });
+            document.getElementById('dash-unban-btn')?.addEventListener('click', () => { void adminUnbanSelectedUser(); });
+            document.getElementById('banned-account-signout')?.addEventListener('click', () => {
+                hideBannedOverlay();
+                teardownOnlineRealtime();
+                clearSession();
+                state.isOwner = false;
+                state.isDashboardAdmin = false;
+                if (passInput) passInput.value = '';
+                updateSignedInUI();
+                document.getElementById('lobby-screen').style.display = 'none';
+                document.getElementById('sign-in-screen').style.display = 'flex';
+                const signInMsgEl = document.getElementById('sign-in-msg');
+                if (signInMsgEl) signInMsgEl.textContent = 'Signed out of banned account.';
+            });
             document.addEventListener('keydown', handleOwnerDashboardHotkey);
             document.getElementById('lobby-profile-avatar-upload')?.addEventListener('change', (e) => {
                 const f = e.target && e.target.files && e.target.files[0];
