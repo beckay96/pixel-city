@@ -868,14 +868,20 @@
             <div id="lobby-my-profile-block" class="border-t border-slate-700 mt-4 pt-4 space-y-3">
                 <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">My profile</p>
                 <div class="flex items-center gap-3">
-                    <span id="lobby-profile-avatar-display" class="text-4xl leading-none" aria-hidden="true">😀</span>
+                    <div id="lobby-profile-avatar-display-wrap" class="w-16 h-16 rounded-full overflow-hidden bg-slate-800 border border-slate-600 flex items-center justify-center shrink-0">
+                        <span id="lobby-profile-avatar-display" class="text-4xl leading-none" aria-hidden="true">😀</span>
+                    </div>
                     <div class="min-w-0 flex-1 text-left">
                         <p id="lobby-profile-username" class="text-sm font-black text-white truncate">—</p>
                         <p id="lobby-profile-userid" class="text-[9px] text-slate-500 font-mono truncate">ID: —</p>
                         <p id="lobby-profile-wins" class="text-[10px] text-yellow-400 font-bold">🏆 0 wins</p>
                     </div>
                 </div>
-                <p class="text-[9px] text-slate-500 uppercase font-bold text-left">Profile picture</p>
+                <label class="block w-full mb-2">
+                    <span class="text-[9px] text-slate-500 uppercase font-bold">Upload photo</span>
+                    <input type="file" id="lobby-profile-avatar-upload" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full text-[10px] text-slate-300 mt-1 interactive">
+                </label>
+                <p class="text-[8px] text-slate-500 text-left mb-1">Or pick an emoji:</p>
                 <div id="lobby-profile-avatar-grid" class="grid grid-cols-8 gap-1"></div>
                 <p id="lobby-profile-save-msg" class="text-[9px] text-emerald-400 min-h-[1rem] text-left"></p>
             </div>
@@ -1846,13 +1852,20 @@
             <div class="mb-4 border border-slate-700 rounded-xl bg-slate-950/80 p-3 text-left">
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <p class="text-[10px] font-black text-cyan-300 uppercase tracking-widest">Who is playing</p>
-                    <div class="flex gap-1">
+                    <div class="flex gap-1 flex-wrap justify-end">
                         <button type="button" id="dash-players-tab-online" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-800 text-white">Now</button>
                         <button type="button" id="dash-players-tab-24h" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">24h</button>
+                        <button type="button" id="dash-players-tab-all" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">All</button>
                     </div>
                 </div>
+                <p id="dash-owner-hint" class="hidden text-[8px] text-amber-300/90 mb-2 leading-snug">Thomas: double-tap a username to make them admin. Tap once to select for ban.</p>
                 <ul id="dash-players-list" class="text-[11px] text-slate-300 max-h-[140px] overflow-y-auto space-y-1 font-mono"></ul>
                 <p id="dash-players-empty" class="text-[10px] text-slate-500 italic hidden">No players in this window.</p>
+                <div id="dash-ban-row" class="hidden mt-2 flex gap-2 items-center">
+                    <span id="dash-ban-target" class="text-[10px] text-slate-400 flex-1 truncate">—</span>
+                    <button type="button" id="dash-ban-btn" class="bg-red-800 hover:bg-red-700 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Ban forever</button>
+                </div>
+                <p id="dash-admin-action-msg" class="text-[9px] text-emerald-400 min-h-[1rem] mt-1"></p>
             </div>
             <p class="text-[9px] text-slate-500 text-center mb-2">Friend edges: <span id="dash-stat-friends" class="text-slate-300 font-bold">—</span> · Updated <span id="dash-stat-time" class="text-slate-400">—</span></p>
             <p id="dash-stat-err" class="text-[10px] text-red-400 text-center min-h-[1rem] mb-4"></p>
@@ -1872,7 +1885,7 @@
                     <ul id="dash-byte-tips" class="text-[11px] text-slate-300 space-y-2 leading-snug list-disc pl-4"></ul>
                 </div>
             </div>
-            <p class="text-[9px] text-slate-600 text-center mt-3">Sign in as <span class="font-mono text-violet-400">thomas</span> for this dashboard, owner tools, and global broadcasts.</p>
+            <p class="text-[9px] text-slate-600 text-center mt-3">Sign in as <span class="font-mono text-violet-400">thomas</span> or a promoted admin for this dashboard and global broadcasts.</p>
 
             <div id="owner-broadcast-block" class="hidden border-t border-violet-500/50 pt-4 mt-4 text-left">
                 <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-2">Broadcast to everyone (online)</p>
@@ -2378,6 +2391,8 @@
             playerName: '',
             profileUsername: '',
             profileAvatar: savedProfileAvatar,
+            isOwner: false,
+            isDashboardAdmin: false,
             supabaseUserId: null,
             playMode: 'solo',
             worldSeed: null,
@@ -2569,15 +2584,51 @@
         /** Ben’s lot (3000,3000 grid + 100 margin). After robbery the building is a normal `house` here. */
         const BEN_HOUSE_LOT_X = 3100;
         const BEN_HOUSE_LOT_Y = 3100;
+        const HOME_LOT_W = 300;
+        /** Grid origins for 10 purchasable home lots (building at gx+100, gy+100). */
+        const HOME_LOT_GRID_SLOTS = [
+            [2000, 2000], [1000, 1000], [3000, 1000], [1000, 3000], [3000, 3000],
+            [1500, 2500], [2500, 1500], [500, 2000], [2000, 500], [2500, 2500]
+        ];
+        const MAX_HOMES_PER_PLAYER = 1;
         const HOME_LOT_X = 2100;
         const HOME_LOT_Y = 2100;
 
+        function isHomeLotBuilding(b) {
+            if (!b) return false;
+            return HOME_LOT_GRID_SLOTS.some(([gx, gy]) => b.x === gx + 100 && b.y === gy + 100);
+        }
+
         function isPlayerHomeLot(b) {
-            return b && b.x === HOME_LOT_X && b.y === HOME_LOT_Y;
+            return isHomeLotBuilding(b);
+        }
+
+        function myPlayerUid() {
+            return state.supabaseUserId || 'local';
+        }
+
+        function ownsHomeLot(b) {
+            return b && b.ownerUid === myPlayerUid();
+        }
+
+        function countMyOwnedHomeLots() {
+            return state.buildings.filter(b => isHomeLotBuilding(b) && ownsHomeLot(b) && b.type === 'home').length;
         }
 
         function getHomeLotBuilding() {
-            return state.buildings.find(b => isPlayerHomeLot(b)) || null;
+            return getMyOwnedHomeLot() || state.buildings.find(b => isHomeLotBuilding(b)) || null;
+        }
+
+        function getMyOwnedHomeLot() {
+            return state.buildings.find(b => isHomeLotBuilding(b) && ownsHomeLot(b)) || null;
+        }
+
+        function playerNearOwnedHome(p) {
+            if (!p) return false;
+            return state.buildings.some(b => {
+                if (!isHomeLotBuilding(b) || !ownsHomeLot(b) || b.type !== 'home') return false;
+                return dist(p.x, p.y, b.x + b.w / 2, b.y + b.h / 2) < 220;
+            });
         }
 
         function getHouseTierDef(tier) {
@@ -2627,7 +2678,7 @@
 
         function serializeClaimedHousesForSync() {
             return state.buildings
-                .filter(b => !isPlayerHomeLot(b) && b.ownerUid && typeof b.homeTier === 'number')
+                .filter(b => b.ownerUid && typeof b.homeTier === 'number' && (isHomeLotBuilding(b) || b.type === 'house' || b.type === 'home'))
                 .map(b => ({
                     x: b.x, y: b.y,
                     ownerUid: b.ownerUid,
@@ -2701,30 +2752,39 @@
         function applyHouseTierToBuilding(b, tier) {
             const def = getHouseTierDef(tier);
             if (!b || !def) return;
-            b.type = isPlayerHomeLot(b) ? 'home' : 'house';
+            b.type = isHomeLotBuilding(b) ? 'home' : 'house';
             b.homeTier = tier;
             b.color = def.color;
         }
 
         function syncMyHomeLotBuilding() {
-            const lot = state.buildings.find(b => isPlayerHomeLot(b));
-            if (!lot) return;
-            if (state.hasHome && state.homeTier >= 0) {
-                applyHouseTierToBuilding(lot, state.homeTier);
-                lot.ownerUid = state.supabaseUserId || 'local';
-                lot.ownerName = state.profileUsername || state.playerName || 'You';
+            const mine = myPlayerUid();
+            let owned = null;
+            state.buildings.filter(isHomeLotBuilding).forEach(lot => {
+                if (lot.ownerUid === mine && typeof lot.homeTier === 'number' && lot.type === 'home') {
+                    owned = lot;
+                    applyHouseTierToBuilding(lot, lot.homeTier);
+                } else if (!lot.ownerUid || lot.ownerUid !== mine) {
+                    if (!lot.ownerUid) {
+                        lot.type = 'home_lot';
+                        lot.color = '#374151';
+                        delete lot.homeTier;
+                        delete lot.ownerName;
+                    }
+                }
+            });
+            if (owned) {
+                state.hasHome = true;
+                state.homeTier = owned.homeTier;
             } else {
-                lot.type = 'home_lot';
-                lot.color = '#374151';
-                delete lot.homeTier;
-                delete lot.ownerUid;
-                delete lot.ownerName;
+                state.hasHome = false;
+                state.homeTier = -1;
             }
         }
 
         function getHouseTierForBuilding(b) {
             if (!b) return -1;
-            if (isPlayerHomeLot(b) && b.ownerUid === (state.supabaseUserId || 'local')) return state.homeTier;
+            if (isHomeLotBuilding(b) && ownsHomeLot(b)) return typeof b.homeTier === 'number' ? b.homeTier : state.homeTier;
             return typeof b.homeTier === 'number' ? b.homeTier : -1;
         }
 
@@ -2860,11 +2920,18 @@
                 showMessage('Not enough money for ' + def.name);
                 return false;
             }
+            if (isHomeLotBuilding(lot) && !buyOut && !ownsHomeLot(lot) && countMyOwnedHomeLots() >= MAX_HOMES_PER_PLAYER) {
+                showMessage('You can only own one house — pick a different lot after moving, or buy out someone else.');
+                return false;
+            }
             state.money -= def.price;
             updateMoneyUI();
-            if (isPlayerHomeLot(lot)) {
+            if (isHomeLotBuilding(lot)) {
+                lot.ownerUid = myPlayerUid();
+                lot.ownerName = state.profileUsername || state.playerName || 'You';
                 state.hasHome = true;
                 state.homeTier = tier;
+                applyHouseTierToBuilding(lot, tier);
                 syncMyHomeLotBuilding();
             } else {
                 lot.ownerUid = state.supabaseUserId || 'local';
@@ -2886,7 +2953,12 @@
 
         function tryHideAtHome(pIdx) {
             if (!state.hasHome || state.homeTier < 0) {
-                showMessage('You need to buy a house first ($10,000 at your lot).');
+                showMessage('You need to buy a house first ($10,000 at a home lot).');
+                return;
+            }
+            const p = state.players[pIdx];
+            if (p && !playerNearOwnedHome(p)) {
+                showMessage('Get closer to your home lot to hide!');
                 return;
             }
             const chance = policeBreakInChance(state.homeTier);
@@ -2917,11 +2989,12 @@
         function applyRemoteHouseClaim(payload) {
             if (!payload || payload.x == null || payload.y == null) return;
             const b = state.buildings.find(x => x.x === payload.x && x.y === payload.y);
-            if (!b || isPlayerHomeLot(b)) return;
+            if (!b) return;
             b.ownerUid = payload.ownerUid;
             b.ownerName = payload.ownerName || 'Player';
             const tier = typeof payload.homeTier === 'number' ? payload.homeTier : 0;
             applyHouseTierToBuilding(b, tier);
+            if (ownsHomeLot(b)) syncMyHomeLotBuilding();
         }
 
         const GPS_LANDMARKS = [
@@ -4464,33 +4537,122 @@
         let dashPlayersListMode = 'online';
         let dashPlayersOnlineList = [];
         let dashPlayers24hList = [];
+        let dashPlayersAllList = [];
+        let dashSelectedBanUser = null;
+        const dashUserTapState = {};
+
+        function syncDashboardOwnerControls() {
+            const hint = document.getElementById('dash-owner-hint');
+            const banRow = document.getElementById('dash-ban-row');
+            if (hint) hint.classList.toggle('hidden', !isThomasOwner());
+            if (banRow) banRow.classList.toggle('hidden', !isThomasOwner() || !dashSelectedBanUser);
+        }
+
+        async function adminPromoteUser(username) {
+            const msg = document.getElementById('dash-admin-action-msg');
+            if (!isThomasOwner() || !supabase) return;
+            const un = normalizeUsername(username);
+            if (!un || un === OWNER_DASHBOARD_USERNAME) return;
+            if (msg) msg.textContent = `Promoting ${un}…`;
+            const { data, error } = await supabase.rpc('admin_promote_user', {
+                p_user_id: state.supabaseUserId,
+                p_target_username: un
+            });
+            if (error || !data || !data.ok) {
+                if (msg) msg.textContent = (data && data.error) || error?.message || 'Promote failed.';
+                return;
+            }
+            if (msg) msg.textContent = `✅ ${un} is now an admin!`;
+            void refreshOwnerDashboardAnalytics();
+        }
+
+        async function adminBanSelectedUser() {
+            const msg = document.getElementById('dash-admin-action-msg');
+            if (!isThomasOwner() || !supabase || !dashSelectedBanUser) return;
+            const un = normalizeUsername(dashSelectedBanUser);
+            if (!un || un === OWNER_DASHBOARD_USERNAME) return;
+            if (!confirm(`Ban ${un} forever? They will never be able to sign in again.`)) return;
+            if (msg) msg.textContent = `Banning ${un}…`;
+            const { data, error } = await supabase.rpc('admin_ban_user', {
+                p_user_id: state.supabaseUserId,
+                p_target_username: un,
+                p_reason: 'Banned by Thomas'
+            });
+            if (error || !data || !data.ok) {
+                if (msg) msg.textContent = (data && data.error) || error?.message || 'Ban failed.';
+                return;
+            }
+            dashSelectedBanUser = null;
+            syncDashboardOwnerControls();
+            if (msg) msg.textContent = `🚫 ${un} banned permanently.`;
+            void refreshOwnerDashboardAnalytics();
+        }
+
+        function onDashPlayerUsernameTap(username, row) {
+            const un = normalizeUsername(username);
+            if (!un) return;
+            if (isThomasOwner()) {
+                if (row && row.is_owner) return;
+                dashSelectedBanUser = un;
+                const target = document.getElementById('dash-ban-target');
+                if (target) target.textContent = un;
+                syncDashboardOwnerControls();
+                const now = Date.now();
+                const s = dashUserTapState[un] || { count: 0, at: 0 };
+                if (now - s.at > 500) s.count = 0;
+                s.count++;
+                s.at = now;
+                dashUserTapState[un] = s;
+                if (s.count >= 2 && !row?.banned) {
+                    s.count = 0;
+                    void adminPromoteUser(un);
+                }
+            }
+        }
 
         function renderDashPlayersList() {
             const ul = document.getElementById('dash-players-list');
             const empty = document.getElementById('dash-players-empty');
             const tabOn = document.getElementById('dash-players-tab-online');
             const tab24 = document.getElementById('dash-players-tab-24h');
+            const tabAll = document.getElementById('dash-players-tab-all');
             if (!ul) return;
-            const list = dashPlayersListMode === '24h' ? dashPlayers24hList : dashPlayersOnlineList;
+            const list = dashPlayersListMode === 'all'
+                ? dashPlayersAllList
+                : (dashPlayersListMode === '24h' ? dashPlayers24hList : dashPlayersOnlineList);
             if (tabOn) {
                 tabOn.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === 'online' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
             }
             if (tab24) {
                 tab24.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === '24h' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
             }
+            if (tabAll) {
+                tabAll.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === 'all' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
+            }
             ul.innerHTML = '';
             if (!list.length) {
                 if (empty) empty.classList.remove('hidden');
+                syncDashboardOwnerControls();
                 return;
             }
             if (empty) empty.classList.add('hidden');
             list.forEach(row => {
                 const li = document.createElement('li');
-                const un = escapeHtml(row.username || '?');
+                const un = row.username || '?';
+                const unEsc = escapeHtml(un);
                 const when = row.last_seen ? ` <span class="text-slate-500">· ${escapeHtml(row.last_seen)}</span>` : '';
-                li.innerHTML = `<span class="text-cyan-200">${un}</span>${when}`;
+                const badges = [];
+                if (row.is_owner) badges.push('<span class="text-violet-400">owner</span>');
+                else if (row.is_admin) badges.push('<span class="text-amber-400">admin</span>');
+                if (row.banned) badges.push('<span class="text-red-400">banned</span>');
+                const badgeHtml = badges.length ? ` <span class="text-[9px]">(${badges.join(' · ')})</span>` : '';
+                const wins = dashPlayersListMode === 'all' && typeof row.win_count === 'number'
+                    ? ` <span class="text-yellow-600">🏆${row.win_count}</span>` : '';
+                li.innerHTML = `<button type="button" class="dash-player-name text-cyan-200 hover:text-white interactive text-left">${unEsc}</button>${badgeHtml}${wins}${when}`;
+                li.querySelector('.dash-player-name')?.addEventListener('click', () => onDashPlayerUsernameTap(un, row));
                 ul.appendChild(li);
             });
+            syncDashboardOwnerControls();
         }
 
         function getBestOwnedVehicleType() {
@@ -5189,7 +5351,11 @@
         const GLOBAL_SERVER_NOTICE_MAX = 400;
 
         function isOwnerDashboardUser() {
-            return !!(state.supabaseUserId && normalizeUsername(state.profileUsername) === OWNER_DASHBOARD_USERNAME);
+            return !!(state.supabaseUserId && (state.isOwner || state.isDashboardAdmin));
+        }
+
+        function isThomasOwner() {
+            return !!(state.supabaseUserId && state.isOwner);
         }
 
         function recomputeIsAdmin() {
@@ -5317,6 +5483,9 @@
             set('dash-stat-time', data.generated_at || '—');
             dashPlayersOnlineList = Array.isArray(data.users_online_now_list) ? data.users_online_now_list : [];
             dashPlayers24hList = Array.isArray(data.users_seen_24h_list) ? data.users_seen_24h_list : [];
+            dashPlayersAllList = Array.isArray(data.all_accounts_list) ? data.all_accounts_list : [];
+            state.isOwner = !!data.is_owner;
+            state.isDashboardAdmin = !!(data.is_admin || data.is_owner);
             renderDashPlayersList();
         }
 
@@ -5448,6 +5617,7 @@
             if (evErr) evErr.textContent = '';
             renderByteDashboardTips();
             dashPlayersListMode = 'online';
+            syncDashboardOwnerControls();
             void refreshOwnerDashboardAnalytics();
         }
 
@@ -5479,6 +5649,58 @@
             const d = document.createElement('div');
             d.textContent = s;
             return d.innerHTML;
+        }
+
+        function isAvatarUrl(s) {
+            return typeof s === 'string' && (s.startsWith('http://') || s.startsWith('https://'));
+        }
+
+        function setAvatarOnElement(el, avatar, imgClass) {
+            if (!el) return;
+            const av = avatar || '😀';
+            if (isAvatarUrl(av)) {
+                el.innerHTML = `<img src="${escapeHtml(av)}" class="${imgClass || 'w-full h-full object-cover'}" alt="">`;
+            } else {
+                el.innerHTML = '';
+                el.textContent = av;
+            }
+        }
+
+        async function uploadProfilePicture(file) {
+            const msg = document.getElementById('lobby-profile-save-msg');
+            if (!file) return;
+            if (!supabase || !state.supabaseUserId) {
+                if (msg) msg.textContent = 'Sign in to upload a profile photo.';
+                return;
+            }
+            if (file.size > 512 * 1024) {
+                if (msg) msg.textContent = 'Image must be under 512 KB.';
+                return;
+            }
+            const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!allowed.includes(file.type)) {
+                if (msg) msg.textContent = 'Use JPG, PNG, WebP, or GIF.';
+                return;
+            }
+            const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : file.type === 'image/gif' ? 'gif' : 'jpg';
+            const path = `${state.supabaseUserId}/avatar.${ext}`;
+            if (msg) msg.textContent = 'Uploading…';
+            try {
+                const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+                if (upErr) {
+                    if (msg) msg.textContent = upErr.message || 'Upload failed.';
+                    return;
+                }
+                const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+                const url = pub && pub.publicUrl ? `${pub.publicUrl}?t=${Date.now()}` : null;
+                if (!url) {
+                    if (msg) msg.textContent = 'Could not get photo URL.';
+                    return;
+                }
+                await saveMyProfileAvatar(url);
+            } catch (e) {
+                if (msg) msg.textContent = 'Upload failed.';
+            }
         }
 
         const friendOnlineStatus = {};
@@ -5621,7 +5843,7 @@
             for (let x = 0; x < WORLD_SIZE; x += GRID_SIZE) {
                 for (let y = 0; y < WORLD_SIZE; y += GRID_SIZE) {
                     let type = 'house', color = COLORS[Math.floor(rnd() * COLORS.length)];
-                    if (x === 2000 && y === 2000) { type = 'home_lot'; color = '#374151'; }
+                    if (HOME_LOT_GRID_SLOTS.some(([gx, gy]) => gx === x && gy === y)) { type = 'home_lot'; color = '#374151'; }
                     else if (x === 0 && y === 0) { type = 'hospital'; color = '#0f766e'; }    // top-left
                     else if (x === 3500 && y === 0) { type = 'dealership'; color = '#3b82f6'; } // top-right
                     else if (x === 3500 && y === 3500) { type = 'bank'; color = '#fbbf24'; }    // bottom-right
@@ -5814,7 +6036,7 @@
             if (!block) return;
             const signed = !!(state.supabaseUserId && state.profileUsername);
             block.classList.toggle('opacity-50', !signed);
-            if (avEl) avEl.textContent = state.profileAvatar || '😀';
+            if (avEl) setAvatarOnElement(avEl, state.profileAvatar || '😀', 'w-full h-full object-cover');
             if (unEl) unEl.textContent = signed ? state.profileUsername : 'Sign in to edit profile';
             if (idEl) idEl.textContent = signed ? `ID: ${state.supabaseUserId}` : 'ID: —';
             if (winsEl) winsEl.textContent = `🏆 ${state.winCount || 0} wins`;
@@ -5833,14 +6055,16 @@
                 });
             }
             grid?.querySelectorAll('button').forEach(btn => {
-                btn.classList.toggle('ring-2', btn.textContent === (state.profileAvatar || '😀'));
-                btn.classList.toggle('ring-indigo-400', btn.textContent === (state.profileAvatar || '😀'));
+                const sel = !isAvatarUrl(state.profileAvatar) && btn.textContent === (state.profileAvatar || '😀');
+                btn.classList.toggle('ring-2', sel);
+                btn.classList.toggle('ring-indigo-400', sel);
             });
         }
 
-        async function saveMyProfileAvatar(emoji) {
-            if (!PROFILE_AVATARS.includes(emoji)) return;
-            persistProfileAvatar(emoji);
+        async function saveMyProfileAvatar(avatar) {
+            const isUrl = isAvatarUrl(avatar);
+            if (!isUrl && !PROFILE_AVATARS.includes(avatar)) return;
+            persistProfileAvatar(avatar);
             refreshMyProfileUI();
             const msg = document.getElementById('lobby-profile-save-msg');
             if (!supabase || !state.supabaseUserId) {
@@ -5851,13 +6075,13 @@
             try {
                 const { data, error } = await supabase.rpc('update_user_profile', {
                     p_user_id: state.supabaseUserId,
-                    p_avatar: emoji
+                    p_avatar: avatar
                 });
                 if (error || !data || !data.ok) {
                     if (msg) msg.textContent = (data && data.error) || error?.message || 'Could not save.';
                     return;
                 }
-                if (msg) msg.textContent = 'Profile picture saved!';
+                if (msg) msg.textContent = isUrl ? 'Photo saved!' : 'Profile picture saved!';
             } catch (e) {
                 if (msg) msg.textContent = 'Could not save profile picture.';
             }
@@ -5924,7 +6148,7 @@
                     winCount: data.win_count,
                     userId: data.user_id
                 };
-                if (avEl) avEl.textContent = data.avatar || '😀';
+                if (avEl) setAvatarOnElement(avEl, data.avatar || '😀', 'w-full h-full object-cover');
                 if (winsEl) winsEl.textContent = String(data.win_count ?? 0);
                 if (idEl) idEl.textContent = data.user_id || '—';
                 if (data.online) {
@@ -6036,7 +6260,7 @@
                 const statusDot = inGame ? '🎮' : (online ? '🟢' : '⚪');
                 const statusLabel = inGame ? '<span class="text-[8px] text-emerald-400 font-bold block">In game!</span>' : (online ? '<span class="text-[8px] text-cyan-400/90 font-bold block">Online</span>' : '');
                 const winsHint = typeof prof.winCount === 'number' ? `<span class="text-[8px] text-yellow-500/80 block">🏆 ${prof.winCount}</span>` : '';
-                li.innerHTML = `<div class="min-w-0 flex items-center gap-1.5"><button type="button" class="friend-profile-open text-lg leading-none shrink-0 interactive" title="View profile">${avatar}</button><div class="min-w-0 text-left"><button type="button" class="friend-profile-open text-slate-200 font-bold truncate max-w-full interactive text-left">${statusDot} ${escapeHtml(name)}</button>${statusLabel}${winsHint}</div></div><div class="flex gap-1 shrink-0 items-center"></div>`;
+                li.innerHTML = `<div class="min-w-0 flex items-center gap-1.5"><button type="button" class="friend-profile-open w-7 h-7 rounded-full overflow-hidden bg-slate-800 border border-slate-600 flex items-center justify-center shrink-0 interactive" title="View profile"><span class="friend-av-slot text-lg leading-none">${isAvatarUrl(avatar) ? `<img src="${escapeHtml(avatar)}" class="w-full h-full object-cover" alt="">` : avatar}</span></button><div class="min-w-0 text-left"><button type="button" class="friend-profile-open text-slate-200 font-bold truncate max-w-full interactive text-left">${statusDot} ${escapeHtml(name)}</button>${statusLabel}${winsHint}</div></div><div class="flex gap-1 shrink-0 items-center"></div>`;
                 li.querySelectorAll('.friend-profile-open').forEach(btn => {
                     btn.onclick = (e) => { e.stopPropagation(); void openFriendProfile(name); };
                 });
@@ -9953,8 +10177,20 @@
                     document.getElementById(`dealer-modal-${pIdx}`).style.display = 'block';
                 }
                 else if (bNear.type === 'bank') { document.getElementById(`bank-modal-${pIdx}`).style.display = 'block'; }
-                else if (isPlayerHomeLot(bNear)) {
-                    if (state.wantedLevel > 0 && state.hasHome) tryHideAtHome(pIdx);
+                else if (isHomeLotBuilding(bNear)) {
+                    if (ownsHomeLot(bNear)) {
+                        if (state.wantedLevel > 0) tryHideAtHome(pIdx);
+                        else openHouseModal(pIdx, bNear);
+                    } else if (buildingOwnedByOther(bNear)) {
+                        openHouseInteractModal(pIdx, bNear);
+                    } else if (countMyOwnedHomeLots() >= MAX_HOMES_PER_PLAYER) {
+                        showMessage('You can only own one house — find your home lot or buy someone out.');
+                    } else {
+                        openHouseModal(pIdx, bNear);
+                    }
+                }
+                else if (bNear.type === 'home' && isHomeLotBuilding(bNear) && ownsHomeLot(bNear)) {
+                    if (state.wantedLevel > 0) tryHideAtHome(pIdx);
                     else openHouseModal(pIdx, bNear);
                 }
                 else if (bNear.type === 'house') {
@@ -9990,17 +10226,21 @@
                 return;
             }
             try {
-                const { data, error } = await supabase.from('users').select('username, avatar, win_count').eq('id', state.supabaseUserId).maybeSingle();
+                const { data, error } = await supabase.from('users').select('username, avatar, win_count, is_admin, banned_at').eq('id', state.supabaseUserId).maybeSingle();
                 if (!error && data) {
+                    if (data.banned_at) {
+                        invalidateStaleOnlineSession('banned_account');
+                        const signInMsg = document.getElementById('sign-in-msg');
+                        if (signInMsg) signInMsg.textContent = 'This account has been banned permanently.';
+                        return;
+                    }
                     if (data.username) {
                         state.profileUsername = data.username;
                         state.playerName = data.username;
                     }
-                    if (data.avatar && PROFILE_AVATARS.includes(data.avatar)) {
-                        persistProfileAvatar(data.avatar);
-                    } else if (data.avatar) {
-                        persistProfileAvatar(data.avatar);
-                    }
+                    state.isOwner = normalizeUsername(data.username) === OWNER_DASHBOARD_USERNAME;
+                    state.isDashboardAdmin = state.isOwner || !!data.is_admin;
+                    if (data.avatar) persistProfileAvatar(data.avatar);
                     if (typeof data.win_count === 'number' && data.win_count > (state.winCount || 0)) {
                         state.winCount = data.win_count;
                         localStorage.setItem('pixelCityWins', state.winCount);
@@ -10270,7 +10510,7 @@
         /** Stored pixelCitySession points at a user row that no longer exists (DB reset, wrong project, etc.). */
         async function validateRestoredSessionUser(userId) {
             if (!supabase || !userId) return false;
-            const { data, error } = await supabase.from('users').select('id').eq('id', userId).maybeSingle();
+            const { data, error } = await supabase.from('users').select('id, username, is_admin, banned_at').eq('id', userId).maybeSingle();
             if (error) {
                 pcDebug('warn', 'validate_session_user_lookup_failed', { message: error.message, code: error.code });
                 return true;
@@ -10279,6 +10519,16 @@
                 pcDebug('warn', 'validate_session_user_missing', { userId });
                 return false;
             }
+            if (data.banned_at) {
+                pcDebug('warn', 'validate_session_user_banned', { userId });
+                try {
+                    const signInMsg = document.getElementById('sign-in-msg');
+                    if (signInMsg) signInMsg.textContent = 'This account has been banned permanently.';
+                } catch (_) {}
+                return false;
+            }
+            state.isOwner = normalizeUsername(data.username) === OWNER_DASHBOARD_USERNAME;
+            state.isDashboardAdmin = state.isOwner || !!data.is_admin;
             return true;
         }
 
@@ -11169,10 +11419,17 @@
                                 else if (isZombieSecretActive() && bNear.zombieBank && bNear.type === 'ruins' && !state.zombieBankRobbed) subEl.innerText = 'bank ruins — E to loot $2000 (once)';
                                 else if (isZombieSecretActive() && bNear.type === 'ruins' && bNear.zombieHouseLooted === false) subEl.innerText = 'house ruin — E to loot $1000 (this lot once)';
                                 else if (bNear.type === 'hospital') subEl.innerText = 'hospital';
-                                else if (isPlayerHomeLot(bNear)) {
-                                    if (state.wantedLevel > 0 && state.hasHome) subEl.innerText = 'home — E to hide (police break-in roll)';
-                                    else if (!state.hasHome) subEl.innerText = 'home lot — E to buy ($10k+)';
-                                    else subEl.innerText = 'home — E to upgrade';
+                                else if (isHomeLotBuilding(bNear)) {
+                                    if (ownsHomeLot(bNear)) {
+                                        if (state.wantedLevel > 0) subEl.innerText = 'your home — E to hide (police break-in roll)';
+                                        else subEl.innerText = 'your home — E to upgrade';
+                                    } else if (buildingOwnedByOther(bNear)) {
+                                        subEl.innerText = `${bNear.ownerName || 'player'}'s home lot — E to interact`;
+                                    } else if (countMyOwnedHomeLots() >= MAX_HOMES_PER_PLAYER) {
+                                        subEl.innerText = 'home lot — you already own a house';
+                                    } else {
+                                        subEl.innerText = 'home lot — E to buy ($10k+, one house per player)';
+                                    }
                                 }
                                 else if (bNear.type === 'house' && state.playMode === 'online' && bNear.ownerUid && buildingOwnedByOther(bNear)) {
                                     const tier = typeof bNear.homeTier === 'number' ? bNear.homeTier : 0;
@@ -11463,8 +11720,8 @@
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
                 let short = b.type === 'hospital' ? 'Hospital' : b.type === 'jail' ? 'Police Station' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type))));
-                if (isPlayerHomeLot(b) && !state.hasHome) short = 'HOME LOT';
-                else if (isPlayerHomeLot(b) && state.hasHome) short = 'MY HOME';
+                if (isHomeLotBuilding(b) && b.type === 'home_lot' && !b.ownerUid) short = 'HOME LOT';
+                else if (isHomeLotBuilding(b) && ownsHomeLot(b)) short = 'MY HOME';
                 else if (b.ownerUid && (b.type === 'house' || b.type === 'home') && !isPlayerHomeLot(b)) short = (b.ownerName || 'PLAYER').slice(0, 8).toUpperCase();
                 if (isZombieSecretActive() && b.type === 'ruins' && b.zombieBank) short = 'BANK (ruin)';
                 else if (isZombieSecretActive() && b.type === 'ruins' && b.zombieOrigKind === 'house' && b.zombieHouseLooted === false) short = 'HOUSE (ruin)';
@@ -12795,10 +13052,13 @@
                 });
             }
 
-            const finishAuth = (userId, username, didCreateAccount) => {
+            const finishAuth = (userId, username, didCreateAccount, authExtra) => {
                 state.supabaseUserId = userId;
                 state.profileUsername = username;
                 state.playerName = username;
+                const ex = authExtra || {};
+                state.isOwner = !!ex.is_owner || normalizeUsername(username) === OWNER_DASHBOARD_USERNAME;
+                state.isDashboardAdmin = !!ex.is_admin || state.isOwner;
                 saveSession(userId, username);
                 recomputeIsAdmin();
                 startPresenceLoop();
@@ -12839,10 +13099,12 @@
                         didCreateAccount = true;
                     } else if (!r.data.ok) {
                         pcDebug('warn', 'auth_signin_rejected', { error: r.data.error });
-                        if (signInMsg) signInMsg.textContent = r.data.error || 'Sign-in failed.';
+                        if (signInMsg) signInMsg.textContent = r.data.error === 'Account banned permanently'
+                            ? 'This account has been banned permanently.'
+                            : (r.data.error || 'Sign-in failed.');
                         return;
                     }
-                    finishAuth(r.data.user_id, r.data.username, didCreateAccount);
+                    finishAuth(r.data.user_id, r.data.username, didCreateAccount, r.data);
                 } catch (e) {
                     pcDebug('error', 'auth_signin_exception', { message: String(e && e.message) });
                     if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
@@ -12856,6 +13118,8 @@
                 state.playerName = 'Guest';
                 state.profileUsername = '';
                 state.supabaseUserId = null;
+                state.isOwner = false;
+                state.isDashboardAdmin = false;
                 state.playMode = 'solo';
                 state.playerMode = 1;
                 state.worldSeed = null;
@@ -12875,6 +13139,8 @@
                 clearSession();
                 state.supabaseUserId = null;
                 state.profileUsername = '';
+                state.isOwner = false;
+                state.isDashboardAdmin = false;
                 state.playerName = '';
                 if (passInput) passInput.value = '';
                 updateSignedInUI();
@@ -13055,6 +13321,16 @@
             document.getElementById('dash-players-tab-24h')?.addEventListener('click', () => {
                 dashPlayersListMode = '24h';
                 renderDashPlayersList();
+            });
+            document.getElementById('dash-players-tab-all')?.addEventListener('click', () => {
+                dashPlayersListMode = 'all';
+                renderDashPlayersList();
+            });
+            document.getElementById('dash-ban-btn')?.addEventListener('click', () => { void adminBanSelectedUser(); });
+            document.getElementById('lobby-profile-avatar-upload')?.addEventListener('change', (e) => {
+                const f = e.target && e.target.files && e.target.files[0];
+                if (f) void uploadProfilePicture(f);
+                e.target.value = '';
             });
             document.getElementById('owner-event-race-speed')?.addEventListener('click', async () => {
                 const err = document.getElementById('owner-race-err');
