@@ -773,6 +773,11 @@
             </div>
 
             <div class="pt-2 border-t border-slate-700 text-left">
+                <div class="flex gap-1 mb-2 justify-center">
+                    <button type="button" id="lobby-tab-friends" class="lobby-social-tab px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-800 text-white interactive">Friends</button>
+                    <button type="button" id="lobby-tab-servers" class="lobby-social-tab px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 interactive">Servers</button>
+                </div>
+                <div id="lobby-friends-panel">
                 <h2 class="text-[10px] font-bold mb-1 text-slate-400 uppercase tracking-widest text-center">👫 Friends</h2>
                 <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Share your <span class="text-white font-bold">username</span> — they add you and you're friends instantly. Tap a friend for their profile, or <span class="text-emerald-400 font-bold">Join</span> to jump into their world.</p>
                 <button type="button" id="friends-host-server-btn" class="hidden w-full mb-2 bg-cyan-700 hover:bg-cyan-600 text-white text-[10px] font-black py-2 rounded-lg interactive border border-cyan-500/50">🌐 Host a server for friends</button>
@@ -783,6 +788,14 @@
                 </div>
                 <p id="friend-add-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem]"></p>
                 <ul id="friends-list-ul" class="max-h-48 overflow-y-auto space-y-1.5 text-xs"></ul>
+                </div>
+                <div id="lobby-servers-panel" class="hidden">
+                    <h2 class="text-[10px] font-bold mb-1 text-cyan-400 uppercase tracking-widest text-center">🌐 Servers</h2>
+                    <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Active rooms in the last 4 hours — tap any server to <span class="text-emerald-400 font-bold">jump in instantly</span>.</p>
+                    <p id="servers-list-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem] text-center"></p>
+                    <ul id="servers-list-ul" class="max-h-52 overflow-y-auto space-y-1.5 text-xs"></ul>
+                    <p id="servers-list-empty" class="text-[10px] text-slate-500 italic text-center hidden">No active servers right now. Host one in MULTIPLAYER or tap 🌐 Host a server for friends.</p>
+                </div>
             </div>
 
             <div class="flex gap-2 mt-2">
@@ -6658,13 +6671,122 @@
         async function joinFriendWorldInstant(sessionCode) {
             const code = (sessionCode || '').trim().toUpperCase();
             if (!code) return;
+            await joinServerInstant(code);
+            closeFriendProfileOverlay();
+        }
+
+        let lobbySocialTab = 'friends';
+        let serversListInterval = null;
+
+        function setLobbySocialTab(tab) {
+            lobbySocialTab = tab === 'servers' ? 'servers' : 'friends';
+            const friendsPanel = document.getElementById('lobby-friends-panel');
+            const serversPanel = document.getElementById('lobby-servers-panel');
+            const tabFriends = document.getElementById('lobby-tab-friends');
+            const tabServers = document.getElementById('lobby-tab-servers');
+            if (friendsPanel) friendsPanel.classList.toggle('hidden', lobbySocialTab !== 'friends');
+            if (serversPanel) serversPanel.classList.toggle('hidden', lobbySocialTab !== 'servers');
+            const activeCls = 'lobby-social-tab px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-800 text-white interactive';
+            const idleCls = 'lobby-social-tab px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 interactive';
+            if (tabFriends) tabFriends.className = lobbySocialTab === 'friends' ? activeCls.replace('cyan', 'indigo') : idleCls;
+            if (tabServers) tabServers.className = lobbySocialTab === 'servers' ? activeCls : idleCls;
+            if (lobbySocialTab === 'servers') {
+                void refreshServersList();
+                startServersListPolling();
+            } else {
+                stopServersListPolling();
+            }
+        }
+
+        function startServersListPolling() {
+            if (serversListInterval) return;
+            serversListInterval = setInterval(() => { void refreshServersList(); }, 12000);
+        }
+
+        function stopServersListPolling() {
+            if (serversListInterval) {
+                clearInterval(serversListInterval);
+                serversListInterval = null;
+            }
+        }
+
+        function renderServersList(servers) {
+            const ul = document.getElementById('servers-list-ul');
+            const empty = document.getElementById('servers-list-empty');
+            if (!ul) return;
+            ul.innerHTML = '';
+            const list = Array.isArray(servers) ? servers : [];
+            if (!list.length) {
+                if (empty) empty.classList.remove('hidden');
+                return;
+            }
+            if (empty) empty.classList.add('hidden');
+            list.forEach(s => {
+                const li = document.createElement('li');
+                const mine = !!s.is_mine;
+                const players = typeof s.players_online === 'number' ? s.players_online : 0;
+                const host = escapeHtml(s.host_username || 'host');
+                const code = String(s.code || '').toUpperCase();
+                const codeEsc = escapeHtml(code);
+                li.className = 'bg-slate-900/80 border rounded-lg p-2 flex items-center justify-between gap-2 ' + (mine ? 'border-cyan-500/60' : 'border-slate-600');
+                li.innerHTML = `<button type="button" class="server-join-btn flex-1 text-left interactive min-w-0 w-full">
+                    <div class="font-black text-white truncate">${mine ? '⭐ Your server' : `${host}'s server`}</div>
+                    <div class="text-[9px] text-slate-400 font-mono">${codeEsc} · ${players} online · tap to join</div>
+                </button>`;
+                li.querySelector('.server-join-btn')?.addEventListener('click', () => { void joinServerInstant(code); });
+                ul.appendChild(li);
+            });
+        }
+
+        async function refreshServersList() {
+            const msg = document.getElementById('servers-list-msg');
+            if (!supabase) {
+                if (msg) msg.textContent = 'Sign in to browse servers.';
+                renderServersList([]);
+                return;
+            }
+            if (!state.supabaseUserId) {
+                if (msg) msg.textContent = 'Sign in to browse servers.';
+                renderServersList([]);
+                return;
+            }
+            try {
+                const { data, error } = await supabase.rpc('list_public_servers', { p_user_id: state.supabaseUserId });
+                if (error || !data || !data.ok) {
+                    if (msg) msg.textContent = (data && data.error) || error?.message || 'Could not load servers.';
+                    return;
+                }
+                if (msg) msg.textContent = '';
+                renderServersList(data.servers);
+            } catch (_) {
+                if (msg) msg.textContent = 'Could not load servers.';
+            }
+        }
+
+        async function joinServerInstant(sessionCode) {
+            if (isPlayBlockedByBan()) {
+                applyBannedState();
+                return;
+            }
+            const code = (sessionCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+            if (!code) return;
+            if (!supabase || !state.supabaseUserId) {
+                showMessage('Sign in first to join a server.');
+                return;
+            }
+            const serversMsg = document.getElementById('servers-list-msg');
+            if (serversMsg) serversMsg.textContent = `Joining ${code}…`;
             document.getElementById('mode-online')?.click();
             state.multiplayerIntendsHost = false;
             const inp = document.getElementById('online-join-code-input');
             if (inp) inp.value = code;
             await joinOnlineSession(code);
-            if (!state.onlineSessionCode) return;
-            closeFriendProfileOverlay();
+            if (!state.onlineSessionCode) {
+                if (serversMsg) serversMsg.textContent = 'Could not join that server.';
+                return;
+            }
+            if (serversMsg) serversMsg.textContent = '';
+            stopServersListPolling();
             await joinRoom();
         }
 
@@ -10943,6 +11065,7 @@
             state.accountStatusBaselineSet = false;
             state.lastKnownBanned = false;
             state.lastKnownDashboardAdmin = false;
+            state.adminWelcomeShown = false;
             state.adminPresenceBroadcastDone = false;
             state.multiplayerIntendsHost = true;
             hideBannedOverlay();
@@ -12681,6 +12804,7 @@
                 else hintContainer.innerHTML = "<p class='text-white'>Drag to Move, Tap to Interact</p>";
             }
             updateFriendsListUIAsync();
+            if (lobbySocialTab === 'servers') void refreshServersList();
             updatePrimaryLobbyButtonLabel();
             updateLobbyModeSummary();
             enforceBeta3dInvariants();
@@ -13840,6 +13964,9 @@
             document.getElementById('owner-dashboard-overlay')?.addEventListener('click', (e) => {
                 if (e.target.id === 'owner-dashboard-overlay') closeOwnerDashboard();
             });
+
+            document.getElementById('lobby-tab-friends')?.addEventListener('click', () => setLobbySocialTab('friends'));
+            document.getElementById('lobby-tab-servers')?.addEventListener('click', () => setLobbySocialTab('servers'));
 
             document.getElementById('friend-add-btn').onclick = () => {
                 const v = document.getElementById('friend-add-input');
