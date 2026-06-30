@@ -748,6 +748,7 @@
                         <div class="flex gap-2">
                             <button type="button" id="solo-copy-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">📋 Copy code</button>
                             <button type="button" id="solo-new-code-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-1.5 rounded-lg interactive">🔄 New code</button>
+                            <button type="button" id="solo-delete-server-btn" class="flex-1 bg-rose-900/80 hover:bg-rose-800 text-rose-100 text-xs font-bold py-1.5 rounded-lg interactive" title="Remove your server from the list">🗑 Delete</button>
                         </div>
                     </div>
                     <!-- Join a friend's code -->
@@ -961,7 +962,16 @@
                 </div>
             </dl>
             <button type="button" id="friend-profile-join-btn" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl interactive mb-2">▶ Join their world</button>
-            <button type="button" id="friend-profile-host-btn" class="hidden w-full bg-cyan-700 hover:bg-cyan-600 text-white font-black py-2 rounded-xl interactive text-sm">🌐 Host server — invite them</button>
+            <button type="button" id="friend-profile-host-btn" class="hidden w-full bg-cyan-700 hover:bg-cyan-600 text-white font-black py-2 rounded-xl interactive text-sm mb-3">🌐 Host server — invite them</button>
+            <div id="friend-profile-message-block" class="border-t border-slate-700 pt-3 text-left">
+                <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Message</p>
+                <div id="friend-profile-dm-log" class="max-h-32 overflow-y-auto text-xs space-y-1 mb-2 bg-slate-950/60 rounded-lg p-2 min-h-[3rem]"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="friend-profile-dm-input" maxlength="500" placeholder="Say hi…" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive" />
+                    <button type="button" id="friend-profile-dm-send" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg font-bold text-xs shrink-0 interactive">Send</button>
+                </div>
+                <p id="friend-profile-dm-err" class="text-[10px] text-red-400 min-h-[1rem] mt-1"></p>
+            </div>
         </div>
     </div>
 
@@ -1977,6 +1987,7 @@
         }
 
         const LS_FRIENDS = 'pixelCityFriends';
+        const LS_FRIEND_DMS = 'pixelCityFriendDms';
         const LS_LAST_USER = 'pixelCityLastUser';
         const LS_CHARACTER_TYPE = 'pixelCityCharacterType';
         const LS_SESSION = 'pixelCitySession';
@@ -6186,6 +6197,9 @@
                     ch.on('broadcast', { event: 'admin_gift' }, ({ payload }) => {
                         applyOwnerAbuseGift(payload || {});
                     });
+                    ch.on('broadcast', { event: 'friend_dm' }, ({ payload }) => {
+                        handleIncomingFriendDm(payload || {});
+                    });
                     ch.on('broadcast', { event: 'account_status' }, ({ payload }) => {
                         if (!accountStatusTargetsMe(payload)) return;
                         handleAccountStatusPayload(payload);
@@ -6649,7 +6663,15 @@
 
         async function getMergedFriendnames() {
             const local = loadLocalFriends();
-            if (!supabase || !state.supabaseUserId) return local;
+            if (!supabase || !state.supabaseUserId) {
+                const seenLocal = new Set();
+                return local.filter(n => {
+                    const k = String(n || '').toLowerCase();
+                    if (!k || seenLocal.has(k)) return false;
+                    seenLocal.add(k);
+                    return true;
+                });
+            }
             const cloudRaw = await fetchCloudFriendnames();
             // Deduplicate the cloud list itself case-insensitively (prefer first occurrence)
             const seenCloud = new Set();
@@ -6665,7 +6687,168 @@
             if (localOnly.length < local.length) {
                 saveLocalFriends(localOnly);
             }
-            return [...cloud, ...localOnly];
+            const merged = [...cloud, ...localOnly];
+            const seen = new Set();
+            return merged.filter(n => {
+                const k = String(n || '').toLowerCase();
+                if (!k || seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+        }
+
+        let friendsListRenderGen = 0;
+        let serversListRenderGen = 0;
+
+        function dedupeServersByCode(servers) {
+            const seen = new Set();
+            return (Array.isArray(servers) ? servers : []).filter((s) => {
+                const c = String(s.code || '').toUpperCase();
+                if (!c || seen.has(c)) return false;
+                seen.add(c);
+                return true;
+            });
+        }
+
+        function loadFriendDmStore() {
+            try {
+                const raw = localStorage.getItem(LS_FRIEND_DMS);
+                const obj = raw ? JSON.parse(raw) : {};
+                return obj && typeof obj === 'object' ? obj : {};
+            } catch (_) { return {}; }
+        }
+
+        function saveFriendDmStore(store) {
+            try { localStorage.setItem(LS_FRIEND_DMS, JSON.stringify(store)); } catch (_) {}
+        }
+
+        function friendDmThreadKey(username) {
+            return normalizeUsername(username);
+        }
+
+        function appendFriendDmMessage(otherUsername, from, text, isSelf) {
+            const key = friendDmThreadKey(otherUsername);
+            if (!key || !text) return;
+            const store = loadFriendDmStore();
+            const thread = Array.isArray(store[key]) ? store[key] : [];
+            thread.push({ from, text: String(text).slice(0, 500), t: Date.now(), self: !!isSelf });
+            if (thread.length > 80) thread.splice(0, thread.length - 80);
+            store[key] = thread;
+            saveFriendDmStore(store);
+        }
+
+        function renderFriendProfileDmLog(username) {
+            const log = document.getElementById('friend-profile-dm-log');
+            if (!log) return;
+            const key = friendDmThreadKey(username);
+            const thread = key ? (loadFriendDmStore()[key] || []) : [];
+            log.innerHTML = '';
+            if (!thread.length) {
+                log.innerHTML = '<p class="text-slate-500 italic text-[10px]">No messages yet — say hi!</p>';
+                return;
+            }
+            thread.forEach((m) => {
+                const row = document.createElement('div');
+                row.className = `rounded px-2 py-1 ${m.self ? 'bg-indigo-900/60 text-right ml-6' : 'bg-slate-800 text-left mr-6'}`;
+                row.innerHTML = `<span class="text-[9px] text-slate-400 block">${escapeHtml(m.from || (m.self ? 'You' : username))}</span><span>${escapeHtml(m.text)}</span>`;
+                log.appendChild(row);
+            });
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function friendDmTargetsMe(payload) {
+            if (!payload) return false;
+            if (payload.toUserId && state.supabaseUserId && payload.toUserId === state.supabaseUserId) return true;
+            const tun = normalizeUsername(payload.toUsername || '');
+            const mine = normalizeUsername(state.profileUsername || state.playerName || '');
+            return !!(tun && mine && tun === mine);
+        }
+
+        async function sendFriendDirectMessage(targetUsername, rawText) {
+            const text = String(rawText || '').trim().slice(0, 500);
+            const to = normalizeUsername(targetUsername);
+            const errEl = document.getElementById('friend-profile-dm-err');
+            if (errEl) errEl.textContent = '';
+            if (!to) return { ok: false, err: 'No friend selected.' };
+            if (!text) return { ok: false, err: 'Type a message first.' };
+            if (!supabase || !state.supabaseUserId) {
+                appendFriendDmMessage(to, state.playerName || 'You', text, true);
+                renderFriendProfileDmLog(to);
+                return { ok: true, localOnly: true };
+            }
+            const fromName = state.profileUsername || state.playerName || 'You';
+            const prof = friendProfileCache[to] || {};
+            try {
+                await ensureGlobalServerNoticeSubscribedAsync();
+            } catch (_) {
+                return { ok: false, err: 'Could not connect to send message.' };
+            }
+            if (!globalNoticeChannel) return { ok: false, err: 'Could not open message channel.' };
+            try {
+                await globalNoticeChannel.send({
+                    type: 'broadcast',
+                    event: 'friend_dm',
+                    payload: {
+                        toUsername: to,
+                        toUserId: prof.userId || null,
+                        fromUsername: fromName,
+                        fromUserId: state.supabaseUserId,
+                        text
+                    }
+                });
+                appendFriendDmMessage(to, fromName, text, true);
+                renderFriendProfileDmLog(to);
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, err: e && e.message ? e.message : 'Send failed' };
+            }
+        }
+
+        function handleIncomingFriendDm(payload) {
+            if (!friendDmTargetsMe(payload)) return;
+            const from = normalizeUsername(payload.fromUsername || 'Friend');
+            const text = String(payload.text || '').slice(0, 500);
+            if (!text) return;
+            appendFriendDmMessage(from, payload.fromUsername || from, text, false);
+            if (friendProfileJoinName && normalizeUsername(friendProfileJoinName) === from) {
+                renderFriendProfileDmLog(from);
+            }
+            showMessage(`💬 ${payload.fromUsername || from}: ${text}`);
+        }
+
+        async function deleteGameServer(code, serverRow) {
+            if (!supabase || !state.supabaseUserId) {
+                return { ok: false, err: 'Sign in to manage servers.' };
+            }
+            const c = String(code || '').trim().toUpperCase();
+            if (!c) return { ok: false, err: 'No server code.' };
+            const mine = !!(serverRow && (serverRow.is_mine || serverRow.host_id === state.supabaseUserId));
+            if (!mine && !isThomasOwner()) {
+                return { ok: false, err: 'You can only delete your own server.' };
+            }
+            if (mine && !confirm(`Delete your server ${c}? It will disappear from the list until you host again.`)) {
+                return { ok: false, err: 'Cancelled.' };
+            }
+            if (!mine && isThomasOwner() && !confirm(`Delete ${serverRow?.host_username || 'this'}'s server ${c}?`)) {
+                return { ok: false, err: 'Cancelled.' };
+            }
+            try {
+                if (mine && state.onlineSessionCode === c) {
+                    teardownOnlineRealtime({ skipDelete: true });
+                }
+                const { error } = await supabase.from('game_sessions').delete().eq('code', c);
+                if (error) return { ok: false, err: error.message || 'Could not delete server.' };
+                if (mine) {
+                    clearPersistedRunCode();
+                    deleteServerCode();
+                    const codeEl = document.getElementById('solo-share-code');
+                    if (codeEl && state.playMode === 'online') codeEl.textContent = getOrRefreshRunCode();
+                }
+                if (lobbySocialTab === 'servers') void refreshServersList();
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, err: e && e.message ? e.message : 'Delete failed' };
+            }
         }
 
         const friendSessionCache = {}; // username -> { code, checkedAt }
@@ -6806,6 +6989,11 @@
             if (hostBtn) hostBtn.classList.add('hidden');
             o.classList.add('open');
             o.setAttribute('aria-hidden', 'false');
+            renderFriendProfileDmLog(un);
+            const dmInput = document.getElementById('friend-profile-dm-input');
+            const dmErr = document.getElementById('friend-profile-dm-err');
+            if (dmInput) dmInput.value = '';
+            if (dmErr) dmErr.textContent = '';
 
             const cached = friendProfileCache[un];
             if (cached) {
@@ -6908,7 +7096,7 @@
             const empty = document.getElementById('servers-list-empty');
             if (!ul) return;
             ul.innerHTML = '';
-            const list = Array.isArray(servers) ? servers : [];
+            const list = dedupeServersByCode(servers);
             if (!list.length) {
                 if (empty) empty.classList.remove('hidden');
                 return;
@@ -6924,11 +7112,21 @@
                 const codeEsc = escapeHtml(code);
                 const mpLabel = isMp ? ' · multiplayer' : '';
                 li.className = 'bg-slate-900/80 border rounded-lg p-2 flex items-center justify-between gap-2 ' + (mine ? 'border-cyan-500/60' : 'border-slate-600');
+                const canDelete = mine || isThomasOwner();
                 li.innerHTML = `<button type="button" class="server-join-btn flex-1 text-left interactive min-w-0 w-full">
                     <div class="font-black text-white truncate">${mine ? '⭐ Your server' : `${host}'s server`}${mpLabel}</div>
                     <div class="text-[9px] text-slate-400 font-mono">${codeEsc} · ${players} playing · tap to join</div>
-                </button>`;
+                </button>${canDelete ? `<button type="button" class="server-delete-btn text-rose-400 hover:text-rose-300 text-xs font-bold px-2 py-1 rounded interactive shrink-0" title="${mine ? 'Delete your server' : 'Dev: delete server'}">🗑</button>` : ''}`;
                 li.querySelector('.server-join-btn')?.addEventListener('click', () => { void joinServerInstant(code); });
+                li.querySelector('.server-delete-btn')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    void (async () => {
+                        const msg = document.getElementById('servers-list-msg');
+                        const r = await deleteGameServer(code, s);
+                        if (msg) msg.textContent = r.ok ? (mine ? 'Your server was deleted.' : 'Server deleted.') : (r.err || 'Could not delete.');
+                        if (r.ok) setTimeout(() => { if (msg) msg.textContent = ''; }, 2500);
+                    })();
+                });
                 ul.appendChild(li);
             });
         }
@@ -6967,6 +7165,7 @@
         }
 
         async function refreshServersList() {
+            const gen = ++serversListRenderGen;
             const msg = document.getElementById('servers-list-msg');
             if (!supabase) {
                 if (msg) msg.textContent = 'Sign in to browse servers.';
@@ -6982,17 +7181,21 @@
                 const { data, error } = await supabase.rpc('list_public_servers', { p_user_id: state.supabaseUserId });
                 if (error && isMissingSupabaseRpcError(error)) {
                     const servers = await refreshServersListDirect();
+                    if (gen !== serversListRenderGen) return;
                     if (msg) msg.textContent = '';
                     renderServersList(servers);
                     return;
                 }
                 if (error || !data || !data.ok) {
+                    if (gen !== serversListRenderGen) return;
                     if (msg) msg.textContent = (data && data.error) || error?.message || 'Could not load servers.';
                     return;
                 }
+                if (gen !== serversListRenderGen) return;
                 if (msg) msg.textContent = '';
                 renderServersList(data.servers);
             } catch (_) {
+                if (gen !== serversListRenderGen) return;
                 if (msg) msg.textContent = 'Could not load servers.';
             }
         }
@@ -7058,15 +7261,17 @@
         }
 
         async function updateFriendsListUIAsync() {
+            const gen = ++friendsListRenderGen;
             const ul = document.getElementById('friends-list-ul');
             if (!ul) return;
-            ul.innerHTML = '';
             const friends = await getMergedFriendnames();
+            if (gen !== friendsListRenderGen) return;
             if (friends.length === 0) {
                 ul.innerHTML = '<li class="text-slate-500 text-center py-2 text-[10px]">No friends yet — add one above!</li>';
                 return;
             }
             await refreshFriendPresence();
+            if (gen !== friendsListRenderGen) return;
 
             // Fetch session codes for online friends in parallel
             const sessionCodes = {};
@@ -7077,7 +7282,9 @@
                     }
                 }));
             }
+            if (gen !== friendsListRenderGen) return;
 
+            ul.innerHTML = '';
             friends.forEach(name => {
                 const li = document.createElement('li');
                 const prof = friendProfileCache[name] || {};
@@ -14302,6 +14509,28 @@
                 if (friendProfileJoinCode) void joinFriendWorldInstant(friendProfileJoinCode);
             });
             document.getElementById('friend-profile-host-btn')?.addEventListener('click', () => { void hostServerForFriends(false); });
+            document.getElementById('friend-profile-dm-send')?.addEventListener('click', async () => {
+                const input = document.getElementById('friend-profile-dm-input');
+                const err = document.getElementById('friend-profile-dm-err');
+                if (!friendProfileJoinName) return;
+                const r = await sendFriendDirectMessage(friendProfileJoinName, input ? input.value : '');
+                if (r.ok) {
+                    if (input) input.value = '';
+                    if (err) err.textContent = r.localOnly ? 'Saved locally (sign in to deliver online).' : '';
+                } else if (err) err.textContent = r.err || 'Could not send.';
+            });
+            document.getElementById('friend-profile-dm-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('friend-profile-dm-send')?.click();
+                }
+            });
+            document.getElementById('solo-delete-server-btn')?.addEventListener('click', async () => {
+                const code = state.onlineSessionCode || getOrRefreshRunCode();
+                const r = await deleteGameServer(code, { is_mine: true, host_id: state.supabaseUserId });
+                if (r.ok) setSessionMsg('🗑 Server deleted. Tap Start to host again anytime.', true);
+                else if (r.err && r.err !== 'Cancelled.') setSessionMsg(r.err, false);
+            });
 
             document.getElementById('online-host-btn').onclick = () => hostOnlineSession();
             document.getElementById('online-join-btn').onclick = async () => {
