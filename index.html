@@ -1869,6 +1869,7 @@
                     <div class="flex gap-1 flex-wrap justify-end">
                         <button type="button" id="dash-players-tab-all" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-800 text-white">All accounts</button>
                         <button type="button" id="dash-players-tab-online" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">Online now</button>
+                        <button type="button" id="dash-players-tab-24h" class="dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-300">Active 24h</button>
                     </div>
                 </div>
                 <p class="text-[8px] text-slate-500 mb-2 leading-snug">Every username that ever created an account — not just who is playing right now.</p>
@@ -4835,18 +4836,36 @@
             const empty = document.getElementById('dash-players-empty');
             const tabOn = document.getElementById('dash-players-tab-online');
             const tabAll = document.getElementById('dash-players-tab-all');
+            const tab24 = document.getElementById('dash-players-tab-24h');
             if (!ul) return;
-            const list = dashPlayersListMode === 'online' ? dashPlayersOnlineList : dashPlayersAllList;
+            const list = dashPlayersListMode === 'online'
+                ? dashPlayersOnlineList
+                : (dashPlayersListMode === '24h' ? dashPlayers24hList : dashPlayersAllList);
             if (tabOn) {
                 tabOn.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === 'online' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
             }
             if (tabAll) {
                 tabAll.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === 'all' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
             }
+            if (tab24) {
+                tab24.className = 'dash-players-tab px-2 py-0.5 rounded text-[9px] font-bold ' + (dashPlayersListMode === '24h' ? 'bg-cyan-800 text-white' : 'bg-slate-800 text-slate-300');
+            }
             ul.innerHTML = '';
             if (!list.length) {
                 if (empty) {
-                    empty.textContent = dashPlayersListMode === 'online' ? 'Nobody online right now.' : 'No accounts yet.';
+                    if (dashPlayersListMode === 'online') {
+                        const onlineCount = Number(document.getElementById('dash-stat-online-now')?.textContent || 0);
+                        const active24 = Number(document.getElementById('dash-stat-active')?.textContent || 0);
+                        empty.textContent = onlineCount > 0
+                            ? 'Online count is updating — tap Refresh analytics.'
+                            : (active24 > 0
+                                ? 'Nobody in the last 90s. Try the Active 24h tab.'
+                                : 'Nobody online right now.');
+                    } else if (dashPlayersListMode === '24h') {
+                        empty.textContent = 'Nobody active in the last 24 hours.';
+                    } else {
+                        empty.textContent = 'No accounts yet.';
+                    }
                     empty.classList.remove('hidden');
                 }
                 syncDashboardOwnerControls();
@@ -5578,6 +5597,65 @@
             return !!(state.supabaseUserId && state.isOwner);
         }
 
+        function applyDashboardRoleFlags(username, isAdminCol, bannedAt) {
+            const un = normalizeUsername(username || '');
+            if (username) {
+                state.profileUsername = username;
+                state.playerName = username;
+            }
+            state.isOwner = un === OWNER_DASHBOARD_USERNAME && !bannedAt;
+            state.isDashboardAdmin = state.isOwner || !!isAdminCol;
+            updateOwnerDashboardFabVisibility();
+            updateSignedInUI();
+        }
+
+        async function repairSessionUserIdFromUsername() {
+            if (!supabase) return false;
+            const saved = loadSession();
+            const un = normalizeUsername(state.profileUsername || saved?.username || '');
+            if (!un) return false;
+            const { data, error } = await supabase.from('users').select('id, username, is_admin, banned_at').eq('username', un).maybeSingle();
+            if (error || !data) return false;
+            if (data.banned_at) {
+                state.supabaseUserId = data.id;
+                applyDashboardRoleFlags(data.username, data.is_admin, data.banned_at);
+                applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
+                return false;
+            }
+            const repaired = data.id !== state.supabaseUserId;
+            state.supabaseUserId = data.id;
+            applyDashboardRoleFlags(data.username, data.is_admin, null);
+            saveSession(data.id, data.username);
+            return repaired;
+        }
+
+        function applyOwnerDashboardSnapshot(data) {
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v != null ? String(v) : '—'; };
+            set('dash-stat-users', data.users_total);
+            set('dash-stat-active', data.users_seen_24h);
+            set('dash-stat-sessions', data.game_sessions_total);
+            set('dash-stat-sessions7', data.game_sessions_active_7d);
+            set('dash-stat-online-now', data.users_online_now != null ? data.users_online_now : '—');
+            set('dash-stat-friends', data.friends_edges_total);
+            set('dash-stat-time', data.generated_at || '—');
+            dashPlayersOnlineList = Array.isArray(data.users_online_now_list) ? data.users_online_now_list : [];
+            dashPlayers24hList = Array.isArray(data.users_seen_24h_list) ? data.users_seen_24h_list : [];
+            dashPlayersAllList = Array.isArray(data.all_accounts_list) ? data.all_accounts_list : [];
+            state.isOwner = !!data.is_owner;
+            state.isDashboardAdmin = !!(data.is_admin || data.is_owner);
+            updateOwnerDashboardFabVisibility();
+            updateSignedInUI();
+            syncOwnerBroadcastControls();
+            renderDashPlayersList();
+        }
+
+        function syncOwnerBroadcastControls() {
+            const block = document.getElementById('owner-broadcast-block');
+            const ownerOnly = document.querySelectorAll('[data-owner-only="1"]');
+            if (block) block.classList.toggle('hidden', !isOwnerDashboardUser());
+            ownerOnly.forEach(el => el.classList.toggle('hidden', !isThomasOwner()));
+        }
+
         function recomputeIsAdmin() {
             // isAdmin gates god-mode/cheats (PIN 4789 or admin panel unlock).
             // isOwnerDashboardUser() (thomas) only gates the dashboard — not auto-god-mode.
@@ -5684,29 +5762,28 @@
                 if (errEl) errEl.textContent = 'Sign in required.';
                 return;
             }
-            const { data, error } = await supabase.rpc('admin_dashboard_snapshot', { p_user_id: state.supabaseUserId });
+            await repairSessionUserIdFromUsername();
+            let { data, error } = await supabase.rpc('admin_dashboard_snapshot', { p_user_id: state.supabaseUserId });
+            if ((!data || !data.ok) && !error) {
+                const repaired = await repairSessionUserIdFromUsername();
+                if (repaired) {
+                    ({ data, error } = await supabase.rpc('admin_dashboard_snapshot', { p_user_id: state.supabaseUserId }));
+                }
+            }
             if (error) {
                 if (errEl) errEl.textContent = error.message || 'Could not load dashboard stats. If this persists, the server may need a maintainer update.';
                 return;
             }
             if (!data || !data.ok) {
-                if (errEl) errEl.textContent = (data && data.error) ? String(data.error) : 'Forbidden';
+                const msg = (data && data.error) ? String(data.error) : 'Forbidden';
+                if (errEl) {
+                    errEl.textContent = msg === 'Forbidden'
+                        ? 'Dashboard access denied for this session. Sign out, then sign in again as thomas or a promoted admin.'
+                        : msg;
+                }
                 return;
             }
-            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v != null ? String(v) : '—'; };
-            set('dash-stat-users', data.users_total);
-            set('dash-stat-active', data.users_seen_24h);
-            set('dash-stat-sessions', data.game_sessions_total);
-            set('dash-stat-sessions7', data.game_sessions_active_7d);
-            set('dash-stat-online-now', data.users_online_now != null ? data.users_online_now : '—');
-            set('dash-stat-friends', data.friends_edges_total);
-            set('dash-stat-time', data.generated_at || '—');
-            dashPlayersOnlineList = Array.isArray(data.users_online_now_list) ? data.users_online_now_list : [];
-            dashPlayers24hList = Array.isArray(data.users_seen_24h_list) ? data.users_seen_24h_list : [];
-            dashPlayersAllList = Array.isArray(data.all_accounts_list) ? data.all_accounts_list : [];
-            state.isOwner = !!data.is_owner;
-            state.isDashboardAdmin = !!(data.is_admin || data.is_owner);
-            renderDashPlayersList();
+            applyOwnerDashboardSnapshot(data);
         }
 
         function showServerNoticeOverlay(t, opts) {
@@ -5778,8 +5855,12 @@
         }
 
         async function sendGlobalServerNotice(text) {
-            if (!isOwnerDashboardUser() || !supabase) {
-                return { ok: false, err: 'Only the owner account can broadcast.' };
+            if (!supabase) {
+                return { ok: false, err: 'Online service not configured.' };
+            }
+            await repairSessionUserIdFromUsername();
+            if (!isOwnerDashboardUser()) {
+                return { ok: false, err: 'Only thomas or a promoted admin can broadcast.' };
             }
             const t = String(text || '').trim().slice(0, GLOBAL_SERVER_NOTICE_MAX);
             if (!t) return { ok: false, err: 'Type a message first.' };
@@ -5802,8 +5883,12 @@
         }
 
         async function sendGlobalOwnerGameEvent(kind) {
-            if (!isOwnerDashboardUser() || !supabase) {
-                return { ok: false, err: 'Only the owner account can trigger global events.' };
+            if (!supabase) {
+                return { ok: false, err: 'Online service not configured.' };
+            }
+            await repairSessionUserIdFromUsername();
+            if (!isThomasOwner()) {
+                return { ok: false, err: 'Only thomas (owner) can trigger global owner events.' };
             }
             const seq = ++ownerGameEventSeqCounter;
             const payload = { kind: String(kind || ''), from: 'owner', seq };
@@ -5827,19 +5912,22 @@
         }
 
         function openOwnerDashboard() {
-            if (!isOwnerDashboardUser()) return;
-            const ov = document.getElementById('owner-dashboard-overlay');
-            if (!ov) return;
-            ov.classList.add('open');
-            document.getElementById('owner-broadcast-block')?.classList.remove('hidden');
-            const errB = document.getElementById('owner-broadcast-err');
-            const evErr = document.getElementById('owner-event-err');
-            if (errB) errB.textContent = '';
-            if (evErr) evErr.textContent = '';
-            renderByteDashboardTips();
-            dashPlayersListMode = 'all';
-            syncDashboardOwnerControls();
-            void refreshOwnerDashboardAnalytics();
+            void (async () => {
+                await repairSessionUserIdFromUsername();
+                if (!isOwnerDashboardUser()) return;
+                const ov = document.getElementById('owner-dashboard-overlay');
+                if (!ov) return;
+                ov.classList.add('open');
+                syncOwnerBroadcastControls();
+                const errB = document.getElementById('owner-broadcast-err');
+                const evErr = document.getElementById('owner-event-err');
+                if (errB) errB.textContent = '';
+                if (evErr) evErr.textContent = '';
+                renderByteDashboardTips();
+                dashPlayersListMode = 'all';
+                syncDashboardOwnerControls();
+                await refreshOwnerDashboardAnalytics();
+            })();
         }
 
         function closeOwnerDashboard() {
@@ -10411,8 +10499,7 @@
                         state.profileUsername = data.username;
                         state.playerName = data.username;
                     }
-                    state.isOwner = normalizeUsername(data.username) === OWNER_DASHBOARD_USERNAME;
-                    state.isDashboardAdmin = state.isOwner || !!data.is_admin;
+                    applyDashboardRoleFlags(data.username, data.is_admin, data.banned_at);
                     if (data.avatar) persistProfileAvatar(data.avatar);
                     if (typeof data.win_count === 'number' && data.win_count > (state.winCount || 0)) {
                         state.winCount = data.win_count;
@@ -10429,7 +10516,10 @@
             updateOwnerDashboardFabVisibility();
             refreshMyProfileUI();
             updateFriendsHostButtonVisibility();
-            if (!state.isBanned) void maybeBroadcastAdminPresence();
+            if (!state.isBanned) {
+                void maybeBroadcastAdminPresence();
+                void repairSessionUserIdFromUsername();
+            }
         }
 
         function saveSession(userId, username) {
@@ -10687,25 +10777,28 @@
         /** Stored pixelCitySession points at a user row that no longer exists (DB reset, wrong project, etc.). */
         async function validateRestoredSessionUser(userId) {
             if (!supabase || !userId) return false;
+            const saved = loadSession();
             const { data, error } = await supabase.from('users').select('id, username, is_admin, banned_at').eq('id', userId).maybeSingle();
             if (error) {
                 pcDebug('warn', 'validate_session_user_lookup_failed', { message: error.message, code: error.code });
-                return true;
+                return !!(await repairSessionUserIdFromUsername());
             }
             if (!data) {
                 pcDebug('warn', 'validate_session_user_missing', { userId });
-                return false;
+                return !!(await repairSessionUserIdFromUsername());
+            }
+            if (saved?.username && normalizeUsername(saved.username) !== normalizeUsername(data.username)) {
+                pcDebug('warn', 'validate_session_username_mismatch', { saved: saved.username, actual: data.username });
+                return !!(await repairSessionUserIdFromUsername());
             }
             if (data.banned_at) {
                 pcDebug('warn', 'validate_session_user_banned', { userId });
                 state.supabaseUserId = userId;
-                state.profileUsername = data.username || '';
-                state.playerName = data.username || '';
+                applyDashboardRoleFlags(data.username, data.is_admin, data.banned_at);
                 applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
                 return false;
             }
-            state.isOwner = normalizeUsername(data.username) === OWNER_DASHBOARD_USERNAME;
-            state.isDashboardAdmin = state.isOwner || !!data.is_admin;
+            applyDashboardRoleFlags(data.username, data.is_admin, null);
             return true;
         }
 
@@ -11053,6 +11146,7 @@
             }
 
             document.getElementById('lobby-screen').style.display = 'none';
+            if (state.supabaseUserId) void upsertMyPresence();
             dismissAllBuildingMenus();
             state.isGameOver = false;
             state.gamePaused = false;
@@ -13243,8 +13337,7 @@
                     applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
                     return;
                 }
-                state.isOwner = !!ex.is_owner || normalizeUsername(username) === OWNER_DASHBOARD_USERNAME;
-                state.isDashboardAdmin = !!ex.is_admin || state.isOwner;
+                applyDashboardRoleFlags(username, ex.is_admin, null);
                 saveSession(userId, username);
                 recomputeIsAdmin();
                 startPresenceLoop();
@@ -13502,6 +13595,10 @@
             });
             document.getElementById('dash-players-tab-all')?.addEventListener('click', () => {
                 dashPlayersListMode = 'all';
+                renderDashPlayersList();
+            });
+            document.getElementById('dash-players-tab-24h')?.addEventListener('click', () => {
+                dashPlayersListMode = '24h';
                 renderDashPlayersList();
             });
             document.getElementById('dash-promote-btn')?.addEventListener('click', () => {
