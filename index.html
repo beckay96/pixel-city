@@ -2418,6 +2418,7 @@
             lastKnownDashboardAdmin: false,
             houseRobCooldowns: {},
             adminPresenceBroadcastDone: false,
+            adminWelcomeShown: false,
             supabaseUserId: null,
             playMode: 'solo',
             worldSeed: null,
@@ -4552,6 +4553,8 @@
                 return;
             }
             state.isBanned = true;
+            state.lastKnownBanned = true;
+            state.lastKnownDashboardAdmin = false;
             state.adminPresenceBroadcastDone = false;
             teardownOnlineRealtime({ skipDelete: true });
             state.gamePaused = true;
@@ -10688,6 +10691,14 @@
             if (!state.isBanned) {
                 void maybeBroadcastAdminPresence();
                 void repairSessionUserIdFromUsername();
+                if (!state.adminWelcomeShown && state.supabaseUserId) {
+                    state.adminWelcomeShown = true;
+                    if (state.isOwner) {
+                        showAccountStatusNotice('Signed in as owner (thomas). Owner dashboard and broadcasts are available.', 'admin');
+                    } else if (state.isDashboardAdmin) {
+                        showAccountStatusNotice('You are signed in as an admin. Use the 📊 owner dashboard from the lobby or in-game.', 'admin');
+                    }
+                }
             }
         }
 
@@ -13514,11 +13525,6 @@
                 state.accountStatusBaselineSet = true;
                 state.lastKnownBanned = false;
                 state.lastKnownDashboardAdmin = state.isDashboardAdmin;
-                if (state.isDashboardAdmin && !state.isOwner) {
-                    showAccountStatusNotice('You are signed in as an admin. Use the 📊 owner dashboard from the lobby or in-game.', 'admin');
-                } else if (state.isOwner) {
-                    showAccountStatusNotice('Signed in as owner (thomas). Owner dashboard and broadcasts are available.', 'admin');
-                }
                 recomputeIsAdmin();
                 startPresenceLoop();
                 if (didCreateAccount) persistCharacterType();
