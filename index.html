@@ -791,7 +791,7 @@
                 </div>
                 <div id="lobby-servers-panel" class="hidden">
                     <h2 class="text-[10px] font-bold mb-1 text-cyan-400 uppercase tracking-widest text-center">🌐 Servers</h2>
-                    <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Active rooms in the last 4 hours — tap any server to <span class="text-emerald-400 font-bold">jump in instantly</span>.</p>
+                    <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Listed while someone is playing, or for 4h after last activity. Tap any server to <span class="text-emerald-400 font-bold">jump in instantly</span>.</p>
                     <p id="servers-list-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem] text-center"></p>
                     <ul id="servers-list-ul" class="max-h-52 overflow-y-auto space-y-1.5 text-xs"></ul>
                     <p id="servers-list-empty" class="text-[10px] text-slate-500 italic text-center hidden">No active servers right now. Rooms show while someone is playing, or for 4h after last activity. Your code is yours forever — open MULTIPLAYER and press Start.</p>
@@ -6740,6 +6740,39 @@
             });
         }
 
+        function isMissingSupabaseRpcError(err) {
+            if (!err) return false;
+            const code = String(err.code || '');
+            const msg = String(err.message || '');
+            return code === 'PGRST202' || msg.includes('Could not find the function');
+        }
+
+        /** Fallback when list_public_servers RPC is missing (older Supabase project). */
+        async function refreshServersListDirect() {
+            const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+            const { data: rows, error } = await supabase
+                .from('game_sessions')
+                .select('code, host_id, updated_at, users(username)')
+                .gt('updated_at', fourHoursAgo)
+                .order('updated_at', { ascending: false })
+                .limit(40);
+            if (error) throw error;
+            const uid = state.supabaseUserId;
+            return (rows || []).map((r) => {
+                const hostUser = r.users;
+                const username = hostUser && (Array.isArray(hostUser) ? hostUser[0]?.username : hostUser.username);
+                return {
+                    code: r.code,
+                    host_id: r.host_id,
+                    host_username: username || 'host',
+                    is_mine: r.host_id === uid,
+                    is_multiplayer: false,
+                    players_online: 1,
+                    updated_at: r.updated_at,
+                };
+            });
+        }
+
         async function refreshServersList() {
             const msg = document.getElementById('servers-list-msg');
             if (!supabase) {
@@ -6754,6 +6787,12 @@
             }
             try {
                 const { data, error } = await supabase.rpc('list_public_servers', { p_user_id: state.supabaseUserId });
+                if (error && isMissingSupabaseRpcError(error)) {
+                    const servers = await refreshServersListDirect();
+                    if (msg) msg.textContent = '';
+                    renderServersList(servers);
+                    return;
+                }
                 if (error || !data || !data.ok) {
                     if (msg) msg.textContent = (data && data.error) || error?.message || 'Could not load servers.';
                     return;
@@ -7981,10 +8020,8 @@
                 const isOwnRoom = data.host_id === state.supabaseUserId;
                 if (!isOwnRoom) {
                     let lastAct = data.updated_at;
-                    try {
-                        const { data: act } = await supabase.rpc('session_last_activity', { p_code: code });
-                        if (act) lastAct = act;
-                    } catch (_) { /* fallback to updated_at */ }
+                    const { data: act, error: actErr } = await supabase.rpc('session_last_activity', { p_code: code });
+                    if (!actErr && act) lastAct = act;
                     if (lastAct) {
                         const ageMs = Date.now() - new Date(lastAct).getTime();
                         if (ageMs > 4 * 60 * 60 * 1000) {
