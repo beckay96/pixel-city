@@ -794,7 +794,7 @@
                     <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Active rooms in the last 4 hours — tap any server to <span class="text-emerald-400 font-bold">jump in instantly</span>.</p>
                     <p id="servers-list-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem] text-center"></p>
                     <ul id="servers-list-ul" class="max-h-52 overflow-y-auto space-y-1.5 text-xs"></ul>
-                    <p id="servers-list-empty" class="text-[10px] text-slate-500 italic text-center hidden">No active servers right now. Host one in MULTIPLAYER or tap 🌐 Host a server for friends.</p>
+                    <p id="servers-list-empty" class="text-[10px] text-slate-500 italic text-center hidden">No active servers right now. Rooms show while someone is playing, or for 4h after last activity. Your code is yours forever — open MULTIPLAYER and press Start.</p>
                 </div>
             </div>
 
@@ -6725,13 +6725,15 @@
                 const li = document.createElement('li');
                 const mine = !!s.is_mine;
                 const players = typeof s.players_online === 'number' ? s.players_online : 0;
+                const isMp = !!s.is_multiplayer || players >= 2;
                 const host = escapeHtml(s.host_username || 'host');
                 const code = String(s.code || '').toUpperCase();
                 const codeEsc = escapeHtml(code);
+                const mpLabel = isMp ? ' · multiplayer' : '';
                 li.className = 'bg-slate-900/80 border rounded-lg p-2 flex items-center justify-between gap-2 ' + (mine ? 'border-cyan-500/60' : 'border-slate-600');
                 li.innerHTML = `<button type="button" class="server-join-btn flex-1 text-left interactive min-w-0 w-full">
-                    <div class="font-black text-white truncate">${mine ? '⭐ Your server' : `${host}'s server`}</div>
-                    <div class="text-[9px] text-slate-400 font-mono">${codeEsc} · ${players} online · tap to join</div>
+                    <div class="font-black text-white truncate">${mine ? '⭐ Your server' : `${host}'s server`}${mpLabel}</div>
+                    <div class="text-[9px] text-slate-400 font-mono">${codeEsc} · ${players} playing · tap to join</div>
                 </button>`;
                 li.querySelector('.server-join-btn')?.addEventListener('click', () => { void joinServerInstant(code); });
                 ul.appendChild(li);
@@ -6993,10 +6995,7 @@
                     supabaseRealtimeChannel.send({ type: 'broadcast', event: 'leave', payload: { uid: state.supabaseUserId } });
                 } catch (_) { /* channel may be closing */ }
             }
-            if (state.isOnlineHost && state.onlineSessionCode && supabase && !o.skipDelete) {
-                const code = state.onlineSessionCode;
-                try { supabase.from('game_sessions').delete().eq('code', code).then(() => {}); } catch (_) { /* best-effort */ }
-            }
+            // Keep game_sessions rows — servers persist until explicit "New code" or 4h idle (listing hides them)
             onlineRealtimeReady = false;
             state.onlineRealtimeSubscribedCode = null;
             if (supabaseRealtimeChannel && supabase) {
@@ -7689,7 +7688,10 @@
 
             let code = getOrRefreshRunCode();
             let seed = state.worldSeed;
-            if (!(state.isOnlineHost && state.onlineSessionCode === code && seed != null)) {
+            const { data: existingRow } = await supabase.from('game_sessions').select('world_seed').eq('code', code).maybeSingle();
+            if (existingRow && existingRow.world_seed != null) {
+                seed = existingRow.world_seed;
+            } else if (!(state.isOnlineHost && state.onlineSessionCode === code && seed != null)) {
                 seed = Math.floor(Math.random() * 9007199254740990);
             }
 
@@ -7702,7 +7704,7 @@
                 }
                 if (state.onlineSessionCode && !state.isOnlineHost) return fail();
                 if (res.ok) {
-                    try { sessionStorage.setItem('pixelCityRunCode', code); } catch (_) {}
+                    persistRunCode(code);
                     state.onlineSessionCode = code;
                     state.isOnlineHost = true;
                     state.worldSeed = seed;
@@ -7735,12 +7737,50 @@
             return fail('Could not get a free session code. Tap New code or refresh the page.');
         }
 
-        /** New random invite code for this browser tab; replaces sessionStorage value. */
+        function getRunCodeStorageKey() {
+            return state.supabaseUserId ? `pixelCityRunCode:${state.supabaseUserId}` : 'pixelCityRunCode';
+        }
+
+        function persistRunCode(code) {
+            try { sessionStorage.setItem('pixelCityRunCode', code); } catch (_) {}
+            try { localStorage.setItem(getRunCodeStorageKey(), code); } catch (_) {}
+        }
+
+        function clearPersistedRunCode() {
+            try { sessionStorage.removeItem('pixelCityRunCode'); } catch (_) {}
+            try { localStorage.removeItem(getRunCodeStorageKey()); } catch (_) {}
+        }
+
+        /** New random invite code; persists per account in localStorage. */
         function refreshRunCode() {
             let c = '';
             for (let i = 0; i < 6; i++) c += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
-            sessionStorage.setItem('pixelCityRunCode', c);
+            persistRunCode(c);
             return c;
+        }
+
+        /** Auto host or guest-join before Start game in MULTIPLAYER lobby. */
+        async function ensureLobbyMultiplayerReady() {
+            if (!supabase || !state.supabaseUserId) return;
+            if (state.playMode !== 'online' || state.isSoloAutoHost || isInGame()) return;
+
+            const myCode = getOrRefreshRunCode();
+            const codeEl = document.getElementById('solo-share-code');
+            if (codeEl) codeEl.textContent = myCode;
+
+            const guestRaw = (document.getElementById('online-join-code-input')?.value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+            const wantsGuest = guestRaw.length >= 4 && guestRaw !== myCode;
+
+            if (wantsGuest && !state.onlineSessionCode) {
+                state.multiplayerIntendsHost = false;
+                await joinOnlineSession(guestRaw);
+                return;
+            }
+
+            if (!state.onlineSessionCode || state.isOnlineHost) {
+                state.multiplayerIntendsHost = true;
+                await syncMultiplayerLobbyHostRow();
+            }
         }
 
         async function regenerateMultiplayerInviteCode() {
@@ -7762,6 +7802,7 @@
                 try { await supabase.from('game_sessions').delete().eq('code', oldCode); } catch (_) {}
             }
             teardownOnlineRealtime({ skipDelete: true });
+            clearPersistedRunCode();
             const newCode = refreshRunCode();
             const codeEl = document.getElementById('solo-share-code');
             if (codeEl) codeEl.textContent = newCode;
@@ -7937,9 +7978,20 @@
                     pcDebug('warn', 'join_online_session_not_found', { code });
                     setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return;
                 }
-                if (data.updated_at) {
-                    const ageMs = Date.now() - new Date(data.updated_at).getTime();
-                    if (ageMs > 4 * 60 * 60 * 1000) { setSessionMsg('😕 That room has been inactive for a while. Ask your friend to start it again!', false); return; }
+                const isOwnRoom = data.host_id === state.supabaseUserId;
+                if (!isOwnRoom) {
+                    let lastAct = data.updated_at;
+                    try {
+                        const { data: act } = await supabase.rpc('session_last_activity', { p_code: code });
+                        if (act) lastAct = act;
+                    } catch (_) { /* fallback to updated_at */ }
+                    if (lastAct) {
+                        const ageMs = Date.now() - new Date(lastAct).getTime();
+                        if (ageMs > 4 * 60 * 60 * 1000) {
+                            setSessionMsg('😕 That room is hidden until someone plays again (4h idle). Ask your friend to open MULTIPLAYER and press Start.', false);
+                            return;
+                        }
+                    }
                 }
                 state.onlineSessionCode = code;
                 state.isOnlineHost = data.host_id === state.supabaseUserId;
@@ -7956,7 +8008,7 @@
                 pcDebug('info', 'join_online_session_ok', { code, isHost: state.isOnlineHost });
                 void reportActiveSession(code);
                 state.multiplayerIntendsHost = !!state.isOnlineHost;
-                setSessionMsg('🎮 Joined! You’re in the same city as your friend. Press Start game!', true);
+                setSessionMsg('🎮 Joined! Press Start game to enter the city.', true);
                 applyModeButtonStyles();
                 updateLobbyModeSummary();
                 enforceBeta3dInvariants();
@@ -11330,12 +11382,11 @@
                     showMessage('Sign in first to join multiplayer.');
                     return;
                 }
+                await ensureLobbyMultiplayerReady();
                 if (!state.isSoloAutoHost && !state.onlineSessionCode) {
-                    if (state.multiplayerIntendsHost === false) {
-                        setSessionMsg('👆 Paste your friend’s code and tap Join first — then press Start game.', false);
-                        showMessage('Paste your friend’s code, tap Join, then Start game.');
-                        return;
-                    }
+                    setSessionMsg('👆 Paste your friend’s code above, or share yours — then press Start game.', false);
+                    showMessage('Enter a friend’s code or use your own code, then Start game.');
+                    return;
                 }
                 // Guest who already tapped Join: same world as host — do not re-publish (would replace world_seed)
                 if (!state.isOnlineHost && state.onlineSessionCode) {
@@ -12768,11 +12819,11 @@
         }
 
         function getOrRefreshRunCode() {
-            // Fresh random code per browser session (clears on tab close)
-            let code = sessionStorage.getItem('pixelCityRunCode') || '';
-            if (!code || code.length < 4) {
-                code = refreshRunCode();
-            }
+            const key = getRunCodeStorageKey();
+            let code = '';
+            try { code = localStorage.getItem(key) || sessionStorage.getItem('pixelCityRunCode') || ''; } catch (_) {}
+            if (!code || code.length < 4) code = refreshRunCode();
+            else persistRunCode(code);
             return code;
         }
 
