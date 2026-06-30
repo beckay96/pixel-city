@@ -1942,6 +1942,29 @@
                     <button type="button" id="owner-event-race-stop" class="col-span-2 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-bold text-xs">End race</button>
                 </div>
                 <p id="owner-race-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
+                <div id="owner-abuse-block" data-owner-only="1" class="hidden border-t border-rose-500/40 pt-4 mt-4 text-left">
+                    <p class="text-[10px] font-black text-rose-300 uppercase tracking-widest mb-2">Admin abuse (owner)</p>
+                    <p class="text-[9px] text-slate-500 mb-2">Give cash or shop items to anyone playing online. They get a popup when it lands.</p>
+                    <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Player</label>
+                    <select id="owner-abuse-target" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm mb-2 interactive"></select>
+                    <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Give money</label>
+                    <div class="flex gap-2 mb-2">
+                        <input type="number" id="owner-abuse-money" min="1" max="1000000000" value="10000" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive" />
+                        <button type="button" id="owner-abuse-give-money" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg font-bold text-xs shrink-0">Give $</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 mb-3">
+                        <button type="button" class="owner-abuse-money-preset bg-slate-800 hover:bg-slate-700 text-white py-1 rounded text-[10px] font-bold" data-amount="1000">$1k</button>
+                        <button type="button" class="owner-abuse-money-preset bg-slate-800 hover:bg-slate-700 text-white py-1 rounded text-[10px] font-bold" data-amount="100000">$100k</button>
+                        <button type="button" class="owner-abuse-money-preset bg-slate-800 hover:bg-slate-700 text-white py-1 rounded text-[10px] font-bold" data-amount="1000000">$1M</button>
+                    </div>
+                    <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Give item</label>
+                    <div class="flex gap-2 mb-2">
+                        <select id="owner-abuse-item" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-xs interactive"></select>
+                        <input type="number" id="owner-abuse-item-qty" min="1" max="99" value="1" class="w-14 bg-slate-800 border border-slate-600 rounded-lg px-2 py-2 text-white text-sm interactive" title="Qty" />
+                        <button type="button" id="owner-abuse-give-item" class="bg-violet-700 hover:bg-violet-600 text-white px-3 py-2 rounded-lg font-bold text-xs shrink-0">Give</button>
+                    </div>
+                    <p id="owner-abuse-err" class="text-[10px] text-red-400 min-h-[1.25rem] mt-1"></p>
+                </div>
             </div>
         </div>
     </div>
@@ -4713,17 +4736,166 @@
             if (!supabase) return;
             state.adminPresenceBroadcastDone = true;
             const name = state.profileUsername || 'Admin';
-            const role = state.isOwner ? 'owner' : 'admin';
+            const isDev = isThomasOwner();
             try {
                 await ensureGlobalServerNoticeSubscribedAsync();
                 if (globalNoticeChannel) {
                     await globalNoticeChannel.send({
                         type: 'broadcast',
                         event: 'server_notice',
-                        payload: { text: `${name} (${role}) is online.`, from: 'admin' }
+                        payload: {
+                            text: isDev ? `${name} (the dev) is online.` : `${name} (admin) is online.`,
+                            from: isDev ? 'dev' : 'admin',
+                            senderName: name
+                        }
                     });
                 }
             } catch (_) {}
+        }
+
+        function abuseGiftTargetsMe(payload) {
+            if (!payload) return false;
+            if (payload.targetUid && state.supabaseUserId && payload.targetUid === state.supabaseUserId) return true;
+            const tun = normalizeUsername(payload.targetUsername || '');
+            const mine = normalizeUsername(state.profileUsername || state.playerName || '');
+            return !!(tun && mine && tun === mine);
+        }
+
+        function applyOwnerAbuseGift(payload) {
+            if (!abuseGiftTargetsMe(payload)) return;
+            const fromName = payload.fromDev ? 'The dev' : (payload.fromName || 'Admin');
+            const parts = [];
+            const money = Math.min(1e12, Math.max(0, Number(payload.money) || 0));
+            if (money > 0) {
+                state.money += money;
+                updateMoneyUI();
+                parts.push(`$${money.toLocaleString()}`);
+            }
+            const qty = Math.min(99, Math.max(1, Number(payload.qty) || 1));
+            if (payload.gadgetId) {
+                const id = String(payload.gadgetId);
+                if (getGadgetDef(id)) {
+                    state.inventoryGadgetCounts[id] = (state.inventoryGadgetCounts[id] || 0) + qty;
+                    parts.push(`${qty}× ${getGadgetDef(id).name}`);
+                }
+            }
+            if (payload.weaponId) {
+                const id = String(payload.weaponId);
+                if (getWeaponDef(id)) {
+                    state.inventoryWeaponCounts[id] = (state.inventoryWeaponCounts[id] || 0) + qty;
+                    parts.push(`${qty}× ${getWeaponDef(id).name}`);
+                }
+            }
+            if (!parts.length) return;
+            updateLoadoutUI();
+            const body = parts.join(' · ');
+            showServerNoticeOverlay(`${fromName} gave you: ${body}`, { from: 'gift', senderName: fromName });
+            showMessage(`🎁 ${fromName} gave you: ${body}`);
+        }
+
+        function getOwnerAbuseTargets() {
+            const map = new Map();
+            const add = (username, userId) => {
+                const un = normalizeUsername(username);
+                if (!un) return;
+                const prev = map.get(un);
+                map.set(un, { username: username || un, userId: userId || (prev && prev.userId) || null });
+            };
+            dashPlayersOnlineList.forEach((row) => {
+                const un = row.username;
+                if (!un) return;
+                const allRow = dashPlayersAllList.find((r) => normalizeUsername(r.username) === normalizeUsername(un));
+                add(un, allRow && allRow.user_id);
+            });
+            for (const uid in state.remotePlayers) {
+                const rp = state.remotePlayers[uid];
+                if (rp && rp.u) add(rp.u, uid);
+            }
+            return Array.from(map.values()).sort((a, b) => String(a.username).localeCompare(String(b.username)));
+        }
+
+        function populateOwnerAbuseControls() {
+            const targetSel = document.getElementById('owner-abuse-target');
+            const itemSel = document.getElementById('owner-abuse-item');
+            if (!targetSel || !itemSel) return;
+            const prevTarget = targetSel.value;
+            const prevItem = itemSel.value;
+            targetSel.innerHTML = '';
+            const targets = getOwnerAbuseTargets();
+            if (!targets.length) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Nobody online right now';
+                targetSel.appendChild(opt);
+            } else {
+                targets.forEach((t) => {
+                    const opt = document.createElement('option');
+                    opt.value = t.username;
+                    opt.textContent = t.username;
+                    targetSel.appendChild(opt);
+                });
+            }
+            if (prevTarget) targetSel.value = prevTarget;
+            itemSel.innerHTML = '';
+            const optBlank = document.createElement('option');
+            optBlank.value = '';
+            optBlank.textContent = 'Pick item…';
+            itemSel.appendChild(optBlank);
+            WEAPON_ITEMS.forEach((w) => {
+                const opt = document.createElement('option');
+                opt.value = `weapon:${w.id}`;
+                opt.textContent = `🔫 ${w.name}`;
+                itemSel.appendChild(opt);
+            });
+            GADGET_ITEMS.forEach((g) => {
+                const opt = document.createElement('option');
+                opt.value = `gadget:${g.id}`;
+                opt.textContent = `🧰 ${g.name}`;
+                itemSel.appendChild(opt);
+            });
+            if (prevItem) itemSel.value = prevItem;
+        }
+
+        async function sendOwnerAbuseGift({ targetUsername, money, gadgetId, weaponId, qty }) {
+            if (!isThomasOwner()) return { ok: false, err: 'Only the owner can use admin abuse.' };
+            const un = normalizeUsername(targetUsername);
+            if (!un) return { ok: false, err: 'Pick a player first.' };
+            const allRow = dashPlayersAllList.find((r) => normalizeUsername(r.username) === un);
+            let targetUid = allRow && allRow.user_id ? allRow.user_id : null;
+            if (!targetUid) {
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    if (rp && normalizeUsername(rp.u) === un) { targetUid = uid; break; }
+                }
+            }
+            const hasMoney = money > 0;
+            const hasItem = !!(gadgetId || weaponId);
+            if (!hasMoney && !hasItem) return { ok: false, err: 'Enter money or pick an item.' };
+            try {
+                await ensureGlobalServerNoticeSubscribedAsync();
+            } catch (_) {
+                return { ok: false, err: 'Could not connect to gift channel.' };
+            }
+            if (!globalNoticeChannel) return { ok: false, err: 'Could not open gift channel.' };
+            try {
+                await globalNoticeChannel.send({
+                    type: 'broadcast',
+                    event: 'admin_gift',
+                    payload: {
+                        targetUsername: un,
+                        targetUid,
+                        money: hasMoney ? money : 0,
+                        gadgetId: gadgetId || null,
+                        weaponId: weaponId || null,
+                        qty: qty || 1,
+                        fromName: state.profileUsername || 'thomas',
+                        fromDev: true
+                    }
+                });
+                return { ok: true };
+            } catch (e) {
+                return { ok: false, err: e && e.message ? e.message : 'Send failed' };
+            }
         }
 
         function showLobbyFromSignIn() {
@@ -5819,13 +5991,17 @@
             updateSignedInUI();
             syncOwnerBroadcastControls();
             renderDashPlayersList();
+            if (isThomasOwner() && isOwnerDashboardOpen()) populateOwnerAbuseControls();
         }
 
         function syncOwnerBroadcastControls() {
             const block = document.getElementById('owner-broadcast-block');
+            const abuse = document.getElementById('owner-abuse-block');
             const ownerOnly = document.querySelectorAll('[data-owner-only="1"]');
             if (block) block.classList.toggle('hidden', !isOwnerDashboardUser());
+            if (abuse) abuse.classList.toggle('hidden', !isThomasOwner());
             ownerOnly.forEach(el => el.classList.toggle('hidden', !isThomasOwner()));
+            if (isThomasOwner() && isOwnerDashboardOpen()) populateOwnerAbuseControls();
         }
 
         function recomputeIsAdmin() {
@@ -5963,17 +6139,20 @@
             const tx = document.getElementById('admin-global-broadcast-text');
             const lab = document.getElementById('admin-global-broadcast-label');
             if (!ov || !tx) return;
-            const fromDev = opts && (opts.from === 'owner' || opts.labelKind === 'dev');
+            const sender = opts && opts.senderName ? String(opts.senderName).trim() : '';
+            const fromDev = opts && (opts.from === 'dev' || opts.from === 'owner' || opts.labelKind === 'dev');
             const fromAdmin = opts && opts.from === 'admin';
             const lk = opts && opts.labelKind;
             let labelText = 'Message from the server';
-            if (fromDev) labelText = 'Message from the dev';
+            if (fromDev) labelText = 'The dev sent this message';
+            else if (fromAdmin && sender) labelText = `${sender} (admin) sent this message`;
+            else if (fromAdmin) labelText = 'An admin sent this message';
             else if (lk === 'banned') labelText = 'Account banned';
             else if (lk === 'unbanned') labelText = 'Account unbanned';
             else if (lk === 'admin') labelText = 'Admin access granted';
             else if (lk === 'demoted') labelText = 'Admin access removed';
-            else if (fromAdmin) labelText = 'Server admin';
             else if (opts && opts.from === 'status') labelText = 'Account update';
+            else if (opts && opts.from === 'gift') labelText = sender ? `${sender} sent you a gift` : 'You received a gift';
             if (lab) lab.textContent = labelText;
             ov.setAttribute('aria-label', labelText);
             tx.textContent = t;
@@ -5998,7 +6177,14 @@
                     ch.on('broadcast', { event: 'server_notice' }, ({ payload }) => {
                         if (!payload || payload.text == null) return;
                         const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
-                        if (s) showServerNoticeOverlay(s, { from: payload.from });
+                        if (s) showServerNoticeOverlay(s, {
+                            from: payload.from,
+                            senderName: payload.senderName,
+                            labelKind: payload.labelKind
+                        });
+                    });
+                    ch.on('broadcast', { event: 'admin_gift' }, ({ payload }) => {
+                        applyOwnerAbuseGift(payload || {});
                     });
                     ch.on('broadcast', { event: 'account_status' }, ({ payload }) => {
                         if (!accountStatusTargetsMe(payload)) return;
@@ -6056,10 +6242,16 @@
             }
             if (!globalNoticeChannel) return { ok: false, err: 'Could not open broadcast channel.' };
             try {
+                const senderName = String(state.profileUsername || state.playerName || 'admin').trim();
+                const isDev = isThomasOwner();
                 await globalNoticeChannel.send({
                     type: 'broadcast',
                     event: 'server_notice',
-                    payload: { text: t, from: 'owner' }
+                    payload: {
+                        text: t,
+                        from: isDev ? 'dev' : 'admin',
+                        senderName
+                    }
                 });
                 return { ok: true };
             } catch (e) {
@@ -6104,6 +6296,7 @@
                 if (!ov) return;
                 ov.classList.add('open');
                 syncOwnerBroadcastControls();
+                populateOwnerAbuseControls();
                 const errB = document.getElementById('owner-broadcast-err');
                 const evErr = document.getElementById('owner-event-err');
                 if (errB) errB.textContent = '';
@@ -12984,7 +13177,7 @@
                         '/event — screen event',
                         '/server — status',
                         '/connect — refresh multiplayer channel',
-                        '/notice your message here — (thomas) popup to everyone online',
+                        '/notice your message here — popup to everyone online (admins; thomas shows as the dev)',
                         '/kill USER — jail that player 30s (online)',
                         '/kill all — jail everyone except you 30s (online)',
                         '/teleport all — pull others to you (online)',
@@ -12994,7 +13187,7 @@
             }
             if (lower === '/notice' || lower.startsWith('/notice ')) {
                 if (!isOwnerDashboardUser()) {
-                    return { ok: false, lines: ['/notice is for the thomas (owner) account.'] };
+                    return { ok: false, lines: ['/notice is for owner or promoted admin accounts.'] };
                 }
                 const msg = t.replace(/^\/notice\s*/i, '').trim();
                 if (!msg) {
@@ -13956,6 +14149,43 @@
                 if (r.ok) {
                     if (ta) ta.value = '';
                     if (err) err.textContent = 'Sent.';
+                    setTimeout(() => { if (err) err.textContent = ''; }, 2000);
+                } else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.getElementById('owner-abuse-give-money')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-abuse-err');
+                if (err) err.textContent = '';
+                const target = document.getElementById('owner-abuse-target')?.value || '';
+                const money = Number(document.getElementById('owner-abuse-money')?.value) || 0;
+                const r = await sendOwnerAbuseGift({ targetUsername: target, money, qty: 1 });
+                if (r.ok) {
+                    if (err) err.textContent = 'Money sent!';
+                    setTimeout(() => { if (err) err.textContent = ''; }, 2000);
+                } else if (err) err.textContent = r.err || 'Failed';
+            });
+            document.querySelectorAll('.owner-abuse-money-preset').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const inp = document.getElementById('owner-abuse-money');
+                    if (inp) inp.value = btn.getAttribute('data-amount') || '1000';
+                });
+            });
+            document.getElementById('owner-abuse-give-item')?.addEventListener('click', async () => {
+                const err = document.getElementById('owner-abuse-err');
+                if (err) err.textContent = '';
+                const target = document.getElementById('owner-abuse-target')?.value || '';
+                const raw = document.getElementById('owner-abuse-item')?.value || '';
+                const qty = Number(document.getElementById('owner-abuse-item-qty')?.value) || 1;
+                let gadgetId = null;
+                let weaponId = null;
+                if (raw.startsWith('gadget:')) gadgetId = raw.slice(7);
+                else if (raw.startsWith('weapon:')) weaponId = raw.slice(7);
+                if (!gadgetId && !weaponId) {
+                    if (err) err.textContent = 'Pick an item first.';
+                    return;
+                }
+                const r = await sendOwnerAbuseGift({ targetUsername: target, gadgetId, weaponId, qty });
+                if (r.ok) {
+                    if (err) err.textContent = 'Item sent!';
                     setTimeout(() => { if (err) err.textContent = ''; }, 2000);
                 } else if (err) err.textContent = r.err || 'Failed';
             });
