@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Arcade Hub: Pixel Jump &amp; Retro Chef</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Press+Start+2P&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Rajdhani',sans-serif;background:radial-gradient(ellipse at center,#1a0a2e 0%,#050208 70%);}
+.font-orbitron{font-family:'Orbitron',sans-serif;}
+.font-press{font-family:'Press Start 2P',cursive;}
+.cabinet-glow{box-shadow:0 0 40px rgba(236,72,153,.25),inset 0 0 60px rgba(0,0,0,.5);}
+.crt-scan::before{content:'';pointer-events:none;position:absolute;inset:0;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.15) 0px,rgba(0,0,0,.15) 1px,transparent 1px,transparent 3px);}
+.neon-pink{text-shadow:0 0 10px #ec4899,0 0 24px #db2777;}
+.neon-cyan{text-shadow:0 0 10px #22d3ee,0 0 24px #0891b2;}
+.neon-amber{text-shadow:0 0 10px #fbbf24,0 0 24px #d97706;}
+#jumpCanvas,#chefCanvas{image-rendering:pixelated;image-rendering:crisp-edges;}
+#jumpCanvas.jump-canvas-paint{cursor:crosshair;touch-action:none;}
+.jump-cell{width:40px;height:40px;box-sizing:border-box;border:1px solid rgba(255,255,255,.08);cursor:crosshair;flex-shrink:0;touch-action:none;}
+#jumpCustomGrid{display:flex;flex-wrap:wrap;width:400px;max-height:200px;overflow:auto;background:#0f0520;border:3px solid #6b21a8;}
+#screen-pixel-jump,#screen-burger-chef{max-height:min(78vh,640px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.screen-hidden{display:none!important;}
+#toast-container{pointer-events:none;}
+.toast-item{animation:toastIn .25s ease,toastOut .4s ease 2.2s forwards;}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-6px);}}
+.grill-tile{min-height:64px;}
+.hub-card{transition:transform .15s,box-shadow .15s;}
+.hub-card:hover{transform:translateY(-3px);box-shadow:0 0 20px rgba(34,211,238,.4);}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2">
+
+<!-- Main Cabin Cabinet Frame -->
+<div class="relative w-full max-w-4xl bg-[#11052c] border-8 border-[#3b0764] rounded-3xl p-4 md:p-6 cabinet-glow crt-scan">
+  <div class="absolute top-2 left-1/2 -translate-x-1/2 font-press text-[8px] text-fuchsia-400 tracking-[.3em]">ARCADE CABINET v3</div>
+  <div class="flex justify-end gap-2 mb-2 mt-4">
+    <button type="button" id="btn-mute" onclick="toggleMute()" class="font-press text-[8px] px-2 py-1 bg-slate-900 border border-fuchsia-600 rounded text-fuchsia-300">🔊 SND</button>
+    <button type="button" onclick="openPasteModal()" class="font-press text-[8px] px-2 py-1 bg-slate-900 border border-cyan-600 rounded text-cyan-300">PASTE</button>
+  </div>
+
+  <!-- HUB MENU -->
+  <div id="hub-menu" class="text-center py-4">
+    <p class="font-press text-[9px] text-pink-400 mb-2 animate-pulse">INSERT COIN TO PLAY</p>
+    <h1 class="font-orbitron text-3xl md:text-4xl font-black text-white neon-pink mb-1">ARCADE SYSTEM</h1>
+    <p class="text-violet-300 text-sm mb-6">Pixel Jump &amp; Maker · Retro Burger Chef</p>
+    <div class="grid md:grid-cols-2 gap-4 text-left">
+      <div class="hub-card rounded-2xl border-2 border-cyan-500/50 bg-gradient-to-br from-[#1e1b4b] to-[#0c4a6e] p-4">
+        <div class="font-press text-[8px] text-cyan-300 mb-1">GAME 01</div>
+        <h2 class="font-orbitron text-xl font-bold text-white neon-cyan mb-2">Pixel Jump &amp; Maker</h2>
+        <p class="text-xs text-slate-300 mb-3">10×100 level grid · physics · Base64 share</p>
+        <div class="grid grid-cols-2 gap-1">
+          <button type="button" onclick="enterPixelJump('play')" class="font-press text-[7px] py-2 bg-cyan-700 rounded hover:bg-cyan-600">PLAY</button>
+          <button type="button" onclick="enterPixelJump('edit')" class="font-press text-[7px] py-2 bg-violet-800 rounded hover:bg-violet-700">EDIT</button>
+          <button type="button" onclick="enterPixelJump('sandbox')" class="font-press text-[7px] py-2 bg-slate-800 rounded hover:bg-slate-700">SANDBOX</button>
+          <button type="button" onclick="enterPixelJump('playtest')" class="font-press text-[7px] py-2 bg-emerald-800 rounded hover:bg-emerald-700">TEST</button>
+        </div>
+      </div>
+      <div class="hub-card rounded-2xl border-2 border-amber-500/50 bg-gradient-to-br from-[#451a03] to-[#78350f] p-4">
+        <div class="font-press text-[8px] text-amber-300 mb-1">GAME 02</div>
+        <h2 class="font-orbitron text-xl font-bold text-white neon-amber mb-2">Retro Burger Chef</h2>
+        <p class="text-xs text-slate-300 mb-3">Grills · assembly · custom recipes</p>
+        <div class="grid grid-cols-2 gap-1">
+          <button type="button" onclick="enterBurgerChef('play')" class="font-press text-[7px] py-2 bg-amber-700 rounded hover:bg-amber-600">PLAY</button>
+          <button type="button" onclick="enterBurgerChef('edit')" class="font-press text-[7px] py-2 bg-orange-900 rounded hover:bg-orange-800">EDIT</button>
+          <button type="button" onclick="enterBurgerChef('sandbox')" class="font-press text-[7px] py-2 bg-slate-800 rounded hover:bg-slate-700">SANDBOX</button>
+          <button type="button" onclick="enterBurgerChef('playtest')" class="font-press text-[7px] py-2 bg-rose-900 rounded hover:bg-rose-800">TEST</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIXEL JUMP SCREEN -->
+  <div id="screen-pixel-jump" class="screen-hidden">
+    <div class="flex flex-wrap items-center gap-2 mb-3 border-b border-violet-800 pb-2">
+      <button type="button" onclick="backToHub()" class="font-press text-[7px] px-2 py-1 bg-slate-900 border border-violet-500 rounded">← HUB</button>
+      <h2 class="font-orbitron text-lg text-cyan-300 flex-1">Pixel Jump &amp; Maker</h2>
+      <span id="jump-mode-badge" class="text-xs text-fuchsia-300 font-bold uppercase">play</span>
+    </div>
+    <div class="flex flex-col lg:flex-row gap-3">
+      <div class="flex-1 min-w-0">
+        <div class="bg-black rounded-lg border-4 border-cyan-700 p-1 inline-block w-full max-w-full overflow-hidden">
+          <canvas id="jumpCanvas" width="400" height="300" class="w-full max-w-[400px] mx-auto block bg-sky-950"></canvas>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-2 text-sm">
+          <span id="jump-score-label" class="text-cyan-300 font-bold">Score: 0</span>
+          <span id="jump-coins-label" class="text-amber-300">Coins: 0</span>
+          <span id="jump-lives-label" class="text-pink-300">Lives: 3</span>
+          <span id="jump-status-label" class="text-slate-400 text-xs"></span>
+        </div>
+        <p id="jump-controls-hint" class="text-[10px] text-slate-500 mt-1">← → move · Space jump · R restart</p>
+      </div>
+      <aside id="jump-side-panel" class="w-full lg:w-52 space-y-2 text-sm shrink-0">
+        <label class="text-violet-300 text-xs font-bold">Saved levels</label>
+        <select id="jump-level-select" class="w-full bg-[#0f0520] border border-violet-600 rounded px-2 py-1 text-xs" onchange="loadJumpLevelFromSlot()"></select>
+        <button type="button" onclick="saveJumpLevelToSlot()" class="w-full py-1 bg-emerald-900 border border-emerald-600 rounded text-xs font-bold">Save slot</button>
+        <button type="button" onclick="copyJumpLevelCode()" class="w-full py-1 bg-cyan-900 border border-cyan-600 rounded text-xs font-bold">Copy level code</button>
+        <button type="button" onclick="applyJumpEditorAndPlay()" class="w-full py-1 bg-fuchsia-900 border border-fuchsia-600 rounded text-xs font-bold">Apply &amp; play</button>
+        <button type="button" onclick="clearJumpCustomGrid()" class="w-full py-1 bg-slate-800 border border-slate-600 rounded text-xs">Clear grid</button>
+      </aside>
+    </div>
+    <div id="jump-editor-panel" class="screen-hidden mt-4">
+      <p class="text-[10px] text-cyan-300 mb-2 font-bold">Paint on the game screen above — pick a brush, then tap or drag on the canvas.</p>
+      <div class="flex flex-wrap gap-1 mb-2 items-center">
+        <button type="button" onclick="panJumpEditor(-4)" class="text-[10px] px-2 py-1 bg-slate-800 border border-slate-600 rounded">▲ Rows up</button>
+        <span id="jump-editor-row-label" class="text-[10px] text-cyan-400 font-mono px-1">Rows 93–99</span>
+        <button type="button" onclick="panJumpEditor(4)" class="text-[10px] px-2 py-1 bg-slate-800 border border-slate-600 rounded">▼ Rows down</button>
+      </div>
+      <div class="flex flex-wrap gap-1 mb-2 items-center">
+        <span class="text-xs text-violet-300 font-bold mr-1">Brush:</span>
+        <button type="button" data-jtile="0" onclick="setJumpBrush(0)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-slate-950 border border-slate-600">Air</button>
+        <button type="button" data-jtile="1" onclick="setJumpBrush(1)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-stone-600 border border-stone-400">Block</button>
+        <button type="button" data-jtile="2" onclick="setJumpBrush(2)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-lime-700 border border-lime-400">Spawn</button>
+        <button type="button" data-jtile="3" onclick="setJumpBrush(3)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-amber-500 border border-amber-300">Coin</button>
+        <button type="button" data-jtile="4" onclick="setJumpBrush(4)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-rose-700 border border-rose-400">Spike</button>
+        <button type="button" data-jtile="5" onclick="setJumpBrush(5)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-violet-600 border border-violet-300">Goal</button>
+        <button type="button" data-jtile="6" onclick="setJumpBrush(6)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-blue-800 border border-blue-400">Spring</button>
+        <button type="button" data-jtile="7" onclick="setJumpBrush(7)" class="jump-brush-btn text-[10px] px-2 py-1 rounded bg-orange-700 border border-orange-400">Lava</button>
+        <span class="text-[10px] text-slate-500 ml-2">10 cols × 100 rows @ 40px</span>
+      </div>
+      <div id="jumpCustomGrid" aria-label="Level editor grid"></div>
+    </div>
+  </div>
+
+  <!-- BURGER CHEF SCREEN -->
+  <div id="screen-burger-chef" class="screen-hidden">
+    <div class="flex flex-wrap items-center gap-2 mb-3 border-b border-amber-900 pb-2">
+      <button type="button" onclick="backToHub()" class="font-press text-[7px] px-2 py-1 bg-slate-900 border border-amber-600 rounded">← HUB</button>
+      <h2 class="font-orbitron text-lg text-amber-300 flex-1 neon-amber">Retro Burger Chef</h2>
+      <span id="chef-mode-badge" class="text-xs text-amber-200 font-bold uppercase">play</span>
+      <span id="chef-score-label" class="font-bold text-amber-100">$0</span>
+    </div>
+    <div class="grid lg:grid-cols-3 gap-3">
+      <div class="lg:col-span-2 space-y-3">
+        <div class="rounded-xl border-2 border-amber-700/60 bg-[#1c0a00]/80 p-3">
+          <h3 class="font-orbitron text-xs text-amber-400 mb-2">GRILL STATION</h3>
+          <div id="chef-grill-row" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+          <button type="button" onclick="chefDropPatty()" class="mt-2 font-press text-[7px] px-3 py-2 bg-amber-800 rounded hover:bg-amber-700">DROP PATTY</button>
+        </div>
+        <div class="rounded-xl border-2 border-orange-700/60 bg-[#1c0a00]/80 p-3">
+          <h3 class="font-orbitron text-xs text-orange-400 mb-2">ASSEMBLY LINE</h3>
+          <div id="chef-assembly-strip" class="flex flex-wrap gap-1 min-h-[56px] p-2 bg-black/40 rounded border border-orange-900/50"></div>
+          <div class="flex flex-wrap gap-1 mt-2">
+            <button type="button" onclick="chefAsmAdd('bun_bottom')" class="text-[10px] px-2 py-1 bg-amber-950 border border-amber-700 rounded">Bun↓</button>
+            <button type="button" onclick="chefAsmAdd('patty')" class="text-[10px] px-2 py-1 bg-red-950 border border-red-700 rounded">Patty</button>
+            <button type="button" onclick="chefAsmAdd('cheese')" class="text-[10px] px-2 py-1 bg-yellow-800 border border-yellow-600 rounded">Cheese</button>
+            <button type="button" onclick="chefAsmAdd('lettuce')" class="text-[10px] px-2 py-1 bg-green-900 border border-green-600 rounded">Lettuce</button>
+            <button type="button" onclick="chefAsmAdd('tomato')" class="text-[10px] px-2 py-1 bg-red-800 border border-red-500 rounded">Tomato</button>
+            <button type="button" onclick="chefAsmAdd('bun_top')" class="text-[10px] px-2 py-1 bg-amber-900 border border-amber-600 rounded">Bun↑</button>
+            <button type="button" onclick="chefAsmClear()" class="text-[10px] px-2 py-1 bg-slate-800 rounded">Clear</button>
+            <button type="button" onclick="chefServeOrder()" class="text-[10px] px-2 py-1 bg-emerald-800 rounded font-bold">SERVE</button>
+          </div>
+        </div>
+        <canvas id="chefCanvas" width="400" height="120" class="w-full max-w-[400px] border-2 border-amber-800 rounded bg-[#2a1505] hidden"></canvas>
+      </div>
+      <aside class="space-y-3">
+        <div class="rounded-xl border border-pink-800 bg-[#1a0510]/80 p-3">
+          <h3 class="font-orbitron text-xs text-pink-400 mb-2">ORDER TICKETS</h3>
+          <ul id="chef-order-list" class="text-xs space-y-2 max-h-36 overflow-auto"></ul>
+          <button type="button" onclick="chefSpawnOrder()" class="mt-2 w-full py-1 bg-pink-900 rounded text-[10px] font-bold">NEW ORDER</button>
+        </div>
+        <div id="chef-recipe-panel" class="rounded-xl border border-violet-800 bg-[#0f0520]/80 p-3">
+          <h3 class="font-orbitron text-xs text-violet-400 mb-2">CUSTOM RECIPES</h3>
+          <input id="chef-recipe-name" type="text" placeholder="Recipe name" class="w-full mb-2 bg-black border border-violet-700 rounded px-2 py-1 text-xs">
+          <button type="button" onclick="chefSaveCustomRecipe()" class="w-full py-1 bg-violet-900 rounded text-[10px] mb-1">Save from assembly</button>
+          <button type="button" onclick="copyChefCustomRecipe()" class="w-full py-1 bg-fuchsia-900 rounded text-[10px] mb-1 font-bold">Copy recipe code</button>
+          <select id="chef-recipe-select" class="w-full bg-black border border-violet-700 rounded text-xs mb-1" onchange="chefPreviewRecipe()"></select>
+          <button type="button" onclick="chefLoadRecipeToAssembly()" class="w-full py-1 bg-slate-800 rounded text-[10px]">Load to assembly</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[20000] flex flex-col gap-2 items-center"></div>
+
+<div id="paste-modal" class="screen-hidden fixed inset-0 z-[15000] flex items-center justify-center bg-black/85 p-4">
+  <div class="bg-[#11052c] border-4 border-cyan-500 rounded-2xl max-w-lg w-full p-5">
+    <h3 class="font-orbitron text-cyan-300 text-lg mb-2">Base64 Import</h3>
+    <p class="text-xs text-slate-400 mb-2">Paste level or recipe export code below.</p>
+    <textarea id="paste-modal-input" rows="5" class="w-full bg-black border border-violet-600 rounded p-2 text-[10px] font-mono text-green-300" placeholder="Paste Base64…"></textarea>
+    <div class="flex gap-2 mt-3">
+      <button type="button" onclick="confirmPasteImport()" class="flex-1 py-2 bg-cyan-700 rounded font-bold text-sm">Import</button>
+      <button type="button" onclick="closePasteModal()" class="px-4 py-2 bg-slate-700 rounded text-sm">Cancel</button>
+    </div>
+    <p id="paste-modal-msg" class="text-xs text-amber-400 mt-2"></p>
+  </div>
+</div>
+
+<script>
+
+/* ===== ARCADE HUB — Pixel Jump & Retro Burger Chef ===== */
+
+const JGRID_COLS = 10;
+const JGRID_ROWS = 100;
+const JCELL_SIZE = 40;
+const RETRO_ARCADE_JUMP_LEVELS_V3 = 'RETRO_ARCADE_JUMP_LEVELS_V3';
+const RETRO_ARCADE_CHEF_RECIPES_V3 = 'RETRO_ARCADE_CHEF_RECIPES_V3';
+const RETRO_ARCADE_CHEF_SCORE_V3 = 'RETRO_ARCADE_CHEF_SCORE_V3';
+
+const JTILE = { AIR: 0, BLOCK: 1, SPAWN: 2, COIN: 3, SPIKE: 4, GOAL: 5, SPRING: 6, LAVA: 7 };
+const JTILE_COLORS = ['#0f0520','#57534e','#4ade80','#fbbf24','#f43f5e','#a78bfa','#38bdf8','#ea580c'];
+const JTILE_NAMES = ['Air','Block','Spawn','Coin','Spike','Goal','Spring','Lava'];
+
+let audioCtx = null;
+let soundMuted = false;
+let jumpMode = 'play';
+let chefMode = 'play';
+let jumpGrid = [];
+let jumpBrush = JTILE.BLOCK;
+let jumpKeys = {};
+let jumpRaf = null;
+let jumpPlayer = null;
+let jumpCamY = 0;
+let jumpScore = 0;
+let jumpCoins = 0;
+let jumpLives = 3;
+let jumpPainting = false;
+let jumpEditorRowStart = 0;
+let jumpEditorMouseUpBound = false;
+const JUMP_CANVAS_H = 300;
+const JUMP_EDITOR_VISIBLE_ROWS = Math.floor(JUMP_CANVAS_H / JCELL_SIZE);
+
+let chefGrills = [];
+let chefAssembly = [];
+let chefOrders = [];
+let chefScore = 0;
+let chefGrillInterval = null;
+
+const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+
+function ensureAudio() {
+  if (!audioCtx && AudioCtxClass) audioCtx = new AudioCtxClass();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playSynth(freq, dur, type, vol) {
+  if (soundMuted || !audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.value = vol || 0.07;
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + dur);
+  } catch (_) {}
+}
+
+function sfxJump() { playSynth(440, 0.08, 'square', 0.06); playSynth(660, 0.05, 'square', 0.04); }
+function sfxCoin() { playSynth(880, 0.05, 'sine', 0.07); playSynth(1200, 0.07, 'sine', 0.05); }
+function sfxDie() { playSynth(150, 0.3, 'sawtooth', 0.08); }
+function sfxWin() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playSynth(f, 0.1, 'square', 0.06), i * 70)); }
+function sfxGrill() { playSynth(110, 0.05, 'triangle', 0.05); }
+function sfxServe() { playSynth(392, 0.1, 'square', 0.07); playSynth(523, 0.12, 'square', 0.05); }
+function sfxOrder() { playSynth(330, 0.06, 'sine', 0.06); }
+function sfxClick() { playSynth(600, 0.03, 'square', 0.04); }
+
+function toggleMute() {
+  soundMuted = !soundMuted;
+  const btn = document.getElementById('btn-mute');
+  if (btn) btn.textContent = soundMuted ? '🔇 SND' : '🔊 SND';
+  showToast(soundMuted ? 'Sound muted' : 'Sound on');
+  if (!soundMuted) { ensureAudio(); sfxClick(); }
+}
+
+function showToast(msg) {
+  const box = document.getElementById('toast-container');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'toast-item font-press text-[8px] px-4 py-2 bg-[#11052c] border-2 border-fuchsia-500 text-fuchsia-200 rounded-lg shadow-lg';
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+function backToHub() {
+  stopJumpLoop();
+  stopChefLoop();
+  document.getElementById('hub-menu').classList.remove('screen-hidden');
+  document.getElementById('screen-pixel-jump').classList.add('screen-hidden');
+  document.getElementById('screen-burger-chef').classList.add('screen-hidden');
+  showToast('Back to hub');
+}
+
+function enterPixelJump(mode) {
+  ensureAudio();
+  sfxClick();
+  jumpMode = mode || 'play';
+  document.getElementById('hub-menu').classList.add('screen-hidden');
+  document.getElementById('screen-burger-chef').classList.add('screen-hidden');
+  document.getElementById('screen-pixel-jump').classList.remove('screen-hidden');
+  const badge = document.getElementById('jump-mode-badge');
+  if (badge) badge.textContent = jumpMode;
+  const showEditor = jumpMode === 'edit' || jumpMode === 'sandbox';
+  document.getElementById('jump-editor-panel').classList.toggle('screen-hidden', !showEditor);
+  const cv = document.getElementById('jumpCanvas');
+  if (cv) cv.classList.toggle('jump-canvas-paint', showEditor);
+  const hint = document.getElementById('jump-controls-hint');
+  if (hint) {
+    hint.textContent = showEditor
+      ? 'Tap or drag the canvas to paint · ▲/▼ change rows · Apply & play to test'
+      : '← → move · Space jump · R restart';
+  }
+  refreshJumpLevelSelect();
+  if (!jumpGrid.length) jumpGrid = makeEmptyJumpGrid();
+  jumpEditorRowStart = Math.max(0, JGRID_ROWS - JUMP_EDITOR_VISIBLE_ROWS);
+  updateJumpEditorRowLabel();
+  setJumpBrush(jumpBrush);
+  buildJumpCustomGrid();
+  bindJumpCanvasEditor();
+  resetJumpPlayer();
+  updateJumpHud();
+  startJumpLoop();
+  showToast(showEditor ? 'Pick a brush, then paint on the canvas' : ('Pixel Jump: ' + jumpMode));
+}
+
+function enterBurgerChef(mode) {
+  ensureAudio();
+  sfxClick();
+  chefMode = mode || 'play';
+  document.getElementById('hub-menu').classList.add('screen-hidden');
+  document.getElementById('screen-pixel-jump').classList.add('screen-hidden');
+  document.getElementById('screen-burger-chef').classList.remove('screen-hidden');
+  const badge = document.getElementById('chef-mode-badge');
+  if (badge) badge.textContent = chefMode;
+  const recipePanel = document.getElementById('chef-recipe-panel');
+  if (recipePanel) recipePanel.classList.toggle('screen-hidden', chefMode === 'play' && false);
+  initChefGame();
+  if (chefMode === 'sandbox') initChefSandbox();
+  showToast('Burger Chef: ' + chefMode);
+}
+
+/* ===== SERIALIZE ===== */
+function b64Encode(obj) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+}
+function b64Decode(str) {
+  return JSON.parse(decodeURIComponent(escape(atob(str.trim()))));
+}
+function serializeJumpLevel(grid, meta) {
+  return b64Encode({ t: 'jump', v: 3, cols: JGRID_COLS, rows: JGRID_ROWS, cell: JCELL_SIZE, grid, meta: meta || {} });
+}
+function deserializeJumpLevel(code) {
+  const o = b64Decode(code);
+  if (o.t !== 'jump' || !Array.isArray(o.grid)) throw new Error('Invalid jump level code');
+  return o.grid;
+}
+function serializeChefRecipes(recipes) {
+  return b64Encode({ t: 'chef', v: 3, recipes });
+}
+function deserializeChefRecipes(code) {
+  const o = b64Decode(code);
+  if (o.t !== 'chef' || !Array.isArray(o.recipes)) throw new Error('Invalid chef recipe code');
+  return o.recipes;
+}
+
+function copyJumpLevelCode() {
+  const code = serializeJumpLevel(jumpGrid, { mode: jumpMode });
+  navigator.clipboard?.writeText(code).then(() => showToast('Level code copied!')).catch(() => {
+    prompt('Copy level code:', code);
+  });
+}
+
+function copyChefCustomRecipe() {
+  const recipes = loadChefRecipes();
+  const code = serializeChefRecipes(recipes);
+  navigator.clipboard?.writeText(code).then(() => showToast('Recipe code copied!')).catch(() => {
+    prompt('Copy recipe code:', code);
+  });
+}
+
+function openPasteModal() {
+  document.getElementById('paste-modal').classList.remove('screen-hidden');
+  document.getElementById('paste-modal-input').value = '';
+  document.getElementById('paste-modal-msg').textContent = '';
+}
+function closePasteModal() {
+  document.getElementById('paste-modal').classList.add('screen-hidden');
+}
+function confirmPasteImport() {
+  const txt = document.getElementById('paste-modal-input').value.trim();
+  const msgEl = document.getElementById('paste-modal-msg');
+  if (!txt) { msgEl.textContent = 'Nothing to import.'; return; }
+  try {
+    const peek = b64Decode(txt);
+    if (peek.t === 'jump') {
+      jumpGrid = deserializeJumpLevel(txt);
+      saveJumpLevelStore('imported_' + Date.now(), 'Imported', jumpGrid);
+      buildJumpCustomGrid();
+      resetJumpPlayer();
+      msgEl.textContent = 'Level imported!';
+      showToast('Jump level imported');
+      closePasteModal();
+      enterPixelJump('edit');
+    } else if (peek.t === 'chef') {
+      const recipes = deserializeChefRecipes(txt);
+      localStorage.setItem(RETRO_ARCADE_CHEF_RECIPES_V3, JSON.stringify(recipes));
+      refreshChefRecipeSelect();
+      msgEl.textContent = 'Recipes imported (' + recipes.length + ')';
+      showToast('Chef recipes imported');
+      closePasteModal();
+      enterBurgerChef('edit');
+    } else {
+      msgEl.textContent = 'Unknown code type.';
+    }
+  } catch (e) {
+    msgEl.textContent = 'Import failed: ' + e.message;
+  }
+}
+
+/* ===== JUMP GRID ===== */
+function makeEmptyJumpGrid() {
+  return Array.from({ length: JGRID_ROWS }, () => Array(JGRID_COLS).fill(JTILE.AIR));
+}
+
+function makeDefaultJumpLevel() {
+  const g = makeEmptyJumpGrid();
+  for (let c = 0; c < JGRID_COLS; c++) g[JGRID_ROWS - 1][c] = JTILE.BLOCK;
+  for (let c = 1; c < 9; c++) g[JGRID_ROWS - 4][c] = JTILE.BLOCK;
+  g[JGRID_ROWS - 2][1] = JTILE.SPAWN;
+  g[JGRID_ROWS - 5][4] = JTILE.COIN;
+  g[JGRID_ROWS - 5][6] = JTILE.COIN;
+  g[JGRID_ROWS - 7][5] = JTILE.SPIKE;
+  g[JGRID_ROWS - 9][3] = JTILE.SPRING;
+  g[JGRID_ROWS - 2][8] = JTILE.GOAL;
+  return g;
+}
+
+function clearJumpCustomGrid() {
+  jumpGrid = makeEmptyJumpGrid();
+  for (let c = 0; c < JGRID_COLS; c++) jumpGrid[JGRID_ROWS - 1][c] = JTILE.BLOCK;
+  buildJumpCustomGrid();
+  resetJumpPlayer();
+  showToast('Grid cleared');
+}
+
+function getJumpLevelStore() {
+  try { return JSON.parse(localStorage.getItem(RETRO_ARCADE_JUMP_LEVELS_V3) || '{}'); }
+  catch (_) { return {}; }
+}
+function setJumpLevelStore(obj) {
+  localStorage.setItem(RETRO_ARCADE_JUMP_LEVELS_V3, JSON.stringify(obj));
+}
+function saveJumpLevelStore(id, name, grid) {
+  const store = getJumpLevelStore();
+  store[id] = { name, grid: grid.map(r => r.slice()), updated: Date.now() };
+  setJumpLevelStore(store);
+}
+function refreshJumpLevelSelect() {
+  const sel = document.getElementById('jump-level-select');
+  if (!sel) return;
+  let store = getJumpLevelStore();
+  if (!Object.keys(store).length) {
+    saveJumpLevelStore('default', 'Default Level', makeDefaultJumpLevel());
+    store = getJumpLevelStore();
+  }
+  sel.innerHTML = '';
+  Object.keys(store).forEach(id => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = store[id].name || id;
+    sel.appendChild(opt);
+  });
+}
+function loadJumpLevelFromSlot() {
+  const id = document.getElementById('jump-level-select').value;
+  const store = getJumpLevelStore();
+  if (store[id]) jumpGrid = store[id].grid.map(r => r.slice());
+  else jumpGrid = makeDefaultJumpLevel();
+  buildJumpCustomGrid();
+  resetJumpPlayer();
+}
+function saveJumpLevelToSlot() {
+  const id = document.getElementById('jump-level-select').value || 'default';
+  const store = getJumpLevelStore();
+  const name = (store[id] && store[id].name) || id;
+  saveJumpLevelStore(id, name, jumpGrid);
+  showToast('Saved: ' + name);
+}
+
+function setJumpBrush(t) {
+  jumpBrush = t;
+  document.querySelectorAll('.jump-brush-btn').forEach(btn => {
+    const on = parseInt(btn.getAttribute('data-jtile'), 10) === t;
+    btn.classList.toggle('ring-2', on);
+    btn.classList.toggle('ring-cyan-400', on);
+  });
+}
+
+function updateJumpEditorRowLabel() {
+  const el = document.getElementById('jump-editor-row-label');
+  if (!el) return;
+  const end = Math.min(JGRID_ROWS - 1, jumpEditorRowStart + JUMP_EDITOR_VISIBLE_ROWS - 1);
+  el.textContent = 'Rows ' + jumpEditorRowStart + '–' + end;
+}
+
+function panJumpEditor(rowDelta) {
+  if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+  jumpEditorRowStart += rowDelta;
+  const maxStart = Math.max(0, JGRID_ROWS - JUMP_EDITOR_VISIBLE_ROWS);
+  if (jumpEditorRowStart < 0) jumpEditorRowStart = 0;
+  if (jumpEditorRowStart > maxStart) jumpEditorRowStart = maxStart;
+  updateJumpEditorRowLabel();
+  if (jumpMode === 'edit' || jumpMode === 'sandbox') jumpCamY = jumpEditorRowStart * JCELL_SIZE;
+}
+
+function paintJumpCellAt(rowWorld, col) {
+  if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+  if (rowWorld < 0 || rowWorld >= JGRID_ROWS || col < 0 || col >= JGRID_COLS) return;
+  jumpGrid[rowWorld][col] = jumpBrush;
+  syncJumpGridCellEl(rowWorld, col);
+}
+
+function syncJumpGridCellEl(rowWorld, col) {
+  const wrap = document.getElementById('jumpCustomGrid');
+  if (!wrap) return;
+  const cell = wrap.querySelector('[data-r="' + rowWorld + '"][data-c="' + col + '"]');
+  if (cell) paintJumpCellEl(cell, jumpGrid[rowWorld][col]);
+}
+
+function canvasEventToGrid(e, cv) {
+  const rect = cv.getBoundingClientRect();
+  const touch = e.touches && e.touches[0];
+  const clientX = touch ? touch.clientX : e.clientX;
+  const clientY = touch ? touch.clientY : e.clientY;
+  if (clientX == null || clientY == null) return null;
+  const x = (clientX - rect.left) * (cv.width / rect.width);
+  const y = (clientY - rect.top) * (cv.height / rect.height);
+  const col = Math.floor(x / JCELL_SIZE);
+  const rowLocal = Math.floor(y / JCELL_SIZE);
+  const rowWorld = jumpEditorRowStart + rowLocal;
+  if (col < 0 || col >= JGRID_COLS || rowLocal < 0 || rowLocal >= JUMP_EDITOR_VISIBLE_ROWS) return null;
+  return { rowWorld, col };
+}
+
+function bindJumpCanvasEditor() {
+  const cv = document.getElementById('jumpCanvas');
+  if (!cv || cv.dataset.editorBound === '1') return;
+  cv.dataset.editorBound = '1';
+  const paintFromEvent = (e) => {
+    if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+    const hit = canvasEventToGrid(e, cv);
+    if (!hit) return;
+    paintJumpCellAt(hit.rowWorld, hit.col);
+  };
+  cv.addEventListener('mousedown', e => {
+    if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+    e.preventDefault();
+    jumpPainting = true;
+    paintFromEvent(e);
+  });
+  cv.addEventListener('mousemove', e => {
+    if (jumpPainting) paintFromEvent(e);
+  });
+  cv.addEventListener('touchstart', e => {
+    if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+    e.preventDefault();
+    jumpPainting = true;
+    paintFromEvent(e);
+  }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    if (!jumpPainting || (jumpMode !== 'edit' && jumpMode !== 'sandbox')) return;
+    e.preventDefault();
+    paintFromEvent(e);
+  }, { passive: false });
+  cv.addEventListener('touchend', () => { jumpPainting = false; });
+  if (!jumpEditorMouseUpBound) {
+    jumpEditorMouseUpBound = true;
+    document.addEventListener('mouseup', () => { jumpPainting = false; });
+  }
+}
+
+function buildJumpCustomGrid() {
+  const wrap = document.getElementById('jumpCustomGrid');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (!jumpGrid.length) jumpGrid = makeEmptyJumpGrid();
+  for (let r = 0; r < JGRID_ROWS; r++) {
+    for (let c = 0; c < JGRID_COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'jump-cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      paintJumpCellEl(cell, jumpGrid[r][c]);
+      const paint = () => {
+        if (jumpMode !== 'edit' && jumpMode !== 'sandbox') return;
+        paintJumpCellAt(r, c);
+      };
+      cell.addEventListener('mousedown', e => { e.preventDefault(); jumpPainting = true; paint(); });
+      cell.addEventListener('mouseenter', () => { if (jumpPainting) paint(); });
+      cell.addEventListener('touchstart', e => { e.preventDefault(); jumpPainting = true; paint(); }, { passive: false });
+      cell.addEventListener('touchmove', e => { if (jumpPainting) { e.preventDefault(); paint(); } }, { passive: false });
+      cell.addEventListener('touchend', () => { jumpPainting = false; });
+      wrap.appendChild(cell);
+    }
+  }
+}
+
+function paintJumpCellEl(el, t) {
+  el.style.background = JTILE_COLORS[t] || JTILE_COLORS[0];
+  el.title = JTILE_NAMES[t] || '';
+}
+
+function applyJumpEditorAndPlay() {
+  enterPixelJump('playtest');
+  showToast('Playtesting level…');
+}
+
+function jumpTileAt(c, r) {
+  if (r < 0 || r >= JGRID_ROWS || c < 0 || c >= JGRID_COLS) return JTILE.BLOCK;
+  return jumpGrid[r][c];
+}
+
+function resetJumpPlayer() {
+  let sx = 1, sy = JGRID_ROWS - 2;
+  for (let r = 0; r < JGRID_ROWS; r++)
+    for (let c = 0; c < JGRID_COLS; c++)
+      if (jumpGrid[r][c] === JTILE.SPAWN) { sx = c; sy = r; }
+  jumpPlayer = {
+    x: sx * JCELL_SIZE + 8, y: sy * JCELL_SIZE,
+    w: 24, h: 28, vx: 0, vy: 0,
+    grounded: false, dead: false, won: false
+  };
+  jumpCamY = Math.max(0, jumpPlayer.y - 120);
+  if (jumpMode === 'play' || jumpMode === 'playtest') {
+    jumpScore = 0; jumpCoins = 0; jumpLives = 3;
+  }
+  updateJumpHud();
+}
+
+function updateJumpHud() {
+  const s = document.getElementById('jump-score-label');
+  const c = document.getElementById('jump-coins-label');
+  const l = document.getElementById('jump-lives-label');
+  if (s) s.textContent = 'Score: ' + jumpScore;
+  if (c) c.textContent = 'Coins: ' + jumpCoins;
+  if (l) l.textContent = 'Lives: ' + jumpLives;
+}
+
+function startJumpLoop() {
+  if (jumpRaf) cancelAnimationFrame(jumpRaf);
+  window.addEventListener('keydown', onJumpKeyDown);
+  window.addEventListener('keyup', onJumpKeyUp);
+  const loop = () => {
+    if (!document.getElementById('screen-pixel-jump').classList.contains('screen-hidden')) {
+      updateJumpPhysics();
+      drawJumpCanvas();
+    }
+    jumpRaf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+function stopJumpLoop() {
+  if (jumpRaf) cancelAnimationFrame(jumpRaf);
+  jumpRaf = null;
+}
+
+function onJumpKeyDown(e) {
+  if (document.getElementById('screen-pixel-jump').classList.contains('screen-hidden')) return;
+  jumpKeys[e.code] = true;
+  if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); tryJumpAction(); }
+  if (e.code === 'KeyR') resetJumpPlayer();
+}
+
+function onJumpKeyUp(e) { jumpKeys[e.code] = false; }
+
+function tryJumpAction() {
+  if (!jumpPlayer || jumpPlayer.dead) return;
+  if (jumpPlayer.grounded) {
+    jumpPlayer.vy = -13;
+    jumpPlayer.grounded = false;
+    sfxJump();
+  }
+}
+
+function updateJumpPhysics() {
+  if (!jumpPlayer || jumpPlayer.dead || jumpPlayer.won) return;
+  if (jumpMode === 'edit' || jumpMode === 'sandbox') return;
+  const p = jumpPlayer;
+  const spd = jumpMode === 'sandbox' ? 5.5 : 4.2;
+  if (jumpKeys['ArrowLeft'] || jumpKeys['KeyA']) p.vx = spd;
+  else if (jumpKeys['ArrowRight'] || jumpKeys['KeyD']) p.vx = -spd;
+  else p.vx *= 0.72;
+  p.vy += 0.58;
+  if (p.vy > 16) p.vy = 16;
+  moveJumpAxis('x');
+  moveJumpAxis('y');
+  const cx = Math.floor((p.x + p.w / 2) / JCELL_SIZE);
+  const cy = Math.floor((p.y + p.h / 2) / JCELL_SIZE);
+  const fx = Math.floor((p.x + p.w / 2) / JCELL_SIZE);
+  const fy = Math.floor((p.y + p.h - 2) / JCELL_SIZE);
+  const tile = jumpTileAt(fx, fy);
+  if (tile === JTILE.COIN && jumpGrid[fy][fx] === JTILE.COIN) {
+    jumpGrid[fy][fx] = JTILE.AIR;
+    jumpCoins++;
+    jumpScore += 15;
+    sfxCoin();
+    updateJumpHud();
+  }
+  if (tile === JTILE.SPRING && p.vy >= 0) { p.vy = -18; sfxJump(); }
+  if (jumpTileAt(cx, cy) === JTILE.SPIKE || jumpTileAt(cx, cy) === JTILE.LAVA) jumpKillPlayer();
+  if (jumpTileAt(cx, cy) === JTILE.GOAL) jumpWinLevel();
+  const targetCam = Math.max(0, p.y - 140);
+  jumpCamY += (targetCam - jumpCamY) * 0.1;
+}
+
+function moveJumpAxis(axis) {
+  const p = jumpPlayer;
+  const delta = axis === 'x' ? p.vx : p.vy;
+  p[axis === 'x' ? 'x' : 'y'] += delta;
+  const hits = jumpCollideTiles(p);
+  p.grounded = false;
+  for (const b of hits) {
+    if (axis === 'x') {
+      if (delta > 0) p.x = b.x - p.w;
+      else if (delta < 0) p.x = b.x + b.w;
+      p.vx = 0;
+    } else {
+      if (delta > 0) { p.y = b.y - p.h; p.vy = 0; }
+      else if (delta < 0) { p.y = b.y + b.h; p.vy = 0; p.grounded = true; }
+    }
+  }
+}
+
+function jumpCollideTiles(p) {
+  const out = [];
+  const x0 = Math.floor(p.x / JCELL_SIZE), x1 = Math.floor((p.x + p.w) / JCELL_SIZE);
+  const y0 = Math.floor(p.y / JCELL_SIZE), y1 = Math.floor((p.y + p.h) / JCELL_SIZE);
+  for (let r = y0; r <= y1; r++)
+    for (let c = x0; c <= x1; c++)
+      if (jumpTileAt(c, r) === JTILE.BLOCK) out.push({ x: c * JCELL_SIZE, y: r * JCELL_SIZE, w: JCELL_SIZE, h: JCELL_SIZE });
+  return out;
+}
+
+function jumpKillPlayer() {
+  jumpPlayer.dead = true;
+  jumpLives--;
+  document.getElementById('jump-status-label').textContent = 'Ouch! Press R';
+  sfxDie();
+  updateJumpHud();
+  if (jumpLives <= 0 && jumpMode === 'play') {
+    document.getElementById('jump-status-label').textContent = 'Game Over — R to retry';
+    showToast('Game Over');
+  } else if (jumpLives > 0) {
+    setTimeout(resetJumpPlayer, 600);
+  }
+}
+
+function jumpWinLevel() {
+  jumpPlayer.won = true;
+  jumpScore += 200;
+  document.getElementById('jump-status-label').textContent = 'LEVEL CLEAR!';
+  sfxWin();
+  updateJumpHud();
+  showToast('Level complete!');
+}
+
+function drawJumpCanvas() {
+  const cv = document.getElementById('jumpCanvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0c4a6e');
+  grad.addColorStop(1, '#1e3a5f');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  const editing = jumpMode === 'edit' || jumpMode === 'sandbox';
+  const viewY = editing ? jumpEditorRowStart * JCELL_SIZE : jumpCamY;
+  const y0 = editing ? jumpEditorRowStart : Math.floor(jumpCamY / JCELL_SIZE);
+  const y1 = editing ? (jumpEditorRowStart + JUMP_EDITOR_VISIBLE_ROWS) : (y0 + Math.ceil(H / JCELL_SIZE) + 2);
+  for (let r = y0; r <= y1 && r < JGRID_ROWS; r++) {
+    for (let c = 0; c < JGRID_COLS; c++) {
+      const t = jumpGrid[r][c];
+      const px = c * JCELL_SIZE;
+      const py = r * JCELL_SIZE - viewY;
+      if (py < -JCELL_SIZE || py > H + JCELL_SIZE) continue;
+      if (t === JTILE.BLOCK) {
+        ctx.fillStyle = '#78716c';
+        ctx.fillRect(px, py, JCELL_SIZE, JCELL_SIZE);
+        ctx.fillStyle = '#57534e';
+        ctx.fillRect(px + 2, py + 2, JCELL_SIZE - 4, JCELL_SIZE - 4);
+      } else if (t === JTILE.COIN) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(px + JCELL_SIZE / 2, py + JCELL_SIZE / 2, 10, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (t === JTILE.SPIKE) {
+        ctx.fillStyle = '#e11d48';
+        ctx.beginPath();
+        ctx.moveTo(px, py + JCELL_SIZE);
+        ctx.lineTo(px + JCELL_SIZE / 2, py + 4);
+        ctx.lineTo(px + JCELL_SIZE, py + JCELL_SIZE);
+        ctx.fill();
+      } else if (t === JTILE.GOAL) {
+        ctx.fillStyle = '#a78bfa';
+        ctx.fillRect(px + 8, py + 4, JCELL_SIZE - 16, JCELL_SIZE - 8);
+        ctx.fillStyle = '#f0abfc';
+        ctx.fillRect(px + 12, py + 8, JCELL_SIZE - 24, 8);
+      } else if (t === JTILE.SPAWN) {
+        ctx.fillStyle = 'rgba(74,222,128,.35)';
+        ctx.fillRect(px + 4, py + 4, JCELL_SIZE - 8, JCELL_SIZE - 8);
+      } else if (t === JTILE.SPRING) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(px + 6, py + 20, JCELL_SIZE - 12, 12);
+        ctx.fillStyle = '#0ea5e9';
+        ctx.fillRect(px + 10, py + 10, JCELL_SIZE - 20, 10);
+      } else if (t === JTILE.LAVA) {
+        ctx.fillStyle = '#ea580c';
+        ctx.fillRect(px, py, JCELL_SIZE, JCELL_SIZE);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(px + 4, py + 8, JCELL_SIZE - 8, 8);
+      }
+    }
+  }
+  if (jumpPlayer && !editing) {
+    const py = jumpPlayer.y - jumpCamY;
+    ctx.fillStyle = jumpPlayer.dead ? '#64748b' : '#f472b6';
+    ctx.fillRect(jumpPlayer.x, py, jumpPlayer.w, jumpPlayer.h);
+    ctx.fillStyle = '#fbcfe8';
+    ctx.fillRect(jumpPlayer.x + 6, py + 4, 8, 8);
+    ctx.fillRect(jumpPlayer.x + 14, py + 4, 8, 8);
+  }
+  if (editing) {
+    ctx.strokeStyle = 'rgba(34,211,238,0.25)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += JCELL_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += JCELL_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+  }
+}
+
+/* ===== BURGER CHEF ===== */
+const CHEF_LABELS = {
+  bun_bottom: 'Bun↓', patty: 'Patty', cheese: 'Cheese',
+  lettuce: 'Lettuce', tomato: 'Tomato', bun_top: 'Bun↑'
+};
+
+function initChefGame() {
+  chefScore = parseInt(localStorage.getItem(RETRO_ARCADE_CHEF_SCORE_V3) || '0', 10);
+  chefGrills = Array(4).fill(null).map(() => ({ stage: 'empty', progress: 0 }));
+  chefAssembly = [];
+  if (chefMode === 'play' || chefMode === 'playtest') {
+    if (!chefOrders.length) chefSpawnOrder();
+  }
+  refreshChefRecipeSelect();
+  renderChefUI();
+  startChefLoop();
+}
+
+function stopChefLoop() {
+  if (chefGrillInterval) clearInterval(chefGrillInterval);
+  chefGrillInterval = null;
+}
+
+function startChefLoop() {
+  stopChefLoop();
+  chefGrillInterval = setInterval(tickChefGrills, 220);
+}
+
+function tickChefGrills() {
+  let ch = false;
+  chefGrills.forEach(g => {
+    if (g.stage === 'raw') {
+      g.progress += 5;
+      if (g.progress >= 100) { g.stage = 'done'; g.progress = 100; ch = true; sfxGrill(); }
+    } else if (g.stage === 'done') {
+      g.progress -= 1.2;
+      if (g.progress <= 0) { g.stage = 'burnt'; g.progress = 0; ch = true; }
+    }
+  });
+  if (ch) renderChefGrills();
+}
+
+function renderChefGrills() {
+  const row = document.getElementById('chef-grill-row');
+  if (!row) return;
+  row.innerHTML = '';
+  chefGrills.forEach((g, i) => {
+    const d = document.createElement('div');
+    d.className = 'grill-tile rounded border border-amber-800 bg-black/50 p-2 text-center text-[10px]';
+    let label = 'Empty';
+    if (g.stage === 'raw') label = 'Grilling ' + Math.floor(g.progress) + '%';
+    else if (g.stage === 'done') label = '✓ READY';
+    else if (g.stage === 'burnt') label = '✗ BURNT';
+    d.innerHTML = '<div class="text-amber-500 font-bold">Grill ' + (i + 1) + '</div><div>' + label + '</div>';
+    if (g.stage === 'done') d.innerHTML += '<button type="button" onclick="chefTakePatty(' + i + ')" class="mt-1 text-[9px] px-1 bg-emerald-800 rounded">Take</button>';
+    if (g.stage === 'burnt') d.innerHTML += '<button type="button" onclick="chefClearGrill(' + i + ')" class="mt-1 text-[9px] px-1 bg-slate-700 rounded">Clear</button>';
+    row.appendChild(d);
+  });
+}
+
+function chefDropPatty() {
+  const idx = chefGrills.findIndex(g => g.stage === 'empty');
+  if (idx < 0) { showToast('Grills full!'); return; }
+  chefGrills[idx] = { stage: 'raw', progress: 0 };
+  sfxGrill();
+  renderChefGrills();
+}
+
+function chefTakePatty(i) {
+  if (chefGrills[i].stage !== 'done') return;
+  chefGrills[i] = { stage: 'empty', progress: 0 };
+  chefAsmAdd('patty');
+  renderChefGrills();
+}
+
+function chefClearGrill(i) {
+  chefGrills[i] = { stage: 'empty', progress: 0 };
+  renderChefGrills();
+}
+
+function chefAsmAdd(item) {
+  chefAssembly.push(item);
+  renderChefAssembly();
+  sfxClick();
+}
+
+function chefAsmClear() {
+  chefAssembly = [];
+  renderChefAssembly();
+}
+
+function renderChefAssembly() {
+  const strip = document.getElementById('chef-assembly-strip');
+  if (!strip) return;
+  if (!chefAssembly.length) {
+    strip.innerHTML = '<span class="text-slate-500 text-[10px]">Stack ingredients…</span>';
+    return;
+  }
+  strip.innerHTML = chefAssembly.map(it =>
+    '<span class="text-[10px] px-2 py-1 rounded bg-amber-950 border border-amber-700">' + (CHEF_LABELS[it] || it) + '</span>'
+  ).join('');
+}
+
+function chefSpawnOrder() {
+  const templates = [
+    ['bun_bottom', 'patty', 'bun_top'],
+    ['bun_bottom', 'patty', 'cheese', 'bun_top'],
+    ['bun_bottom', 'lettuce', 'patty', 'tomato', 'bun_top'],
+    ['bun_bottom', 'cheese', 'patty', 'cheese', 'bun_top'],
+  ];
+  const custom = loadChefRecipes();
+  custom.forEach(r => { if (r.stack) templates.push(r.stack.slice()); });
+  const stack = templates[Math.floor(Math.random() * templates.length)].slice();
+  chefOrders.push({ id: Date.now(), stack, reward: 10 + stack.length * 4 });
+  sfxOrder();
+  renderChefOrders();
+}
+
+function renderChefOrders() {
+  const ul = document.getElementById('chef-order-list');
+  if (!ul) return;
+  ul.innerHTML = chefOrders.map(o =>
+    '<li class="border border-pink-900 rounded p-2 bg-black/30">#' + (o.id % 10000) +
+    ' ' + o.stack.map(s => CHEF_LABELS[s] || s).join(' → ') +
+    ' <span class="text-amber-300">+$' + o.reward + '</span></li>'
+  ).join('');
+}
+
+function chefServeOrder() {
+  if (!chefOrders.length) { showToast('No orders!'); return; }
+  const order = chefOrders[0];
+  const built = chefAssembly.join(',');
+  const need = order.stack.join(',');
+  if (built === need) {
+    chefOrders.shift();
+    chefScore += order.reward;
+    localStorage.setItem(RETRO_ARCADE_CHEF_SCORE_V3, String(chefScore));
+    chefAsmClear();
+    sfxServe();
+    if (chefMode === 'play' || chefMode === 'playtest') chefSpawnOrder();
+    showToast('Order served! +$' + order.reward);
+  } else {
+    showToast('Wrong burger!');
+  }
+  renderChefUI();
+}
+
+function renderChefUI() {
+  const sc = document.getElementById('chef-score-label');
+  if (sc) sc.textContent = '$' + chefScore;
+  renderChefGrills();
+  renderChefAssembly();
+  renderChefOrders();
+}
+
+function loadChefRecipes() {
+  try { return JSON.parse(localStorage.getItem(RETRO_ARCADE_CHEF_RECIPES_V3) || '[]'); }
+  catch (_) { return []; }
+}
+
+function chefSaveCustomRecipe() {
+  const nameEl = document.getElementById('chef-recipe-name');
+  const name = (nameEl && nameEl.value.trim()) || 'Custom';
+  if (chefAssembly.length < 2) { showToast('Need 2+ ingredients'); return; }
+  const recipes = loadChefRecipes();
+  recipes.push({ name, stack: chefAssembly.slice() });
+  localStorage.setItem(RETRO_ARCADE_CHEF_RECIPES_V3, JSON.stringify(recipes));
+  refreshChefRecipeSelect();
+  if (nameEl) nameEl.value = '';
+  showToast('Recipe saved: ' + name);
+}
+
+function refreshChefRecipeSelect() {
+  const sel = document.getElementById('chef-recipe-select');
+  if (!sel) return;
+  const recipes = loadChefRecipes();
+  sel.innerHTML = '<option value="">— select recipe —</option>';
+  recipes.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = r.name;
+    sel.appendChild(opt);
+  });
+}
+
+function chefPreviewRecipe() {}
+function chefLoadRecipeToAssembly() {
+  const i = parseInt(document.getElementById('chef-recipe-select').value, 10);
+  const recipes = loadChefRecipes();
+  if (recipes[i]) {
+    chefAssembly = recipes[i].stack.slice();
+    renderChefAssembly();
+    showToast('Loaded: ' + recipes[i].name);
+  }
+}
+
+window.onload = function () {
+  jumpGrid = makeDefaultJumpLevel();
+  saveJumpLevelStore('default', 'Default Level', jumpGrid);
+  clearJumpCustomGrid();
+  setJumpBrush(JTILE.BLOCK);
+  refreshJumpLevelSelect();
+  refreshChefRecipeSelect();
+  showToast('Arcade Hub ready — insert coin!');
+};
+
+/* ===== LEVEL PACKS & VALIDATION ===== */
+const JUMP_LEVEL_PACKS = {
+  tutorial: function () {
+    const g = makeEmptyJumpGrid();
+    for (let c = 0; c < JGRID_COLS; c++) g[JGRID_ROWS - 1][c] = JTILE.BLOCK;
+    g[JGRID_ROWS - 2][1] = JTILE.SPAWN;
+    g[JGRID_ROWS - 3][3] = JTILE.COIN;
+    g[JGRID_ROWS - 2][8] = JTILE.GOAL;
+    return g;
+  },
+  skybridge: function () {
+    const g = makeEmptyJumpGrid();
+    for (let c = 0; c < JGRID_COLS; c++) g[JGRID_ROWS - 1][c] = JTILE.BLOCK;
+    for (let c = 2; c < 8; c++) g[JGRID_ROWS - 12][c] = JTILE.BLOCK;
+    for (let c = 1; c < 6; c++) g[JGRID_ROWS - 22][c] = JTILE.BLOCK;
+    g[JGRID_ROWS - 2][1] = JTILE.SPAWN;
+    g[JGRID_ROWS - 11][7] = JTILE.SPRING;
+    g[JGRID_ROWS - 13][4] = JTILE.COIN;
+    g[JGRID_ROWS - 13][5] = JTILE.COIN;
+    g[JGRID_ROWS - 21][2] = JTILE.SPIKE;
+    g[JGRID_ROWS - 2][8] = JTILE.GOAL;
+    return g;
+  },
+  lavaPit: function () {
+    const g = makeEmptyJumpGrid();
+    for (let c = 0; c < JGRID_COLS; c++) g[JGRID_ROWS - 1][c] = JTILE.BLOCK;
+    for (let c = 0; c < JGRID_COLS; c++) g[JGRID_ROWS - 8][c] = JTILE.LAVA;
+    for (let c = 2; c < 8; c++) g[JGRID_ROWS - 10][c] = JTILE.BLOCK;
+    g[JGRID_ROWS - 2][1] = JTILE.SPAWN;
+    g[JGRID_ROWS - 11][5] = JTILE.COIN;
+    g[JGRID_ROWS - 2][8] = JTILE.GOAL;
+    return g;
+  },
+};
+
+function loadJumpLevelPack(packId) {
+  const fn = JUMP_LEVEL_PACKS[packId];
+  if (!fn) { showToast('Unknown pack'); return; }
+  jumpGrid = fn();
+  buildJumpCustomGrid();
+  resetJumpPlayer();
+  showToast('Loaded pack: ' + packId);
+}
+
+function validateJumpLevel(grid) {
+  const issues = [];
+  let spawn = 0, goal = 0;
+  for (let r = 0; r < JGRID_ROWS; r++) {
+    for (let c = 0; c < JGRID_COLS; c++) {
+      const t = grid[r][c];
+      if (t === JTILE.SPAWN) spawn++;
+      if (t === JTILE.GOAL) goal++;
+    }
+  }
+  if (spawn < 1) issues.push('Missing spawn tile');
+  if (goal < 1) issues.push('Missing goal tile');
+  if (spawn > 3) issues.push('Too many spawns');
+  return { ok: issues.length === 0, issues };
+}
+
+function fillJumpFloor() {
+  for (let c = 0; c < JGRID_COLS; c++) jumpGrid[JGRID_ROWS - 1][c] = JTILE.BLOCK;
+  buildJumpCustomGrid();
+  showToast('Floor row filled');
+}
+
+function mirrorJumpLevelHorizontal() {
+  for (let r = 0; r < JGRID_ROWS; r++) jumpGrid[r].reverse();
+  buildJumpCustomGrid();
+  showToast('Mirrored horizontally');
+}
+
+function countJumpTiles(tileId) {
+  let n = 0;
+  for (let r = 0; r < JGRID_ROWS; r++)
+    for (let c = 0; c < JGRID_COLS; c++)
+      if (jumpGrid[r][c] === tileId) n++;
+  return n;
+}
+
+function exportJumpLevelReport() {
+  const v = validateJumpLevel(jumpGrid);
+  const report = {
+    blocks: countJumpTiles(JTILE.BLOCK),
+    coins: countJumpTiles(JTILE.COIN),
+    spikes: countJumpTiles(JTILE.SPIKE),
+    valid: v.ok,
+    issues: v.issues,
+  };
+  console.log('[Pixel Jump] Level report', report);
+  showToast(v.ok ? 'Level OK' : v.issues[0]);
+  return report;
+}
+
+/* ===== CHEF SANDBOX & PLAYTEST ===== */
+function initChefSandbox() {
+  chefOrders = [];
+  chefAssembly = [];
+  chefGrills.forEach((_, i) => { chefGrills[i] = { stage: 'empty', progress: 0 }; });
+  renderChefUI();
+  showToast('Chef sandbox — free build');
+}
+
+function chefPlaytestBurst() {
+  for (let i = 0; i < 3; i++) chefSpawnOrder();
+  showToast('Playtest: 3 orders queued');
+}
+
+function drawChefCanvasDecor() {
+  const cv = document.getElementById('chefCanvas');
+  if (!cv) return;
+  cv.classList.remove('hidden');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = '#2a1505';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#f59e0b';
+  for (let i = 0; i < 8; i++) {
+    ctx.fillRect(20 + i * 48, 40 + Math.sin(Date.now() / 200 + i) * 6, 36, 8);
+  }
+  ctx.fillStyle = '#fef3c7';
+  ctx.font = '10px Orbitron';
+  ctx.fillText('RETRO KITCHEN', 120, 20);
+}
+
+function chefAnimateCanvas() {
+  if (chefMode !== 'sandbox' && chefMode !== 'playtest') return;
+  drawChefCanvasDecor();
+  requestAnimationFrame(chefAnimateCanvas);
+}
+
+/* ===== TOUCH CONTROLS (MOBILE) ===== */
+function bindJumpTouchControls() {
+  const cv = document.getElementById('jumpCanvas');
+  if (!cv || cv.dataset.touchBound) return;
+  cv.dataset.touchBound = '1';
+  let touchLeft = false, touchRight = false;
+  cv.addEventListener('touchstart', e => {
+    if (jumpMode === 'edit' || jumpMode === 'sandbox') return;
+    const rect = cv.getBoundingClientRect();
+    const x = e.touches[0].clientX - rect.left;
+    if (x < rect.width / 2) touchRight = true;
+    else touchLeft = true;
+    if (e.touches.length > 1 || x > rect.width * 0.7) tryJumpAction();
+  }, { passive: true });
+  cv.addEventListener('touchend', () => { touchLeft = touchRight = false; });
+  setInterval(() => {
+    if (document.getElementById('screen-pixel-jump').classList.contains('screen-hidden')) return;
+    if (jumpMode === 'edit' || jumpMode === 'sandbox') {
+      touchLeft = touchRight = false;
+    }
+    jumpKeys['ArrowLeft'] = touchLeft;
+    jumpKeys['ArrowRight'] = touchRight;
+  }, 50);
+}
+
+/* ===== AUTO-SAVE EDITOR (SANDBOX) ===== */
+let jumpAutosaveTimer = null;
+function startJumpAutosave() {
+  if (jumpAutosaveTimer) clearInterval(jumpAutosaveTimer);
+  jumpAutosaveTimer = setInterval(() => {
+    if (jumpMode === 'edit' || jumpMode === 'sandbox') {
+      saveJumpLevelStore('autosave', 'Autosave', jumpGrid);
+    }
+  }, 30000);
+}
+
+/* ===== HUB KEYBOARD SHORTCUTS ===== */
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape') {
+    if (!document.getElementById('paste-modal').classList.contains('screen-hidden')) {
+      closePasteModal();
+      return;
+    }
+    if (!document.getElementById('screen-pixel-jump').classList.contains('screen-hidden') ||
+        !document.getElementById('screen-burger-chef').classList.contains('screen-hidden')) {
+      backToHub();
+    }
+  }
+  if (e.ctrlKey && e.code === 'KeyM') toggleMute();
+});
+
+/* ===== REGISTER PACK BUTTONS (if present in DOM) ===== */
+function injectJumpPackButtons() {
+  const panel = document.getElementById('jump-side-panel');
+  if (!panel || panel.querySelector('.jump-pack-row')) return;
+  const row = document.createElement('div');
+  row.className = 'jump-pack-row space-y-1 mt-2';
+  row.innerHTML = '<div class="text-[10px] text-violet-400 font-bold">Level packs</div>';
+  Object.keys(JUMP_LEVEL_PACKS).forEach(id => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'w-full py-1 bg-indigo-950 border border-indigo-700 rounded text-[10px]';
+    b.textContent = id;
+    b.onclick = () => loadJumpLevelPack(id);
+    row.appendChild(b);
+  });
+  const bFloor = document.createElement('button');
+  bFloor.type = 'button';
+  bFloor.className = 'w-full py-1 bg-stone-900 border border-stone-600 rounded text-[10px]';
+  bFloor.textContent = 'Fill floor';
+  bFloor.onclick = fillJumpFloor;
+  row.appendChild(bFloor);
+  const bMirror = document.createElement('button');
+  bMirror.type = 'button';
+  bMirror.className = 'w-full py-1 bg-stone-900 border border-stone-600 rounded text-[10px]';
+  bMirror.textContent = 'Mirror H';
+  bMirror.onclick = mirrorJumpLevelHorizontal;
+  row.appendChild(bMirror);
+  const bVal = document.createElement('button');
+  bVal.type = 'button';
+  bVal.className = 'w-full py-1 bg-teal-950 border border-teal-700 rounded text-[10px]';
+  bVal.textContent = 'Validate';
+  bVal.onclick = exportJumpLevelReport;
+  row.appendChild(bVal);
+  panel.appendChild(row);
+}
+
+/* ===== EXTENDED window.onload hook ===== */
+const _origOnload = window.onload;
+window.onload = function () {
+  if (typeof _origOnload === 'function') _origOnload();
+  injectJumpPackButtons();
+  bindJumpTouchControls();
+  bindJumpCanvasEditor();
+  startJumpAutosave();
+  if (chefMode === 'sandbox') chefAnimateCanvas();
+};
+
+/* ===== CHEF ORDER TEMPLATES (EXPANDED) ===== */
+const CHEF_ORDER_TEMPLATES_EXTRA = [
+  ['bun_bottom', 'lettuce', 'patty', 'cheese', 'tomato', 'bun_top'],
+  ['bun_bottom', 'cheese', 'patty', 'cheese', 'bun_top'],
+  ['bun_bottom', 'tomato', 'patty', 'bun_top'],
+  ['bun_bottom', 'patty', 'lettuce', 'bun_top'],
+];
+
+function chefSpawnGourmetOrder() {
+  const stack = CHEF_ORDER_TEMPLATES_EXTRA[Math.floor(Math.random() * CHEF_ORDER_TEMPLATES_EXTRA.length)].slice();
+  chefOrders.push({ id: Date.now(), stack, reward: 25 + stack.length * 5 });
+  sfxOrder();
+  renderChefOrders();
+  showToast('Gourmet order!');
+}
+
+/* ===== PIXEL JUMP — ROW HELPERS (100 rows) ===== */
+function jumpRowFillSolid(rowIndex) {
+  if (rowIndex < 0 || rowIndex >= JGRID_ROWS) return;
+  for (let c = 0; c < JGRID_COLS; c++) jumpGrid[rowIndex][c] = JTILE.BLOCK;
+  buildJumpCustomGrid();
+}
+
+function jumpRowClear(rowIndex) {
+  if (rowIndex < 0 || rowIndex >= JGRID_ROWS) return;
+  for (let c = 0; c < JGRID_COLS; c++) jumpGrid[rowIndex][c] = JTILE.AIR;
+  buildJumpCustomGrid();
+}
+
+function jumpShiftRowsUp(amount) {
+  amount = amount || 1;
+  const copy = makeEmptyJumpGrid();
+  for (let r = 0; r < JGRID_ROWS; r++) {
+    const src = r + amount;
+    if (src < JGRID_ROWS) copy[r] = jumpGrid[src].slice();
+  }
+  jumpGrid = copy;
+  buildJumpCustomGrid();
+  showToast('Shifted up ' + amount + ' row(s)');
+}
+
+function jumpDuplicateSpawnToGoal() {
+  let sx = -1, sy = -1;
+  for (let r = 0; r < JGRID_ROWS; r++)
+    for (let c = 0; c < JGRID_COLS; c++)
+      if (jumpGrid[r][c] === JTILE.SPAWN) { sx = c; sy = r; }
+  if (sx < 0) { showToast('No spawn'); return; }
+  jumpGrid[sy][Math.min(JGRID_COLS - 1, sx + 4)] = JTILE.GOAL;
+  buildJumpCustomGrid();
+}
+
+/* ===== GRID DIMENSION CONSTANTS (exported for tools) ===== */
+window.ArcadeHub = {
+  JGRID_COLS: JGRID_COLS,
+  JGRID_ROWS: JGRID_ROWS,
+  JCELL_SIZE: JCELL_SIZE,
+  RETRO_ARCADE_JUMP_LEVELS_V3: RETRO_ARCADE_JUMP_LEVELS_V3,
+  serializeJumpLevel: serializeJumpLevel,
+  deserializeJumpLevel: deserializeJumpLevel,
+  clearJumpCustomGrid: clearJumpCustomGrid,
+  enterPixelJump: enterPixelJump,
+  enterBurgerChef: enterBurgerChef,
+};
+</script>
+</body>
+</html>
