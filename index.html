@@ -792,10 +792,10 @@
                 </div>
                 <div id="lobby-servers-panel" class="hidden">
                     <h2 class="text-[10px] font-bold mb-1 text-cyan-400 uppercase tracking-widest text-center">🌐 Servers</h2>
-                    <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Listed while someone is playing, or for 4h after last activity. Tap any server to <span class="text-emerald-400 font-bold">jump in instantly</span>.</p>
+                    <p class="text-[8px] text-slate-500 text-center mb-2 leading-snug">Your servers, friends' servers, and Thomas always stay listed. Other players' rooms only show for 4h after activity. Tap to <span class="text-emerald-400 font-bold">join instantly</span>.</p>
                     <p id="servers-list-msg" class="text-[10px] text-amber-400 mb-2 min-h-[1rem] text-center"></p>
                     <ul id="servers-list-ul" class="max-h-52 overflow-y-auto space-y-1.5 text-xs"></ul>
-                    <p id="servers-list-empty" class="text-[10px] text-slate-500 italic text-center hidden">No active servers right now. Rooms show while someone is playing, or for 4h after last activity. Your code is yours forever — open MULTIPLAYER and press Start.</p>
+                    <p id="servers-list-empty" class="text-[10px] text-slate-500 italic text-center hidden">No servers right now. Yours and friends' rooms stay forever — open MULTIPLAYER and press Start.</p>
                 </div>
             </div>
 
@@ -7105,16 +7105,19 @@
             list.forEach(s => {
                 const li = document.createElement('li');
                 const mine = !!s.is_mine;
+                const isFriend = !!s.is_friend;
+                const isThomas = !!s.is_thomas;
                 const players = typeof s.players_online === 'number' ? s.players_online : 0;
                 const isMp = !!s.is_multiplayer || players >= 2;
                 const host = escapeHtml(s.host_username || 'host');
                 const code = String(s.code || '').toUpperCase();
                 const codeEsc = escapeHtml(code);
                 const mpLabel = isMp ? ' · multiplayer' : '';
-                li.className = 'bg-slate-900/80 border rounded-lg p-2 flex items-center justify-between gap-2 ' + (mine ? 'border-cyan-500/60' : 'border-slate-600');
+                const pinLabel = mine ? '⭐ Your server' : (isThomas ? '👑 Thomas' : (isFriend ? `👥 ${host}'s server` : `${host}'s server`));
+                li.className = 'bg-slate-900/80 border rounded-lg p-2 flex items-center justify-between gap-2 ' + (mine ? 'border-cyan-500/60' : (isFriend || isThomas ? 'border-indigo-500/50' : 'border-slate-600'));
                 const canDelete = mine || isThomasOwner();
                 li.innerHTML = `<button type="button" class="server-join-btn flex-1 text-left interactive min-w-0 w-full">
-                    <div class="font-black text-white truncate">${mine ? '⭐ Your server' : `${host}'s server`}${mpLabel}</div>
+                    <div class="font-black text-white truncate">${pinLabel}${mpLabel}</div>
                     <div class="text-[9px] text-slate-400 font-mono">${codeEsc} · ${players} playing · tap to join</div>
                 </button>${canDelete ? `<button type="button" class="server-delete-btn text-rose-400 hover:text-rose-300 text-xs font-bold px-2 py-1 rounded interactive shrink-0" title="${mine ? 'Delete your server' : 'Dev: delete server'}">🗑</button>` : ''}`;
                 li.querySelector('.server-join-btn')?.addEventListener('click', () => { void joinServerInstant(code); });
@@ -7138,30 +7141,77 @@
             return code === 'PGRST202' || msg.includes('Could not find the function');
         }
 
+        async function sessionBypassesGlobalIdleRule(hostId, hostUsername) {
+            if (!hostId || hostId === state.supabaseUserId) return true;
+            if (normalizeUsername(hostUsername) === OWNER_DASHBOARD_USERNAME) return true;
+            const friends = await getMergedFriendnames();
+            const hun = normalizeUsername(hostUsername || '');
+            return friends.some((f) => normalizeUsername(f) === hun);
+        }
+
         /** Fallback when list_public_servers RPC is missing (older Supabase project). */
         async function refreshServersListDirect() {
+            const uid = state.supabaseUserId;
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-            const { data: rows, error } = await supabase
+            const map = new Map();
+
+            const addRows = (rows, uidLocal) => {
+                (rows || []).forEach((r) => {
+                    const hostUser = r.users;
+                    const username = hostUser && (Array.isArray(hostUser) ? hostUser[0]?.username : hostUser.username);
+                    const code = String(r.code || '').toUpperCase();
+                    if (!code) return;
+                    map.set(code, {
+                        code: r.code,
+                        host_id: r.host_id,
+                        host_username: username || 'host',
+                        is_mine: r.host_id === uidLocal,
+                        is_friend: false,
+                        is_thomas: normalizeUsername(username) === OWNER_DASHBOARD_USERNAME,
+                        is_multiplayer: false,
+                        players_online: 1,
+                        updated_at: r.updated_at,
+                    });
+                });
+            };
+
+            const friends = await getMergedFriendnames();
+            const alwaysHostIds = [uid].filter(Boolean);
+            if (friends.length) {
+                const { data: friendUsers } = await supabase.from('users').select('id, username').in('username', friends);
+                (friendUsers || []).forEach((u) => { if (u.id) alwaysHostIds.push(u.id); });
+            }
+            const { data: thomasRow } = await supabase.from('users').select('id').eq('username', OWNER_DASHBOARD_USERNAME).maybeSingle();
+            if (thomasRow?.id) alwaysHostIds.push(thomasRow.id);
+
+            const uniqueHostIds = [...new Set(alwaysHostIds)];
+            if (uniqueHostIds.length) {
+                const { data: pinned } = await supabase
+                    .from('game_sessions')
+                    .select('code, host_id, updated_at, users(username)')
+                    .in('host_id', uniqueHostIds)
+                    .order('updated_at', { ascending: false })
+                    .limit(60);
+                addRows(pinned, uid);
+                (pinned || []).forEach((r) => {
+                    const hostUser = r.users;
+                    const username = hostUser && (Array.isArray(hostUser) ? hostUser[0]?.username : hostUser.username);
+                    const code = String(r.code || '').toUpperCase();
+                    const entry = map.get(code);
+                    if (!entry) return;
+                    entry.is_friend = friends.some((f) => normalizeUsername(f) === normalizeUsername(username));
+                });
+            }
+
+            const { data: globalRows } = await supabase
                 .from('game_sessions')
                 .select('code, host_id, updated_at, users(username)')
                 .gt('updated_at', fourHoursAgo)
                 .order('updated_at', { ascending: false })
                 .limit(40);
-            if (error) throw error;
-            const uid = state.supabaseUserId;
-            return (rows || []).map((r) => {
-                const hostUser = r.users;
-                const username = hostUser && (Array.isArray(hostUser) ? hostUser[0]?.username : hostUser.username);
-                return {
-                    code: r.code,
-                    host_id: r.host_id,
-                    host_username: username || 'host',
-                    is_mine: r.host_id === uid,
-                    is_multiplayer: false,
-                    players_online: 1,
-                    updated_at: r.updated_at,
-                };
-            });
+            addRows(globalRows, uid);
+
+            return Array.from(map.values());
         }
 
         async function refreshServersList() {
@@ -8408,7 +8458,7 @@
                 if (!supabase) { setSessionMsg('😕 Online play isn’t available right now. Try Play offline!', false); return; }
                 if (!state.supabaseUserId) { setSessionMsg('👤 Sign in first, then paste your friend’s code!', false); return; }
                 setSessionMsg('Looking for room…', null);
-                const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at').eq('code', code).maybeSingle();
+                const { data, error } = await supabase.from('game_sessions').select('world_seed, host_id, updated_at, users(username)').eq('code', code).maybeSingle();
                 if (error) {
                     pcDebug('error', 'join_online_session_select_failed', { code, message: error.message, codePg: error.code });
                     setSessionMsg(formatSupabaseNetworkError(error), false); return;
@@ -8417,15 +8467,17 @@
                     pcDebug('warn', 'join_online_session_not_found', { code });
                     setSessionMsg('🔍 Hmm, that code doesn’t exist. Double-check it and try again!', false); return;
                 }
-                const isOwnRoom = data.host_id === state.supabaseUserId;
-                if (!isOwnRoom) {
+                const hostUser = data.users;
+                const hostUsername = hostUser && (Array.isArray(hostUser) ? hostUser[0]?.username : hostUser.username);
+                const bypassIdle = await sessionBypassesGlobalIdleRule(data.host_id, hostUsername);
+                if (!bypassIdle) {
                     let lastAct = data.updated_at;
                     const { data: act, error: actErr } = await supabase.rpc('session_last_activity', { p_code: code });
                     if (!actErr && act) lastAct = act;
                     if (lastAct) {
                         const ageMs = Date.now() - new Date(lastAct).getTime();
                         if (ageMs > 4 * 60 * 60 * 1000) {
-                            setSessionMsg('😕 That room is hidden until someone plays again (4h idle). Ask your friend to open MULTIPLAYER and press Start.', false);
+                            setSessionMsg('😕 That global room expired (4h idle). Only friends\' and your own servers stay forever.', false);
                             return;
                         }
                     }
