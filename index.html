@@ -1873,12 +1873,13 @@
                     </div>
                 </div>
                 <p class="text-[8px] text-slate-500 mb-2 leading-snug">Every username that ever created an account — not just who is playing right now.</p>
-                <p id="dash-owner-hint" class="hidden text-[8px] text-amber-300/90 mb-2 leading-snug">Thomas: tap a username, then <span class="text-white">Make admin</span> or <span class="text-white">Ban</span>. Double-tap also promotes to admin.</p>
+                <p id="dash-owner-hint" class="hidden text-[8px] text-amber-300/90 mb-2 leading-snug">Thomas: tap a username — <span class="text-white">Make admin</span> / <span class="text-white">Remove admin</span>, <span class="text-white">Ban</span> / <span class="text-white">Unban</span>. Double-tap also promotes.</p>
                 <ul id="dash-players-list" class="text-[11px] text-slate-300 max-h-[220px] overflow-y-auto space-y-1 font-mono"></ul>
                 <p id="dash-players-empty" class="text-[10px] text-slate-500 italic hidden">No accounts yet.</p>
                 <div id="dash-account-actions" class="hidden mt-2 flex flex-wrap gap-2 items-center">
                     <span id="dash-ban-target" class="text-[10px] text-slate-400 flex-1 min-w-[120px] truncate">—</span>
                     <button type="button" id="dash-promote-btn" class="bg-amber-700 hover:bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Make admin</button>
+                    <button type="button" id="dash-demote-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Remove admin</button>
                     <button type="button" id="dash-ban-btn" class="bg-red-800 hover:bg-red-700 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Ban forever</button>
                     <button type="button" id="dash-unban-btn" class="hidden bg-emerald-800 hover:bg-emerald-700 text-white text-[9px] font-black px-2 py-1 rounded interactive shrink-0">Unban</button>
                 </div>
@@ -2412,6 +2413,9 @@
             isOwner: false,
             isDashboardAdmin: false,
             isBanned: false,
+            accountStatusBaselineSet: false,
+            lastKnownBanned: false,
+            lastKnownDashboardAdmin: false,
             houseRobCooldowns: {},
             adminPresenceBroadcastDone: false,
             supabaseUserId: null,
@@ -4558,14 +4562,132 @@
             showBannedOverlay(message || 'Your account has been permanently banned. You cannot play online or start a game on this account.');
         }
 
-        async function checkBanStatusAsync() {
-            if (!supabase || !state.supabaseUserId || state.isBanned) return;
+        function applyUnbannedState(message) {
+            state.isBanned = false;
+            hideBannedOverlay();
+            state.gamePaused = false;
+            if (isSignInScreenVisible()) {
+                document.getElementById('sign-in-screen').style.display = 'none';
+                document.getElementById('lobby-screen').style.display = 'flex';
+            }
+            updateOwnerDashboardFabVisibility();
+            updateSignedInUI();
+            if (message) showAccountStatusNotice(message, 'unbanned');
+        }
+
+        function showAccountStatusNotice(text, kind) {
+            const t = String(text || '').trim();
+            if (!t) return;
+            showServerNoticeOverlay(t, { from: 'status', labelKind: kind || 'status' });
+            showMessage(t);
+        }
+
+        function accountStatusTargetsMe(payload) {
+            if (!payload) return false;
+            const myId = state.supabaseUserId;
+            const myName = normalizeUsername(state.profileUsername || state.playerName || '');
+            const targetUid = payload.targetUid || payload.user_id;
+            const targetUsername = normalizeUsername(payload.targetUsername || payload.username || '');
+            return (myId && targetUid && myId === targetUid)
+                || (myName && targetUsername && myName === targetUsername);
+        }
+
+        function handleAccountStatusPayload(payload) {
+            if (!payload || !payload.kind) return;
+            const kind = String(payload.kind);
+            const text = payload.text ? String(payload.text) : '';
+            if (kind === 'banned') {
+                const extra = payload.reason ? ` Reason: ${payload.reason}.` : '';
+                applyBannedState(text || `Your account has been permanently banned.${extra} You cannot play online or start a game on this account.`);
+                showAccountStatusNotice(text || 'Your account has been banned.', 'banned');
+                state.lastKnownBanned = true;
+                state.lastKnownDashboardAdmin = false;
+                return;
+            }
+            if (kind === 'unbanned') {
+                applyDashboardRoleFlags(state.profileUsername, false, null);
+                applyUnbannedState(text || 'Your account has been unbanned. You can sign in and play again.');
+                state.lastKnownBanned = false;
+                return;
+            }
+            if (kind === 'promoted_admin') {
+                applyDashboardRoleFlags(state.profileUsername, true, null);
+                showAccountStatusNotice(text || 'You have been promoted to admin! Open the owner dashboard from the lobby or in-game.', 'admin');
+                state.lastKnownDashboardAdmin = true;
+                return;
+            }
+            if (kind === 'demoted_admin') {
+                if (!state.isOwner) {
+                    state.isDashboardAdmin = false;
+                    updateOwnerDashboardFabVisibility();
+                    updateSignedInUI();
+                }
+                showAccountStatusNotice(text || 'Your admin access has been removed.', 'demoted');
+                state.lastKnownDashboardAdmin = !!state.isOwner;
+            }
+        }
+
+        async function notifyTargetAccountStatus(targetUsername, targetUid, kind, text, extra) {
+            if (!supabase) return;
             try {
-                const { data, error } = await supabase.from('users').select('banned_at, ban_reason').eq('id', state.supabaseUserId).maybeSingle();
-                if (!error && data && data.banned_at) {
+                await ensureGlobalServerNoticeSubscribedAsync();
+                if (!globalNoticeChannel) return;
+                await globalNoticeChannel.send({
+                    type: 'broadcast',
+                    event: 'account_status',
+                    payload: {
+                        kind,
+                        targetUsername: normalizeUsername(targetUsername),
+                        targetUid: targetUid || null,
+                        text: text || null,
+                        reason: extra && extra.reason ? String(extra.reason) : null
+                    }
+                });
+            } catch (_) {}
+        }
+
+        async function checkAccountStatusAsync() {
+            if (!supabase || !state.supabaseUserId) return;
+            try {
+                const { data, error } = await supabase.from('users').select('banned_at, ban_reason, is_admin, username').eq('id', state.supabaseUserId).maybeSingle();
+                if (error || !data) return;
+                const nowBanned = !!data.banned_at;
+                const nowAdmin = normalizeUsername(data.username) === OWNER_DASHBOARD_USERNAME || !!data.is_admin;
+
+                if (!state.accountStatusBaselineSet) {
+                    state.accountStatusBaselineSet = true;
+                    state.lastKnownBanned = nowBanned;
+                    state.lastKnownDashboardAdmin = nowAdmin;
+                    if (nowBanned) {
+                        const extra = data.ban_reason ? ` Reason: ${data.ban_reason}.` : '';
+                        applyBannedState(`Your account has been permanently banned.${extra} You cannot play online or start a game on this account.`);
+                    } else {
+                        applyDashboardRoleFlags(data.username, data.is_admin, null);
+                    }
+                    return;
+                }
+
+                if (nowBanned && !state.lastKnownBanned) {
                     const extra = data.ban_reason ? ` Reason: ${data.ban_reason}.` : '';
                     applyBannedState(`Your account has been permanently banned.${extra} You cannot play online or start a game on this account.`);
+                    showAccountStatusNotice('Your account has been banned.', 'banned');
+                } else if (!nowBanned && state.lastKnownBanned) {
+                    applyDashboardRoleFlags(data.username, data.is_admin, null);
+                    applyUnbannedState('Your account has been unbanned. You can play again.');
+                } else if (!nowBanned) {
+                    applyDashboardRoleFlags(data.username, data.is_admin, null);
                 }
+
+                if (!nowBanned) {
+                    if (nowAdmin && !state.lastKnownDashboardAdmin && !state.isOwner) {
+                        showAccountStatusNotice('You have been promoted to admin!', 'admin');
+                    } else if (!nowAdmin && state.lastKnownDashboardAdmin && !state.isOwner) {
+                        showAccountStatusNotice('Your admin access has been removed.', 'demoted');
+                    }
+                }
+
+                state.lastKnownBanned = nowBanned;
+                state.lastKnownDashboardAdmin = nowAdmin;
             } catch (_) {}
         }
 
@@ -4696,6 +4818,7 @@
         let dashPlayers24hList = [];
         let dashPlayersAllList = [];
         let dashSelectedBanUser = null;
+        let dashSelectedAccountRow = null;
         const dashUserTapState = {};
 
         function getDashSelectedAccountRow() {
@@ -4709,14 +4832,18 @@
             const actions = document.getElementById('dash-account-actions');
             const row = getDashSelectedAccountRow();
             const banned = !!(row && row.banned);
+            const isAdmin = !!(row && row.is_admin);
+            const isOwnerRow = !!(row && row.is_owner);
             if (hint) hint.classList.toggle('hidden', !isThomasOwner());
             if (actions) actions.classList.toggle('hidden', !isThomasOwner() || !dashSelectedBanUser);
             const banBtn = document.getElementById('dash-ban-btn');
             const unbanBtn = document.getElementById('dash-unban-btn');
             const promoteBtn = document.getElementById('dash-promote-btn');
+            const demoteBtn = document.getElementById('dash-demote-btn');
             if (banBtn) banBtn.classList.toggle('hidden', banned);
             if (unbanBtn) unbanBtn.classList.toggle('hidden', !banned);
-            if (promoteBtn) promoteBtn.classList.toggle('hidden', banned);
+            if (promoteBtn) promoteBtn.classList.toggle('hidden', banned || isAdmin || isOwnerRow);
+            if (demoteBtn) demoteBtn.classList.toggle('hidden', banned || !isAdmin || isOwnerRow);
         }
 
         function isOwnerDashboardOpen() {
@@ -4763,6 +4890,30 @@
                 return;
             }
             if (msg) msg.textContent = `✅ ${un} is now an admin!`;
+            void notifyTargetAccountStatus(un, data.user_id, 'promoted_admin', `${un}, you have been promoted to admin on Pixel City!`);
+            void refreshOwnerDashboardAnalytics();
+        }
+
+        async function adminDemoteSelectedUser() {
+            const msg = document.getElementById('dash-admin-action-msg');
+            if (!isThomasOwner() || !supabase || !dashSelectedBanUser) return;
+            const un = normalizeUsername(dashSelectedBanUser);
+            if (!un || un === OWNER_DASHBOARD_USERNAME) return;
+            if (!confirm(`Remove admin from ${un}?`)) return;
+            if (msg) msg.textContent = `Removing admin from ${un}…`;
+            const { data, error } = await supabase.rpc('admin_demote_user', {
+                p_user_id: state.supabaseUserId,
+                p_target_username: un
+            });
+            if (error || !data || !data.ok) {
+                if (msg) msg.textContent = (data && data.error) || error?.message || 'Demote failed.';
+                return;
+            }
+            dashSelectedBanUser = null;
+            dashSelectedAccountRow = null;
+            syncDashboardOwnerControls();
+            if (msg) msg.textContent = `✅ ${un} is no longer an admin.`;
+            void notifyTargetAccountStatus(un, data.user_id, 'demoted_admin', `${un}, your admin access on Pixel City has been removed.`);
             void refreshOwnerDashboardAnalytics();
         }
 
@@ -4783,8 +4934,10 @@
                 return;
             }
             dashSelectedBanUser = null;
+            dashSelectedAccountRow = null;
             syncDashboardOwnerControls();
             if (msg) msg.textContent = `🚫 ${un} banned permanently.`;
+            void notifyTargetAccountStatus(un, data.user_id, 'banned', `${un}, your account has been permanently banned.`, { reason: 'Banned by Thomas' });
             void refreshOwnerDashboardAnalytics();
         }
 
@@ -4804,8 +4957,10 @@
                 return;
             }
             dashSelectedBanUser = null;
+            dashSelectedAccountRow = null;
             syncDashboardOwnerControls();
             if (msg) msg.textContent = `✅ ${un} unbanned.`;
+            void notifyTargetAccountStatus(un, data.user_id, 'unbanned', `${un}, your account has been unbanned. You can play again!`);
             void refreshOwnerDashboardAnalytics();
         }
 
@@ -4815,6 +4970,7 @@
             if (isThomasOwner()) {
                 if (row && row.is_owner) return;
                 dashSelectedBanUser = un;
+                dashSelectedAccountRow = row || null;
                 const target = document.getElementById('dash-ban-target');
                 if (target) target.textContent = un;
                 syncDashboardOwnerControls();
@@ -5793,8 +5949,17 @@
             if (!ov || !tx) return;
             const fromDev = opts && (opts.from === 'owner' || opts.labelKind === 'dev');
             const fromAdmin = opts && opts.from === 'admin';
-            if (lab) lab.textContent = fromDev ? 'Message from the dev' : fromAdmin ? 'Server admin' : 'Message from the server';
-            ov.setAttribute('aria-label', fromDev ? 'Message from the dev' : fromAdmin ? 'Server admin message' : 'Server message');
+            const lk = opts && opts.labelKind;
+            let labelText = 'Message from the server';
+            if (fromDev) labelText = 'Message from the dev';
+            else if (lk === 'banned') labelText = 'Account banned';
+            else if (lk === 'unbanned') labelText = 'Account unbanned';
+            else if (lk === 'admin') labelText = 'Admin access granted';
+            else if (lk === 'demoted') labelText = 'Admin access removed';
+            else if (fromAdmin) labelText = 'Server admin';
+            else if (opts && opts.from === 'status') labelText = 'Account update';
+            if (lab) lab.textContent = labelText;
+            ov.setAttribute('aria-label', labelText);
             tx.textContent = t;
             ov.classList.add('open');
             ov.setAttribute('aria-hidden', 'false');
@@ -5818,6 +5983,10 @@
                         if (!payload || payload.text == null) return;
                         const s = String(payload.text).slice(0, GLOBAL_SERVER_NOTICE_MAX);
                         if (s) showServerNoticeOverlay(s, { from: payload.from });
+                    });
+                    ch.on('broadcast', { event: 'account_status' }, ({ payload }) => {
+                        if (!accountStatusTargetsMe(payload)) return;
+                        handleAccountStatusPayload(payload);
                     });
                     ch.on('broadcast', { event: 'owner_game_event' }, ({ payload }) => {
                         applyOwnerGameEventPayload(payload || {});
@@ -10760,6 +10929,9 @@
             state.profileUsername = '';
             state.playerName = '';
             state.isBanned = false;
+            state.accountStatusBaselineSet = false;
+            state.lastKnownBanned = false;
+            state.lastKnownDashboardAdmin = false;
             state.adminPresenceBroadcastDone = false;
             state.multiplayerIntendsHost = true;
             hideBannedOverlay();
@@ -10826,7 +10998,7 @@
             if (!state.supabaseUserId) return;
             if (presenceInterval) clearInterval(presenceInterval);
             presenceInterval = setInterval(async () => {
-                await checkBanStatusAsync();
+                await checkAccountStatusAsync();
                 if (state.isBanned) return;
                 await upsertMyPresence();
                 await refreshFriendPresence();
@@ -13339,6 +13511,14 @@
                 }
                 applyDashboardRoleFlags(username, ex.is_admin, null);
                 saveSession(userId, username);
+                state.accountStatusBaselineSet = true;
+                state.lastKnownBanned = false;
+                state.lastKnownDashboardAdmin = state.isDashboardAdmin;
+                if (state.isDashboardAdmin && !state.isOwner) {
+                    showAccountStatusNotice('You are signed in as an admin. Use the 📊 owner dashboard from the lobby or in-game.', 'admin');
+                } else if (state.isOwner) {
+                    showAccountStatusNotice('Signed in as owner (thomas). Owner dashboard and broadcasts are available.', 'admin');
+                }
                 recomputeIsAdmin();
                 startPresenceLoop();
                 if (didCreateAccount) persistCharacterType();
@@ -13606,6 +13786,7 @@
             });
             document.getElementById('dash-ban-btn')?.addEventListener('click', () => { void adminBanSelectedUser(); });
             document.getElementById('dash-unban-btn')?.addEventListener('click', () => { void adminUnbanSelectedUser(); });
+            document.getElementById('dash-demote-btn')?.addEventListener('click', () => { void adminDemoteSelectedUser(); });
             document.getElementById('banned-account-signout')?.addEventListener('click', () => {
                 hideBannedOverlay();
                 teardownOnlineRealtime();
