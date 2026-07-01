@@ -9,6 +9,13 @@ import path from 'path';
 const htmlPath = process.argv[2] || '_site/index.html';
 const marker = '<!--SUPABASE_BUILD_INJECT-->';
 
+/** Legacy GitHub Pages secrets pointed here — missing newer RPCs and breaks Play online. */
+const DEPRECATED_PROJECT_REFS = ['kmzyxujxdhxblvwbxfvq'];
+
+function isDeprecatedSupabaseUrl(u) {
+    return !!(u && DEPRECATED_PROJECT_REFS.some((ref) => u.includes(ref)));
+}
+
 let url = (
     process.env.VITE_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
@@ -23,6 +30,12 @@ let key = (
     process.env.SUPABASE_ANON_KEY ||
     ''
 ).trim();
+
+if (isDeprecatedSupabaseUrl(url)) {
+    console.warn('inject-supabase-inline: ignoring deprecated Supabase URL from env');
+    url = '';
+    key = '';
+}
 
 // Fall back to the baked-in supabase-config.js when env vars are absent
 if (!url || !key) {

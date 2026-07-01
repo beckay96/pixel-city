@@ -15,8 +15,8 @@
     <meta name="twitter:title" content="Pixel City Evolution 1">
     <meta name="twitter:description" content="Multiplayer low‑res city game at pixelcity.quest">
     <link rel="stylesheet" href="assets/tailwind.css">
-    <script src="supabase-config.js"></script>
     <!--SUPABASE_BUILD_INJECT-->
+    <script src="supabase-config.js"></script>
     <script src="config.js"></script>
     <style>
         html {
@@ -6474,6 +6474,8 @@
         }
 
         function getSupabaseConfig() {
+            const DEPRECATED_PROJECT_REFS = ['kmzyxujxdhxblvwbxfvq'];
+            const isDeprecatedUrl = (u) => !!(u && DEPRECATED_PROJECT_REFS.some((ref) => u.includes(ref)));
             let url = typeof window.__SUPABASE_URL__ === 'string' ? window.__SUPABASE_URL__.trim() : '';
             const keyPub = typeof window.__SUPABASE_PUBLISHABLE_KEY__ === 'string' ? window.__SUPABASE_PUBLISHABLE_KEY__.trim() : '';
             const keyLegacy = typeof window.__SUPABASE_ANON_KEY__ === 'string' ? window.__SUPABASE_ANON_KEY__.trim() : '';
@@ -6484,6 +6486,11 @@
                 if (lo && String(lo).trim()) url = String(lo).trim();
                 if (lk && String(lk).trim()) key = String(lk).trim();
             } catch (_) { /* private mode */ }
+            if (isDeprecatedUrl(url)) {
+                pcDebug('warn', 'supabase_deprecated_url_ignored', { host: pcDebugSanitizeUrl(url) });
+                url = '';
+                key = '';
+            }
             return { url, key, ok: !!(url && key) };
         }
 
@@ -14801,7 +14808,120 @@
             initCreatorStudioBarUI();
         }
 
+        async function bindAuthControlsEarly() {
+            const signInMsg = document.getElementById('sign-in-msg');
+            const userInput = document.getElementById('auth-username-input');
+            const passInput = document.getElementById('auth-password-input');
+            if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
+            const clearSignInMsg = () => { if (signInMsg) signInMsg.textContent = ''; };
+            userInput?.addEventListener('input', clearSignInMsg);
+            passInput?.addEventListener('input', clearSignInMsg);
+            document.getElementById('auth-signin-btn')?.addEventListener('click', () => runPlayOnlineSignIn(signInMsg, userInput, passInput));
+            passInput?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void runPlayOnlineSignIn(signInMsg, userInput, passInput);
+                }
+            });
+            document.getElementById('auth-guest-btn')?.addEventListener('click', () => {
+                pendingJoinCodeFromUrl = null;
+                state.playerName = 'Guest';
+                state.profileUsername = '';
+                state.supabaseUserId = null;
+                state.isOwner = false;
+                state.isDashboardAdmin = false;
+                state.playMode = 'solo';
+                state.playerMode = 1;
+                state.worldSeed = null;
+                teardownOnlineRealtime();
+                clearSession();
+                persistCharacterType();
+                if (signInMsg) signInMsg.textContent = '';
+                showLobbyFromSignIn();
+                applyModeButtonStyles();
+                updateLobbyHints();
+                document.getElementById('online-invite-block')?.classList.add('hidden');
+                updateOwnerDashboardFabVisibility();
+            });
+        }
+
+        async function runPlayOnlineSignIn(signInMsg, userInput, passInput) {
+            const username = normalizeUsername(userInput && userInput.value);
+            const password = passInput ? passInput.value : '';
+            if (!username || username.length < 3) { if (signInMsg) signInMsg.textContent = 'Username must be at least 3 characters.'; return; }
+            if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be at least 6 characters.'; return; }
+            if (!supabase) {
+                if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage();
+                document.getElementById('supabase-config-hint')?.classList.remove('hidden');
+                return;
+            }
+            const btn = document.getElementById('auth-signin-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+            try {
+                let r = await supabaseRpcRetryOnceOnNetwork(
+                    () => supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password }),
+                    'auth_signin'
+                );
+                if (r.error) { pcDebug('error', 'auth_signin_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
+                const signinData = r.data || {};
+                if (!signinData.ok && signinData.error === 'User not found') {
+                    if (btn) btn.textContent = 'Creating account…';
+                    r = await supabaseRpcRetryOnceOnNetwork(
+                        () => supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password }),
+                        'auth_signup'
+                    );
+                    if (r.error) { pcDebug('error', 'auth_signup_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
+                    const signupData = r.data || {};
+                    if (!signupData.ok) { pcDebug('warn', 'auth_signup_rejected', { error: signupData.error }); if (signInMsg) signInMsg.textContent = signupData.error || 'Could not create account.'; return; }
+                    await completePlayOnlineAuth(signupData.user_id, signupData.username, true, signupData, signInMsg);
+                    return;
+                }
+                if (!signinData.ok) {
+                    pcDebug('warn', 'auth_signin_rejected', { error: signinData.error });
+                    if (signInMsg) signInMsg.textContent = signinData.error === 'Account banned permanently'
+                        ? 'This account has been banned permanently.'
+                        : (signinData.error || 'Sign-in failed.');
+                    return;
+                }
+                await completePlayOnlineAuth(signinData.user_id, signinData.username, false, signinData, signInMsg);
+            } catch (e) {
+                pcDebug('error', 'auth_signin_exception', { message: String(e && e.message) });
+                if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Play online'; }
+            }
+        }
+
+        async function completePlayOnlineAuth(userId, username, didCreateAccount, authExtra, signInMsg) {
+            state.supabaseUserId = userId;
+            state.profileUsername = username;
+            state.playerName = username;
+            const ex = authExtra || {};
+            if (ex.banned || ex.banned_at) {
+                applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
+                return;
+            }
+            applyDashboardRoleFlags(username, ex.is_admin, null);
+            saveSession(userId, username);
+            state.accountStatusBaselineSet = true;
+            state.lastKnownBanned = false;
+            state.lastKnownDashboardAdmin = state.isDashboardAdmin;
+            recomputeIsAdmin();
+            startPresenceLoop();
+            if (didCreateAccount) persistCharacterType();
+            if (signInMsg) signInMsg.textContent = '';
+            const netMsgEl = document.getElementById('friends-network-msg');
+            if (netMsgEl) netMsgEl.classList.add('hidden');
+            showLobbyFromSignIn();
+            tryApplyPendingJoinFromUrl();
+            loadMyProfile();
+            ensureGlobalServerNoticeSubscribed();
+            updateOwnerDashboardFabVisibility();
+            void maybeBroadcastAdminPresence();
+        }
+
         async function startApp() {
+            bindAuthControlsEarly();
             state.hideSeekPaint = loadHideSeekPaintFromStorage();
             state.lobbyStatsUnlocked = getLobbyStatsUnlockedFromStorage();
             initSchoolSafeMode();
@@ -14876,17 +14996,8 @@
                 closeTutorialWelcomeOverlay();
             });
 
-            const signInMsg = document.getElementById('sign-in-msg');
-            const userInput = document.getElementById('auth-username-input');
-            const passInput = document.getElementById('auth-password-input');
-
-            if (userInput && localStorage.getItem(LS_LAST_USER)) userInput.value = localStorage.getItem(LS_LAST_USER);
-
-            const clearSignInMsg = () => { if (signInMsg) signInMsg.textContent = ''; };
-            if (userInput) userInput.addEventListener('input', clearSignInMsg);
-            if (passInput) passInput.addEventListener('input', clearSignInMsg);
-
             const passToggleBtn = document.getElementById('auth-password-toggle');
+            const passInput = document.getElementById('auth-password-input');
             if (passToggleBtn && passInput) {
                 passToggleBtn.addEventListener('click', () => {
                     const isHidden = passInput.type === 'password';
@@ -14896,95 +15007,6 @@
                     passToggleBtn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
                 });
             }
-
-            const finishAuth = (userId, username, didCreateAccount, authExtra) => {
-                state.supabaseUserId = userId;
-                state.profileUsername = username;
-                state.playerName = username;
-                const ex = authExtra || {};
-                if (ex.banned || ex.banned_at) {
-                    applyBannedState('Your account has been permanently banned. You cannot play online or start a game on this account.');
-                    return;
-                }
-                applyDashboardRoleFlags(username, ex.is_admin, null);
-                saveSession(userId, username);
-                state.accountStatusBaselineSet = true;
-                state.lastKnownBanned = false;
-                state.lastKnownDashboardAdmin = state.isDashboardAdmin;
-                recomputeIsAdmin();
-                startPresenceLoop();
-                if (didCreateAccount) persistCharacterType();
-                if (signInMsg) signInMsg.textContent = '';
-                const netMsgEl = document.getElementById('friends-network-msg');
-                if (netMsgEl) netMsgEl.classList.add('hidden');
-                showLobbyFromSignIn();
-                tryApplyPendingJoinFromUrl();
-                loadMyProfile();
-                ensureGlobalServerNoticeSubscribed();
-                updateOwnerDashboardFabVisibility();
-                void maybeBroadcastAdminPresence();
-            };
-
-            document.getElementById('auth-signin-btn').onclick = async () => {
-                const username = normalizeUsername(userInput && userInput.value);
-                const password = passInput ? passInput.value : '';
-                if (!username || username.length < 3) { if (signInMsg) signInMsg.textContent = 'Username must be at least 3 characters.'; return; }
-                if (!password || password.length < 6) { if (signInMsg) signInMsg.textContent = 'Password must be at least 6 characters.'; return; }
-                if (!supabase) { if (signInMsg) signInMsg.textContent = serverNotConfiguredUserMessage(); return; }
-                const btn = document.getElementById('auth-signin-btn');
-                if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
-                let didCreateAccount = false;
-                try {
-                    let r = await supabaseRpcRetryOnceOnNetwork(
-                        () => supabase.rpc('user_signin', { p_gateway: 'feluga', p_username: username, p_password: password }),
-                        'auth_signin'
-                    );
-                    if (r.error) { pcDebug('error', 'auth_signin_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
-                    if (!r.data.ok && r.data.error === 'User not found') {
-                        if (btn) btn.textContent = 'Creating account…';
-                        r = await supabaseRpcRetryOnceOnNetwork(
-                            () => supabase.rpc('user_signup', { p_gateway: 'feluga', p_username: username, p_password: password }),
-                            'auth_signup'
-                        );
-                        if (r.error) { pcDebug('error', 'auth_signup_rpc_failed', { message: r.error.message, code: r.error.code }); if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(r.error); return; }
-                        if (!r.data.ok) { pcDebug('warn', 'auth_signup_rejected', { error: r.data.error }); if (signInMsg) signInMsg.textContent = r.data.error || 'Could not create account.'; return; }
-                        didCreateAccount = true;
-                    } else if (!r.data.ok) {
-                        pcDebug('warn', 'auth_signin_rejected', { error: r.data.error });
-                        if (signInMsg) signInMsg.textContent = r.data.error === 'Account banned permanently'
-                            ? 'This account has been banned permanently.'
-                            : (r.data.error || 'Sign-in failed.');
-                        return;
-                    }
-                    finishAuth(r.data.user_id, r.data.username, didCreateAccount, r.data);
-                } catch (e) {
-                    pcDebug('error', 'auth_signin_exception', { message: String(e && e.message) });
-                    if (signInMsg) signInMsg.textContent = formatSupabaseNetworkError(e);
-                } finally {
-                    if (btn) { btn.disabled = false; btn.textContent = 'Play online'; }
-                }
-            };
-
-            document.getElementById('auth-guest-btn').onclick = () => {
-                pendingJoinCodeFromUrl = null;
-                state.playerName = 'Guest';
-                state.profileUsername = '';
-                state.supabaseUserId = null;
-                state.isOwner = false;
-                state.isDashboardAdmin = false;
-                state.playMode = 'solo';
-                state.playerMode = 1;
-                state.worldSeed = null;
-                teardownOnlineRealtime();
-                clearSession();
-                persistCharacterType();
-                if (signInMsg) signInMsg.textContent = '';
-                showLobbyFromSignIn();
-                applyModeButtonStyles();
-                updateLobbyHints();
-                document.getElementById('online-invite-block')?.classList.add('hidden');
-                updateOwnerDashboardFabVisibility();
-            };
 
             document.getElementById('lobby-signout-btn')?.addEventListener('click', () => {
                 teardownOnlineRealtime();
@@ -15855,7 +15877,10 @@
             syncPhoneCreatorAppsVisibility();
             updateSignedInUI();
         }
-        startApp();
+        startApp().catch((e) => {
+            console.error('[PixelCity] startApp failed:', e);
+            pcDebug('error', 'start_app_failed', { message: String(e && e.message) });
+        });
     </script>
 </body>
 </html>
