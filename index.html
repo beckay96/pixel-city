@@ -204,6 +204,42 @@
         }
         /* School-safe hook: [data-school-safe="1"] { ... } for future CSS */
 
+        #ingame-stats-hud {
+            pointer-events: none;
+        }
+        #ingame-stats-hud .interactive {
+            pointer-events: auto;
+        }
+
+        #ingame-menu-btn {
+            position: fixed;
+            top: max(12px, env(safe-area-inset-top, 0px));
+            right: max(12px, env(safe-area-inset-right, 0px));
+            z-index: 1180;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0 10px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, #475569, #1e293b);
+            border: 3px solid rgba(148, 163, 184, 0.75);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+            color: #e2e8f0;
+            font-weight: 900;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            cursor: pointer;
+            pointer-events: auto;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        #ingame-menu-btn:active { transform: scale(0.97); }
+        #ingame-menu-btn.creator-studio-offset {
+            top: calc(max(6px, env(safe-area-inset-top, 0px)) + 52px);
+        }
+
         #in-game-phone-btn {
             position: fixed;
             bottom: 16px;
@@ -1123,7 +1159,7 @@
 
     <!-- In-game progress/server menu overlay -->
     <div id="ingame-menu-overlay" class="hidden fixed inset-0 bg-black/80 z-[450] flex items-center justify-center p-4 pointer-events-auto">
-        <div class="bg-slate-900 border-2 border-slate-600 rounded-2xl p-5 w-full max-w-xs text-white shadow-2xl space-y-3">
+        <div class="bg-slate-900 border-2 border-slate-600 rounded-2xl p-5 w-full max-w-xs max-h-[min(88dvh,calc(100vh-2rem))] overflow-y-auto text-white shadow-2xl space-y-3">
             <div class="flex items-center justify-between mb-1">
                 <h2 class="text-lg font-black text-white uppercase tracking-widest">⚙️ Menu</h2>
                 <button type="button" id="ingame-menu-close" class="text-slate-400 hover:text-white text-2xl leading-none interactive">×</button>
@@ -1202,8 +1238,6 @@
     </div>
 
     <div id="ui-layer">
-        <!-- Single menu/world button replaces old exit + gear buttons -->
-        <button type="button" id="ingame-menu-btn" style="display:none" class="fixed top-4 right-4 z-[350] pointer-events-auto bg-slate-800/95 hover:bg-slate-700 border border-slate-500 text-slate-100 text-xl leading-none w-11 h-11 rounded-xl shadow-lg interactive flex items-center justify-center" title="Menu / Leave">🌍</button>
         <!-- Keep exit btn in DOM for JS compat but hidden always -->
         <button type="button" id="exit-to-lobby-btn" style="display:none" class="hidden"></button>
         <div id="session-code-badge" class="hidden fixed top-4 left-4 bg-cyan-900/90 border border-cyan-500 px-3 py-2 rounded-lg z-[300] pointer-events-auto cursor-pointer" title="Click to copy invite link">
@@ -1908,6 +1942,8 @@
             <button type="button" id="hideseek-paint-close" class="w-full bg-slate-700 py-2 rounded-lg font-bold text-sm">Done</button>
         </div>
     </div>
+
+    <button type="button" id="ingame-menu-btn" class="interactive" title="Settings &amp; menu" aria-label="Open settings and menu">⚙ Settings</button>
 
     <button type="button" id="owner-dashboard-fab" class="interactive" title="Owner dashboard" aria-label="Open owner dashboard">📊</button>
 
@@ -6258,6 +6294,19 @@
             return 1;
         }
 
+        function applySettingsToggleUI(btnId, isOn) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.setAttribute('aria-checked', isOn ? 'true' : 'false');
+            btn.classList.toggle('bg-emerald-600', isOn);
+            btn.classList.toggle('border-emerald-400', isOn);
+            btn.classList.toggle('bg-slate-700', !isOn);
+            btn.classList.toggle('border-slate-500', !isOn);
+            const dot = btn.querySelector('span');
+            if (dot) dot.style.transform = isOn ? 'translateX(1.5rem)' : 'translateX(0)';
+            if (dot) dot.style.background = isOn ? '#fff' : '#94a3b8';
+        }
+
         function updateHideSeekMenuUI() {
             const block = document.getElementById('menu-hideseek-settings');
             const mpHint = document.getElementById('menu-hideseek-mp-hint');
@@ -9831,11 +9880,13 @@
             const bar = document.getElementById('creator-studio-bar');
             const ui = document.getElementById('ui-layer');
             const stats = document.getElementById('ingame-stats-hud');
+            const menuBtn = document.getElementById('ingame-menu-btn');
             const labBtn = document.getElementById('studio-creator-lab-btn');
             const modsBtn = document.getElementById('studio-creator-mods-btn');
             const comBtn = document.getElementById('studio-creator-community-btn');
             const cGame = isCreatorModeOn() && isInGame();
             if (ui) ui.classList.toggle('creator-studio-open', cGame);
+            if (menuBtn) menuBtn.classList.toggle('creator-studio-offset', cGame);
             if (bar) bar.classList.toggle('hidden', !cGame);
             if (stats) {
                 stats.classList.toggle('creator-hud-fixed', cGame);
@@ -13403,7 +13454,8 @@
                     const total = 1 + Object.keys(state.remotePlayers).length;
                     countEl.textContent = `${total}/10 players`;
                 }
-                if (isOwnerDashboardOpen() || document.getElementById('ingame-menu-overlay')?.classList.contains('open')) {
+                const menuOpen = document.getElementById('ingame-menu-overlay');
+                if (isOwnerDashboardOpen() || (menuOpen && !menuOpen.classList.contains('hidden'))) {
                     updateHideSeekMenuUI();
                 }
             }
@@ -14087,7 +14139,7 @@
             const b = document.getElementById('in-game-phone-btn');
             if (b) b.style.display = show ? 'flex' : 'none';
             const mb = document.getElementById('ingame-menu-btn');
-            if (mb) mb.style.display = show ? 'flex' : 'none';
+            if (mb) mb.style.display = show ? 'inline-flex' : 'none';
             if (show) populateIngameMenuCreatorBlueprints();
             syncPhoneCreatorAppsVisibility();
             updateOwnerDashboardFabVisibility();
@@ -15434,19 +15486,6 @@
             });
 
             // Session settings toggles
-            function applySettingsToggleUI(btnId, isOn) {
-                const btn = document.getElementById(btnId);
-                if (!btn) return;
-                btn.setAttribute('aria-checked', isOn ? 'true' : 'false');
-                btn.classList.toggle('bg-emerald-600', isOn);
-                btn.classList.toggle('border-emerald-400', isOn);
-                btn.classList.toggle('bg-slate-700', !isOn);
-                btn.classList.toggle('border-slate-500', !isOn);
-                const dot = btn.querySelector('span');
-                if (dot) dot.style.transform = isOn ? 'translateX(1.5rem)' : 'translateX(0)';
-                if (dot) dot.style.background = isOn ? '#fff' : '#94a3b8';
-            }
-
             window.updateSessionSettingsUI = function() {
                 const block = document.getElementById('menu-session-settings-block');
                 const hostOnly = document.getElementById('menu-settings-host-only');
