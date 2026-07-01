@@ -1169,6 +1169,28 @@
                     </button>
                 </label>
                 <p class="text-[8px] text-slate-500 -mt-1">When ON — friends cannot hurt each other with weapons (PvP off).</p>
+
+                <div id="menu-hideseek-settings" class="hidden border-t border-emerald-700/50 pt-3 space-y-2">
+                    <p class="text-[10px] font-black text-emerald-300 uppercase tracking-widest">🙈 Hide &amp; Seek</p>
+                    <p id="menu-hideseek-mp-hint" class="text-[8px] text-slate-500 leading-snug">Needs multiplayer with at least 2 players in this world.</p>
+                    <label class="flex items-center justify-between gap-3 cursor-pointer interactive">
+                        <span class="text-[11px] text-slate-200 font-bold">Hide &amp; Seek mode</span>
+                        <button type="button" id="menu-toggle-hideseek" class="w-12 h-6 rounded-full bg-slate-700 border border-slate-500 relative transition-colors interactive" role="switch" aria-checked="false">
+                            <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-slate-400 transition-transform duration-150"></span>
+                        </button>
+                    </label>
+                    <div id="menu-hideseek-host-controls" class="hidden space-y-2">
+                        <label class="block">
+                            <span class="text-[10px] text-slate-300 font-bold">Seekers: <span id="menu-hideseek-seeker-val">1</span></span>
+                            <input type="range" id="menu-hideseek-seeker-count" min="1" max="1" value="1" class="w-full interactive" />
+                            <p class="text-[8px] text-slate-500">At least one player must stay a hider.</p>
+                        </label>
+                        <button type="button" id="menu-hideseek-paint-btn" class="w-full bg-cyan-800 hover:bg-cyan-700 text-white text-[10px] font-black py-2 rounded-lg interactive">🎨 Paint your character</button>
+                        <button type="button" id="menu-hideseek-start-btn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-black py-2 rounded-lg interactive">🎡 Spin wheel &amp; start round</button>
+                        <button type="button" id="menu-hideseek-stop-btn" class="hidden w-full bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-black py-2 rounded-lg interactive">Stop Hide &amp; Seek</button>
+                    </div>
+                    <p id="menu-hideseek-role-hint" class="text-[9px] text-emerald-400 min-h-[1rem]"></p>
+                </div>
             </div>
 
             <!-- Delete progress (triple confirm) -->
@@ -1855,6 +1877,38 @@
         <p id="race-hud-hint" class="text-[9px] text-slate-500 text-center mt-2">Hold W or ↑ to accelerate · avoid orange cones (speed race)</p>
     </div>
 
+    <div id="hideseek-hud-overlay" class="interactive pointer-events-none hidden fixed left-1/2 top-20 -translate-x-1/2 z-[85] w-[min(92vw,360px)] bg-slate-950/92 border-2 border-emerald-500 rounded-xl p-3 shadow-2xl text-white">
+        <p id="hideseek-hud-title" class="text-center font-black text-emerald-300 text-sm uppercase tracking-widest">Hide &amp; Seek</p>
+        <p id="hideseek-hud-role" class="text-center text-[11px] font-bold text-white mb-1">—</p>
+        <p id="hideseek-hud-timer" class="text-center font-black text-amber-300 text-2xl tabular-nums">2:00</p>
+        <p id="hideseek-hud-status" class="text-[10px] text-slate-300 text-center mt-1">Hiders left: —</p>
+        <p id="hideseek-hud-hint" class="text-[9px] text-slate-500 text-center mt-2">Seekers: speed boost · touch a hider to tag them · hiders hidden on seeker map</p>
+    </div>
+
+    <div id="hideseek-wheel-overlay" class="fixed inset-0 z-[480] hidden items-center justify-center bg-black/85 interactive p-4">
+        <div class="w-full max-w-sm bg-slate-900 border-2 border-emerald-500 rounded-2xl p-5 shadow-2xl text-center text-white">
+            <p class="text-[10px] font-black text-emerald-300 uppercase tracking-widest mb-2">Role wheel</p>
+            <div id="hideseek-wheel-name" class="text-3xl font-black text-white mb-3 min-h-[2.5rem]">…</div>
+            <div id="hideseek-wheel-spinner" class="mx-auto w-32 h-32 rounded-full border-4 border-emerald-400 border-t-amber-400 animate-spin mb-3"></div>
+            <p id="hideseek-wheel-result" class="text-lg font-bold text-amber-300 min-h-[1.5rem]"></p>
+        </div>
+    </div>
+
+    <div id="hideseek-paint-modal" class="fixed inset-0 bg-slate-950/95 hidden flex-col items-center justify-center z-[410] interactive text-white p-4">
+        <div class="w-full max-w-sm bg-slate-900 border-2 border-emerald-500 rounded-2xl p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-black text-emerald-400 text-center mb-1 uppercase">Paint your dot</h2>
+            <p class="text-[10px] text-slate-400 text-center mb-3">8×8 pixels — only shows in Hide &amp; Seek mode.</p>
+            <canvas id="hideseek-paint-canvas" width="160" height="160" class="mx-auto block border-2 border-slate-600 rounded-lg cursor-crosshair bg-slate-950 mb-2"></canvas>
+            <div class="flex gap-2 items-center mb-2">
+                <input type="color" id="hideseek-paint-color" value="#22c55e" class="h-10 w-14 cursor-pointer interactive rounded border border-slate-600" />
+                <button type="button" id="hideseek-paint-clear" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-bold text-xs">Clear</button>
+                <button type="button" id="hideseek-paint-fill" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-bold text-xs">Fill all</button>
+            </div>
+            <button type="button" id="hideseek-paint-save" class="w-full bg-emerald-700 hover:bg-emerald-600 py-2 rounded-lg font-bold text-sm mb-2">Save paint</button>
+            <button type="button" id="hideseek-paint-close" class="w-full bg-slate-700 py-2 rounded-lg font-bold text-sm">Done</button>
+        </div>
+    </div>
+
     <button type="button" id="owner-dashboard-fab" class="interactive" title="Owner dashboard" aria-label="Open owner dashboard">📊</button>
 
     <div id="owner-dashboard-overlay" class="interactive text-white">
@@ -2079,6 +2133,14 @@
         const HOSPITAL_ADMIT_COST = 8000;
         const BLEED_OUT_FRAMES = 30 * 60;
         const REVIVE_RANGE = 90;
+        const HIDE_SEEK_ROUND_MS = 120000;
+        const HIDE_SEEK_LOBBY_MS = 30000;
+        const HIDE_SEEK_WHEEL_MS = 3800;
+        const HIDE_SEEK_HEADSTART_MS = 8000;
+        const HIDE_SEEK_SEEKER_SPEED_MULT = 1.75;
+        const HIDE_SEEK_TAG_RADIUS = 58;
+        const HIDE_SEEK_PAINT_SIZE = 8;
+        const LS_HIDESEEK_PAINT = 'pixelcity_hideseek_paint';
         const CARRY_OFFSET = 38;
         const BITE_DMG = 12;
         const WEP_DMG_STUN = 18;
@@ -2517,7 +2579,7 @@
             /** 0 | 1 — which player HUD loadout/inventory modals refer to */
             hudModalPlayerIdx: 0,
             /** friendlyFireOff: when true, PvP weapon hits do not damage remote players (host toggles in menu). */
-            sessionSettings: { infiniteRevive: false, friendlyFireOff: false },
+            sessionSettings: { infiniteRevive: false, friendlyFireOff: false, hideSeekEnabled: false, hideSeekSeekerCount: 1 },
             /** Creator app: calm test — clears wanted/police each frame while on */
             creatorPlaytest: false,
             /** In-game + Creator mode: wallet/health HUD hidden until player opens the run-stats tab */
@@ -2569,7 +2631,11 @@
             vaultArrestOwe: 0,
             jailVaultChoiceMode: false,
             /** Session race (Thomas host): speed = own car stats; fair = equal car for all */
-            race: null
+            race: null,
+            /** Multiplayer Hide & Seek minigame */
+            hideSeek: null,
+            /** 8×8 hex colors for hide-and-seek avatar paint (local) */
+            hideSeekPaint: null
         };
 
         function getSchoolSafeParamFromUrl() {
@@ -5796,6 +5862,531 @@
             return { ok: true };
         }
 
+        function getOnlinePlayerCount() {
+            return 1 + Object.keys(state.remotePlayers || {}).length;
+        }
+
+        function getHideSeekSlots() {
+            const slots = [{ uid: state.supabaseUserId, username: state.profileUsername || state.playerName || 'You' }];
+            Object.keys(state.remotePlayers || {}).forEach(uid => {
+                const rp = state.remotePlayers[uid];
+                slots.push({ uid, username: rp.username || 'Player' });
+            });
+            return slots.filter(s => s.uid);
+        }
+
+        function loadHideSeekPaintFromStorage() {
+            try {
+                const raw = localStorage.getItem(LS_HIDESEEK_PAINT);
+                if (!raw) return null;
+                const arr = JSON.parse(raw);
+                if (!Array.isArray(arr) || arr.length !== HIDE_SEEK_PAINT_SIZE * HIDE_SEEK_PAINT_SIZE) return null;
+                return arr.map(c => (typeof c === 'string' && c) ? c : null);
+            } catch (_) { return null; }
+        }
+
+        function saveHideSeekPaintToStorage(grid) {
+            try {
+                localStorage.setItem(LS_HIDESEEK_PAINT, JSON.stringify(grid));
+            } catch (_) { /* */ }
+        }
+
+        function serializeHideSeekPaint(grid) {
+            if (!grid || !Array.isArray(grid)) return '';
+            return grid.map(c => (c && typeof c === 'string') ? c.replace(/^#/, '') : '').join(',');
+        }
+
+        function parseHideSeekPaint(str) {
+            if (!str || typeof str !== 'string') return null;
+            const parts = str.split(',');
+            if (parts.length !== HIDE_SEEK_PAINT_SIZE * HIDE_SEEK_PAINT_SIZE) return null;
+            return parts.map(p => {
+                const h = (p || '').trim();
+                if (!h) return null;
+                return h.startsWith('#') ? h : `#${h}`;
+            });
+        }
+
+        function hasHideSeekPaint(grid) {
+            return !!(grid && Array.isArray(grid) && grid.some(c => c));
+        }
+
+        function isHideSeekModeEnabled() {
+            return !!(state.sessionSettings && state.sessionSettings.hideSeekEnabled);
+        }
+
+        function isHideSeekRoundActive() {
+            const hs = state.hideSeek;
+            return !!(hs && hs.active && hs.phase && hs.phase !== 'off' && hs.phase !== 'intermission');
+        }
+
+        function getMyHideSeekRole() {
+            const hs = state.hideSeek;
+            if (!hs || !hs.roles || !state.supabaseUserId) return null;
+            return hs.roles[state.supabaseUserId] || null;
+        }
+
+        function getHideSeekRoleForUid(uid) {
+            const hs = state.hideSeek;
+            if (!hs || !hs.roles || !uid) return null;
+            return hs.roles[uid] || null;
+        }
+
+        function countHideSeekHiders() {
+            const hs = state.hideSeek;
+            if (!hs || !hs.roles) return 0;
+            return Object.keys(hs.roles).filter(uid => hs.roles[uid] === 'hider').length;
+        }
+
+        function seededShuffleUids(uids, seed) {
+            const arr = uids.slice();
+            let s = (seed >>> 0) || 1;
+            for (let i = arr.length - 1; i > 0; i--) {
+                s = (s * 1664525 + 1013904223) >>> 0;
+                const j = s % (i + 1);
+                const tmp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = tmp;
+            }
+            return arr;
+        }
+
+        function assignHideSeekRoles(seekerCount, seed) {
+            const slots = getHideSeekSlots();
+            const uids = slots.map(s => s.uid);
+            const maxSeekers = Math.max(1, uids.length - 1);
+            const nSeek = Math.min(Math.max(1, seekerCount || 1), maxSeekers);
+            const shuffled = seededShuffleUids(uids, seed);
+            const roles = {};
+            shuffled.forEach((uid, i) => {
+                roles[uid] = i < nSeek ? 'seeker' : 'hider';
+            });
+            return { roles, seekerCount: nSeek, order: shuffled };
+        }
+
+        function stopHideSeekEvent(opts) {
+            const o = opts || {};
+            state.hideSeek = null;
+            const hud = document.getElementById('hideseek-hud-overlay');
+            const wheel = document.getElementById('hideseek-wheel-overlay');
+            if (hud) hud.classList.add('hidden');
+            if (wheel) wheel.classList.add('hidden');
+            if (!o.quiet) showMessage('Hide & Seek ended.');
+            updateHideSeekMenuUI();
+        }
+
+        function showHideSeekWheelAnimation(names, roles, myRole, onDone) {
+            const ov = document.getElementById('hideseek-wheel-overlay');
+            const nameEl = document.getElementById('hideseek-wheel-name');
+            const resultEl = document.getElementById('hideseek-wheel-result');
+            if (!ov || !nameEl) {
+                if (onDone) onDone();
+                return;
+            }
+            ov.classList.remove('hidden');
+            ov.classList.add('flex');
+            if (resultEl) resultEl.textContent = '';
+            const list = names.length ? names : ['…'];
+            const start = performance.now();
+            const tick = () => {
+                const elapsed = performance.now() - start;
+                const idx = Math.floor(elapsed / 80) % list.length;
+                nameEl.textContent = list[idx];
+                if (elapsed < HIDE_SEEK_WHEEL_MS) {
+                    requestAnimationFrame(tick);
+                } else {
+                    nameEl.textContent = state.profileUsername || state.playerName || 'You';
+                    if (resultEl) {
+                        resultEl.textContent = myRole === 'seeker'
+                            ? '🔍 You are a SEEKER — find the hiders!'
+                            : '🙈 You are a HIDER — hide!';
+                    }
+                    setTimeout(() => {
+                        ov.classList.add('hidden');
+                        ov.classList.remove('flex');
+                        if (onDone) onDone();
+                    }, 1400);
+                }
+            };
+            requestAnimationFrame(tick);
+        }
+
+        function applyHideSeekStartPayload(payload) {
+            if (!payload || !payload.roles) return;
+            const now = performance.now();
+            const headEnd = typeof payload.headEndAt === 'number' ? payload.headEndAt : (now + HIDE_SEEK_HEADSTART_MS);
+            const seekEnd = typeof payload.seekEndAt === 'number' ? payload.seekEndAt : (headEnd + HIDE_SEEK_ROUND_MS);
+            state.hideSeek = {
+                active: true,
+                phase: payload.phase || 'headstart',
+                headEndAt: headEnd,
+                seekEndAt: seekEnd,
+                intermissionEndAt: 0,
+                seekerCount: payload.seekerCount || 1,
+                roles: { ...payload.roles },
+                round: payload.round || 1,
+                wheelNames: Array.isArray(payload.wheelNames) ? payload.wheelNames : []
+            };
+            state.sessionSettings.hideSeekEnabled = true;
+            const myRole = getMyHideSeekRole();
+            const hud = document.getElementById('hideseek-hud-overlay');
+            if (hud) hud.classList.remove('hidden');
+            updateHideSeekHud();
+            updateHideSeekMenuUI();
+            showHideSeekWheelAnimation(
+                state.hideSeek.wheelNames,
+                state.hideSeek.roles,
+                myRole,
+                () => {
+                    if (myRole === 'seeker') {
+                        showMessage('🔍 SEEKER — speed boost ON! Touch hiders to tag them.');
+                    } else if (myRole === 'hider') {
+                        showMessage('🙈 HIDER — scatter! You are hidden on the seeker map.');
+                    }
+                }
+            );
+        }
+
+        function beginHideSeekIntermission(endAt) {
+            if (!state.hideSeek) return;
+            state.hideSeek.phase = 'intermission';
+            state.hideSeek.intermissionEndAt = typeof endAt === 'number' ? endAt : (performance.now() + HIDE_SEEK_LOBBY_MS);
+            updateHideSeekHud();
+            showMessage('Round over! Lobby break — host can spin again.');
+            showServerNoticeOverlay('🙈 Hide & Seek round ended — lobby timer running.', { from: 'owner', labelKind: 'dev' });
+        }
+
+        function startHideSeekRoundFromHost() {
+            if (!state.isOnlineHost) {
+                showMessage('Only the host can start Hide & Seek.');
+                return false;
+            }
+            if (state.playMode !== 'online' || !onlineRealtimeReady) {
+                showMessage('Multiplayer required.');
+                return false;
+            }
+            const n = getOnlinePlayerCount();
+            if (n < 2) {
+                showMessage('Need at least 2 players in this world for Hide & Seek.');
+                return false;
+            }
+            if (!isHideSeekModeEnabled()) {
+                showMessage('Turn on Hide & Seek mode in Session Settings first.');
+                return false;
+            }
+            if (state.race && state.race.active) {
+                showMessage('End the race first.');
+                return false;
+            }
+            const seekerCount = state.sessionSettings.hideSeekSeekerCount || 1;
+            const seed = (Date.now() ^ (state.worldSeed || 0)) >>> 0;
+            const { roles, order } = assignHideSeekRoles(seekerCount, seed);
+            const now = performance.now();
+            const headEndAt = now + HIDE_SEEK_WHEEL_MS + HIDE_SEEK_HEADSTART_MS + 1400;
+            const seekEndAt = headEndAt + HIDE_SEEK_ROUND_MS;
+            const wheelNames = order.map(uid => {
+                if (uid === state.supabaseUserId) return state.profileUsername || state.playerName || 'You';
+                const rp = state.remotePlayers[uid];
+                return (rp && rp.username) || 'Player';
+            });
+            const round = (state.hideSeek && state.hideSeek.round ? state.hideSeek.round : 0) + 1;
+            const payload = {
+                kind: 'hide_seek_start',
+                roles,
+                seekerCount,
+                seed,
+                round,
+                phase: 'headstart',
+                headEndAt,
+                seekEndAt,
+                wheelNames
+            };
+            applyHideSeekStartPayload(payload);
+            void broadcastAdminCmd(payload);
+            return true;
+        }
+
+        function tagHideSeekHider(targetUid) {
+            const hs = state.hideSeek;
+            if (!hs || !hs.roles || hs.phase !== 'seeking') return false;
+            if (getMyHideSeekRole() !== 'seeker') return false;
+            if (hs.roles[targetUid] !== 'hider') return false;
+            if (!hs.tagCooldown) hs.tagCooldown = {};
+            const now = performance.now();
+            if (hs.tagCooldown[targetUid] && now - hs.tagCooldown[targetUid] < 800) return false;
+            hs.tagCooldown[targetUid] = now;
+            hs.roles[targetUid] = 'seeker';
+            if (targetUid === state.supabaseUserId) {
+                showMessage('Tagged! You are now a seeker.');
+            }
+            void broadcastAdminCmd({ kind: 'hide_seek_tag', targetUid, roles: { ...hs.roles } });
+            updateHideSeekHud();
+            checkHideSeekRoundEnd();
+            return true;
+        }
+
+        function applyHideSeekTagPayload(payload) {
+            if (!state.hideSeek || !payload || !payload.roles) return;
+            state.hideSeek.roles = { ...payload.roles };
+            if (payload.targetUid === state.supabaseUserId && getMyHideSeekRole() === 'seeker') {
+                showMessage('You were tagged — now you seek!');
+            }
+            updateHideSeekHud();
+            checkHideSeekRoundEnd();
+        }
+
+        function checkHideSeekRoundEnd() {
+            const hs = state.hideSeek;
+            if (!hs || hs.phase !== 'seeking') return;
+            const hidersLeft = countHideSeekHiders();
+            if (hidersLeft <= 0) {
+                if (state.isOnlineHost || state.playMode !== 'online') {
+                    const endAt = performance.now() + HIDE_SEEK_LOBBY_MS;
+                    beginHideSeekIntermission(endAt);
+                    if (state.playMode === 'online' && onlineRealtimeReady) {
+                        void broadcastAdminCmd({ kind: 'hide_seek_intermission', endAt });
+                    }
+                }
+            }
+        }
+
+        function updateHideSeekPhase() {
+            const hs = state.hideSeek;
+            if (!hs || !hs.active) return;
+            const now = performance.now();
+            if (hs.phase === 'headstart' && now >= hs.headEndAt) {
+                hs.phase = 'seeking';
+                showMessage('🔍 SEEK! Find the hiders — 2:00 on the clock!');
+                updateHideSeekHud();
+            } else if (hs.phase === 'seeking' && now >= hs.seekEndAt) {
+                if (state.isOnlineHost || state.playMode !== 'online') {
+                    const endAt = now + HIDE_SEEK_LOBBY_MS;
+                    beginHideSeekIntermission(endAt);
+                    if (state.playMode === 'online' && onlineRealtimeReady) {
+                        void broadcastAdminCmd({ kind: 'hide_seek_intermission', endAt });
+                    }
+                }
+            } else if (hs.phase === 'intermission' && hs.intermissionEndAt && now >= hs.intermissionEndAt) {
+                hs.phase = 'off';
+                hs.active = false;
+                updateHideSeekHud();
+                const hud = document.getElementById('hideseek-hud-overlay');
+                if (hud) hud.classList.add('hidden');
+                showMessage('Lobby break over — host can start another round.');
+            }
+            if (hs.phase === 'seeking') checkHideSeekTagProximity();
+        }
+
+        function checkHideSeekTagProximity() {
+            if (getMyHideSeekRole() !== 'seeker') return;
+            const p = state.players[0];
+            if (!p || p.dead || p.downed || state.isJailed) return;
+            Object.keys(state.remotePlayers || {}).forEach(uid => {
+                const rp = state.remotePlayers[uid];
+                if (!rp || rp.dead || rp.downed) return;
+                if (getHideSeekRoleForUid(uid) !== 'hider') return;
+                if (dist(p.x, p.y, rp.x, rp.y) <= HIDE_SEEK_TAG_RADIUS) {
+                    tagHideSeekHider(uid);
+                }
+            });
+        }
+
+        function formatHideSeekTimer(ms) {
+            const sec = Math.max(0, Math.ceil(ms / 1000));
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        function updateHideSeekHud() {
+            const hs = state.hideSeek;
+            const roleEl = document.getElementById('hideseek-hud-role');
+            const timerEl = document.getElementById('hideseek-hud-timer');
+            const statusEl = document.getElementById('hideseek-hud-status');
+            const titleEl = document.getElementById('hideseek-hud-title');
+            if (!hs || !hs.active) return;
+            const myRole = getMyHideSeekRole();
+            if (roleEl) {
+                roleEl.textContent = myRole === 'seeker' ? '🔍 SEEKER (speed boost)' : (myRole === 'hider' ? '🙈 HIDER' : '—');
+                roleEl.className = 'text-center text-[11px] font-bold mb-1 ' + (myRole === 'seeker' ? 'text-red-300' : 'text-emerald-200');
+            }
+            const now = performance.now();
+            let left = 0;
+            let label = '';
+            if (hs.phase === 'headstart') {
+                left = Math.max(0, hs.headEndAt - now);
+                label = 'Hide time';
+            } else if (hs.phase === 'seeking') {
+                left = Math.max(0, hs.seekEndAt - now);
+                label = 'Seek time';
+            } else if (hs.phase === 'intermission') {
+                left = Math.max(0, (hs.intermissionEndAt || now) - now);
+                label = 'Lobby break';
+            }
+            if (timerEl) timerEl.textContent = formatHideSeekTimer(left);
+            if (titleEl) titleEl.textContent = label || 'Hide & Seek';
+            if (statusEl) {
+                const hiders = countHideSeekHiders();
+                statusEl.textContent = hs.phase === 'intermission'
+                    ? 'Waiting for next round…'
+                    : `Hiders left: ${hiders}`;
+            }
+        }
+
+        function shouldHideHiderOnMinimap(uid, rp) {
+            if (!isHideSeekRoundActive()) return false;
+            if (getMyHideSeekRole() !== 'seeker') return false;
+            const theirRole = uid === state.supabaseUserId
+                ? getMyHideSeekRole()
+                : (rp && rp.hsRole) || getHideSeekRoleForUid(uid);
+            return theirRole === 'hider';
+        }
+
+        function shouldHideHiderInWorld(uid, rp) {
+            if (!isHideSeekRoundActive() || state.hideSeek.phase !== 'seeking') return false;
+            if (getMyHideSeekRole() !== 'seeker') return false;
+            const theirRole = uid === state.supabaseUserId
+                ? getMyHideSeekRole()
+                : (rp && rp.hsRole) || getHideSeekRoleForUid(uid);
+            return theirRole === 'hider';
+        }
+
+        function getHideSeekSpeedMultiplier() {
+            if (!isHideSeekRoundActive()) return 1;
+            if (state.hideSeek.phase === 'headstart' && getMyHideSeekRole() === 'seeker') return 0.35;
+            if (getMyHideSeekRole() === 'seeker' && state.hideSeek.phase === 'seeking') return HIDE_SEEK_SEEKER_SPEED_MULT;
+            return 1;
+        }
+
+        function updateHideSeekMenuUI() {
+            const block = document.getElementById('menu-hideseek-settings');
+            const mpHint = document.getElementById('menu-hideseek-mp-hint');
+            const hostCtr = document.getElementById('menu-hideseek-host-controls');
+            const seekSlider = document.getElementById('menu-hideseek-seeker-count');
+            const seekVal = document.getElementById('menu-hideseek-seeker-val');
+            const roleHint = document.getElementById('menu-hideseek-role-hint');
+            const startBtn = document.getElementById('menu-hideseek-start-btn');
+            const stopBtn = document.getElementById('menu-hideseek-stop-btn');
+            const toggle = document.getElementById('menu-toggle-hideseek');
+            if (!block) return;
+            const inMp = state.playMode === 'online' && isInGame();
+            const n = getOnlinePlayerCount();
+            block.classList.toggle('hidden', !inMp);
+            if (mpHint) {
+                mpHint.textContent = n < 2
+                    ? `Need 2+ players (${n} here). Friends must join your room.`
+                    : `${n} players in world — Hide & Seek ready.`;
+            }
+            if (toggle) {
+                applySettingsToggleUI('menu-toggle-hideseek', isHideSeekModeEnabled());
+                toggle.disabled = !state.isOnlineHost || n < 2;
+            }
+            if (hostCtr) hostCtr.classList.toggle('hidden', !state.isOnlineHost || !isHideSeekModeEnabled());
+            if (seekSlider) {
+                const maxSeek = Math.max(1, n - 1);
+                seekSlider.max = String(maxSeek);
+                seekSlider.min = '1';
+                seekSlider.disabled = !state.isOnlineHost || n < 2;
+                const cur = Math.min(state.sessionSettings.hideSeekSeekerCount || 1, maxSeek);
+                state.sessionSettings.hideSeekSeekerCount = cur;
+                seekSlider.value = String(cur);
+                if (seekVal) seekVal.textContent = String(cur);
+            }
+            if (startBtn) startBtn.disabled = !state.isOnlineHost || n < 2 || !isHideSeekModeEnabled() || !!(state.hideSeek && state.hideSeek.active && state.hideSeek.phase !== 'intermission');
+            if (stopBtn) {
+                const showStop = state.isOnlineHost && (isHideSeekModeEnabled() || (state.hideSeek && state.hideSeek.active));
+                stopBtn.classList.toggle('hidden', !showStop);
+            }
+            if (roleHint) {
+                const role = getMyHideSeekRole();
+                if (state.hideSeek && state.hideSeek.active && role) {
+                    roleHint.textContent = role === 'seeker' ? 'You are a seeker this round.' : 'You are a hider — stay off the seeker map!';
+                } else if (isHideSeekModeEnabled()) {
+                    roleHint.textContent = 'Mode ON — host spins the wheel to start.';
+                } else {
+                    roleHint.textContent = '';
+                }
+            }
+        }
+
+        function openHideSeekPaintModal() {
+            const m = document.getElementById('hideseek-paint-modal');
+            const canvas = document.getElementById('hideseek-paint-canvas');
+            if (!m || !canvas) return;
+            if (!state.hideSeekPaint) state.hideSeekPaint = loadHideSeekPaintFromStorage();
+            if (!state.hideSeekPaint) {
+                state.hideSeekPaint = new Array(HIDE_SEEK_PAINT_SIZE * HIDE_SEEK_PAINT_SIZE).fill(null);
+            }
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            renderHideSeekPaintCanvas();
+        }
+
+        function closeHideSeekPaintModal() {
+            const m = document.getElementById('hideseek-paint-modal');
+            if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+        }
+
+        function renderHideSeekPaintCanvas() {
+            const canvas = document.getElementById('hideseek-paint-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const cell = canvas.width / HIDE_SEEK_PAINT_SIZE;
+            const grid = state.hideSeekPaint || [];
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let y = 0; y < HIDE_SEEK_PAINT_SIZE; y++) {
+                for (let x = 0; x < HIDE_SEEK_PAINT_SIZE; x++) {
+                    const c = grid[y * HIDE_SEEK_PAINT_SIZE + x];
+                    ctx.fillStyle = c || '#1e293b';
+                    ctx.fillRect(x * cell, y * cell, cell, cell);
+                    ctx.strokeStyle = 'rgba(51,65,85,0.5)';
+                    ctx.strokeRect(x * cell, y * cell, cell, cell);
+                }
+            }
+        }
+
+        function paintHideSeekPixel(clientX, clientY) {
+            const canvas = document.getElementById('hideseek-paint-canvas');
+            const colorIn = document.getElementById('hideseek-paint-color');
+            if (!canvas || !state.hideSeekPaint) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor(((clientX - rect.left) / rect.width) * HIDE_SEEK_PAINT_SIZE);
+            const y = Math.floor(((clientY - rect.top) / rect.height) * HIDE_SEEK_PAINT_SIZE);
+            if (x < 0 || y < 0 || x >= HIDE_SEEK_PAINT_SIZE || y >= HIDE_SEEK_PAINT_SIZE) return;
+            const col = colorIn ? colorIn.value : '#22c55e';
+            state.hideSeekPaint[y * HIDE_SEEK_PAINT_SIZE + x] = col;
+            renderHideSeekPaintCanvas();
+        }
+
+        function drawPaintedPlayerAvatar(ctx, color, paintGrid, p) {
+            const size = 28;
+            const half = size / 2;
+            const cell = size / HIDE_SEEK_PAINT_SIZE;
+            const col = color || DEFAULT_PLAYER_COLOR;
+            if (hasHideSeekPaint(paintGrid)) {
+                for (let y = 0; y < HIDE_SEEK_PAINT_SIZE; y++) {
+                    for (let x = 0; x < HIDE_SEEK_PAINT_SIZE; x++) {
+                        const c = paintGrid[y * HIDE_SEEK_PAINT_SIZE + x];
+                        if (!c) continue;
+                        ctx.fillStyle = c;
+                        ctx.fillRect(x * cell - half, y * cell - half, cell + 0.5, cell + 0.5);
+                    }
+                }
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-half, -half, size, size);
+            } else {
+                ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
+                ctx.fillStyle = col;
+                ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3; ctx.stroke();
+                ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(-4, -4, 5, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
         function applyOwnerGameEventPayload(payload) {
             if (!payload || payload.from !== 'owner') return;
             const seq = typeof payload.seq === 'number' ? payload.seq : 0;
@@ -7545,6 +8136,7 @@
             const skipDel = !!o.skipDelete;
             pcDebug('debug', 'realtime_teardown_start', { skipDelete: skipDel, hadCode: hadCode || null, wasHost: !!state.isOnlineHost });
             stopRaceEvent({ quiet: true });
+            stopHideSeekEvent({ quiet: true });
             clearRealtimeReconnectSchedule();
             if (onlineRealtimeReady && supabaseRealtimeChannel && state.supabaseUserId) {
                 try {
@@ -7852,6 +8444,8 @@
                     hasHome: !!payload.hasHome,
                     homeTier: typeof payload.homeTier === 'number' ? payload.homeTier : -1,
                     money: typeof payload.money === 'number' ? payload.money : (prev && typeof prev.money === 'number' ? prev.money : 0),
+                    hsRole: payload.hsr || (prev && prev.hsRole) || null,
+                    hsPaint: payload.hsp != null ? payload.hsp : (prev && prev.hsPaint) || '',
                     lastSeen: performance.now()
                 };
                 if (state.race && state.race.active && state.race.entries[payload.uid] && payload.rp != null) {
@@ -8062,11 +8656,36 @@
                         // Legacy: old clients inverted the flag — migrate so PvP works when host meant "FF off".
                         state.sessionSettings.friendlyFireOff = s.friendlyFire;
                     }
+                    if (typeof s.hideSeekEnabled === 'boolean') state.sessionSettings.hideSeekEnabled = s.hideSeekEnabled;
+                    if (typeof s.hideSeekSeekerCount === 'number') {
+                        state.sessionSettings.hideSeekSeekerCount = Math.max(1, s.hideSeekSeekerCount);
+                    }
                     updateSessionSettingsUI();
                     const labels = [];
                     labels.push(state.sessionSettings.infiniteRevive ? 'Infinite revive ON' : 'Infinite revive OFF');
                     labels.push(state.sessionSettings.friendlyFireOff ? 'Friendly fire off (PvP weapons disabled)' : 'PvP weapons enabled');
+                    if (state.sessionSettings.hideSeekEnabled) labels.push('Hide & Seek ON');
                     showMessage(`Host updated settings: ${labels.join(' · ')}`);
+                }
+                if (payload.kind === 'hide_seek_start' && payload.roles) {
+                    const already = state.hideSeek && state.hideSeek.active && state.hideSeek.round === payload.round;
+                    if (!already) applyHideSeekStartPayload(payload);
+                    return;
+                }
+                if (payload.kind === 'hide_seek_tag' && payload.roles) {
+                    applyHideSeekTagPayload(payload);
+                    return;
+                }
+                if (payload.kind === 'hide_seek_intermission' && typeof payload.endAt === 'number') {
+                    beginHideSeekIntermission(payload.endAt);
+                    return;
+                }
+                if (payload.kind === 'hide_seek_stop') {
+                    stopHideSeekEvent({ quiet: false, fromNetwork: true });
+                    state.sessionSettings.hideSeekEnabled = false;
+                    updateSessionSettingsUI();
+                    showMessage('Hide & Seek stopped by host.');
+                    return;
                 }
             });
             supabaseRealtimeChannel = ch;
@@ -8399,6 +9018,12 @@
             const racePayload = (state.race && state.race.active && state.supabaseUserId && state.race.entries[state.supabaseUserId])
                 ? { rp: state.race.entries[state.supabaseUserId].progress }
                 : {};
+            const hsPayload = (state.hideSeek && state.hideSeek.active && state.supabaseUserId)
+                ? {
+                    hsr: getMyHideSeekRole(),
+                    hsp: hasHideSeekPaint(state.hideSeekPaint) ? serializeHideSeekPaint(state.hideSeekPaint) : ''
+                }
+                : {};
             supabaseRealtimeChannel.send({
                 type: 'broadcast',
                 event: 'pos',
@@ -8414,6 +9039,7 @@
                     dead: !!p.dead,
                     downed: !!p.downed,
                     ...racePayload,
+                    ...hsPayload,
                     hasHome: !!state.hasHome,
                     homeTier: state.hasHome ? state.homeTier : -1,
                     money: state.money,
@@ -12381,6 +13007,10 @@
             processGlitchStormAndMobs();
             if (state.race && state.race.active) updateRaceMovement();
             if (state.race && state.race.closingPhase) updateRaceCooldown();
+            if (state.hideSeek && state.hideSeek.active) {
+                updateHideSeekPhase();
+                updateHideSeekHud();
+            }
             
             let customSpeed = 4;
             if (canUseGodPanelInGame()) {
@@ -12392,7 +13022,7 @@
             } else if (state.activeSecrets.includes('REALITY')) {
                 customSpeed = 2;
             }
-            const pedSpeed = customSpeed;
+            const pedSpeed = customSpeed * getHideSeekSpeedMultiplier();
 
             // SPRINT & STAMINA — P1 only in solo mode; Shift in 2P mode stays as P2 action
             const STAMINA_MAX = 100;
@@ -12766,6 +13396,9 @@
                     const total = 1 + Object.keys(state.remotePlayers).length;
                     countEl.textContent = `${total}/10 players`;
                 }
+                if (isOwnerDashboardOpen() || document.getElementById('ingame-menu-overlay')?.classList.contains('open')) {
+                    updateHideSeekMenuUI();
+                }
             }
             
             // Apply Reality Visual Filter
@@ -13105,14 +13738,30 @@
                     c.save(); c.translate(p.x, p.y);
                     c.rotate(p.angle);
                     if (state.activeSecrets.includes('GHOST') || state.activeSecrets.includes('MURDER')) c.globalAlpha = 0.5;
-                    drawPlayerAvatar(c, state.characterType, p.color, p);
+                    const useHsPaint = isHideSeekRoundActive() && hasHideSeekPaint(state.hideSeekPaint);
+                    if (useHsPaint) {
+                        drawPaintedPlayerAvatar(c, p.color, state.hideSeekPaint, p);
+                    } else {
+                        drawPlayerAvatar(c, state.characterType, p.color, p);
+                    }
+                    if (getMyHideSeekRole() === 'seeker' && state.hideSeek.phase === 'seeking') {
+                        c.strokeStyle = 'rgba(248,113,113,0.9)';
+                        c.lineWidth = 2;
+                        c.beginPath(); c.arc(0, 0, 17, 0, Math.PI * 2); c.stroke();
+                    } else if (getMyHideSeekRole() === 'hider' && isHideSeekRoundActive()) {
+                        c.strokeStyle = 'rgba(52,211,153,0.85)';
+                        c.lineWidth = 2;
+                        c.beginPath(); c.arc(0, 0, 17, 0, Math.PI * 2); c.stroke();
+                    }
                     c.restore();
                 }
             });
             if (state.playMode === 'online') {
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
+                    if (shouldHideHiderInWorld(uid, rp)) continue;
                     const rpColor = rp.color || DEFAULT_PLAYER_COLOR;
+                    const rpPaint = parseHideSeekPaint(rp.hsPaint);
                     c.save();
                     c.translate(rp.x, rp.y);
                     c.rotate(rp.angle || 0);
@@ -13120,15 +13769,19 @@
                         c.fillStyle = '#7f1d1d';
                     } else if (rp.downed) {
                         c.fillStyle = '#b45309';
+                    } else if (isHideSeekRoundActive() && hasHideSeekPaint(rpPaint)) {
+                        drawPaintedPlayerAvatar(c, rpColor, rpPaint, null);
                     } else {
                         c.fillStyle = rpColor;
                     }
-                    c.strokeStyle = '#fff';
-                    c.lineWidth = 2;
-                    c.beginPath();
-                    c.arc(0, 0, 10, 0, Math.PI * 2);
-                    c.fill();
-                    c.stroke();
+                    if (rp.dead || rp.downed || !(isHideSeekRoundActive() && hasHideSeekPaint(rpPaint))) {
+                        c.strokeStyle = '#fff';
+                        c.lineWidth = 2;
+                        c.beginPath();
+                        c.arc(0, 0, 10, 0, Math.PI * 2);
+                        c.fill();
+                        c.stroke();
+                    }
                     c.restore();
                     c.save();
                     c.translate(rp.x, rp.y);
@@ -13310,6 +13963,7 @@
             if (state.playMode === 'online') {
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
+                    if (shouldHideHiderOnMinimap(uid, rp)) continue;
                     const r = rp.inJail ? 4 : (rp.inVehicle ? 4.5 : 3);
                     ms.fillStyle = rp.dead ? '#7f1d1d' : (rp.downed ? '#b45309' : (rp.color || DEFAULT_PLAYER_COLOR));
                     ms.beginPath();
@@ -14148,6 +14802,7 @@
         }
 
         async function startApp() {
+            state.hideSeekPaint = loadHideSeekPaintFromStorage();
             state.lobbyStatsUnlocked = getLobbyStatsUnlockedFromStorage();
             initSchoolSafeMode();
             applySchoolSafeGameRules();
@@ -14786,6 +15441,8 @@
                     if (ffBtn) ffBtn.disabled = !isHost;
                     applySettingsToggleUI('menu-toggle-revive', state.sessionSettings.infiniteRevive);
                     applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFireOff);
+                    applySettingsToggleUI('menu-toggle-hideseek', state.sessionSettings.hideSeekEnabled);
+                    updateHideSeekMenuUI();
                 }
             };
 
@@ -14802,6 +15459,75 @@
                 applySettingsToggleUI('menu-toggle-ff', state.sessionSettings.friendlyFireOff);
                 await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
             });
+
+            document.getElementById('menu-toggle-hideseek')?.addEventListener('click', async () => {
+                if (!state.isOnlineHost) return;
+                const n = getOnlinePlayerCount();
+                if (n < 2) {
+                    showMessage('Need at least 2 players in this world for Hide & Seek.');
+                    return;
+                }
+                state.sessionSettings.hideSeekEnabled = !state.sessionSettings.hideSeekEnabled;
+                applySettingsToggleUI('menu-toggle-hideseek', state.sessionSettings.hideSeekEnabled);
+                updateHideSeekMenuUI();
+                await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
+                showMessage(state.sessionSettings.hideSeekEnabled ? '🙈 Hide & Seek mode ON' : 'Hide & Seek mode OFF');
+            });
+
+            document.getElementById('menu-hideseek-seeker-count')?.addEventListener('input', (e) => {
+                if (!state.isOnlineHost) return;
+                const v = parseInt(e.target.value, 10) || 1;
+                state.sessionSettings.hideSeekSeekerCount = v;
+                const seekVal = document.getElementById('menu-hideseek-seeker-val');
+                if (seekVal) seekVal.textContent = String(v);
+            });
+
+            document.getElementById('menu-hideseek-seeker-count')?.addEventListener('change', async () => {
+                if (!state.isOnlineHost) return;
+                await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
+            });
+
+            document.getElementById('menu-hideseek-paint-btn')?.addEventListener('click', () => openHideSeekPaintModal());
+            document.getElementById('menu-hideseek-start-btn')?.addEventListener('click', () => startHideSeekRoundFromHost());
+            document.getElementById('menu-hideseek-stop-btn')?.addEventListener('click', async () => {
+                if (!state.isOnlineHost) return;
+                stopHideSeekEvent({ quiet: false });
+                state.sessionSettings.hideSeekEnabled = false;
+                applySettingsToggleUI('menu-toggle-hideseek', false);
+                updateHideSeekMenuUI();
+                await broadcastAdminCmd({ kind: 'hide_seek_stop' });
+                await broadcastAdminCmd({ kind: 'session_settings', settings: { ...state.sessionSettings } });
+            });
+
+            document.getElementById('hideseek-paint-close')?.addEventListener('click', () => closeHideSeekPaintModal());
+            document.getElementById('hideseek-paint-save')?.addEventListener('click', () => {
+                if (state.hideSeekPaint) saveHideSeekPaintToStorage(state.hideSeekPaint);
+                showMessage('Character paint saved!');
+                closeHideSeekPaintModal();
+            });
+            document.getElementById('hideseek-paint-clear')?.addEventListener('click', () => {
+                state.hideSeekPaint = new Array(HIDE_SEEK_PAINT_SIZE * HIDE_SEEK_PAINT_SIZE).fill(null);
+                renderHideSeekPaintCanvas();
+            });
+            document.getElementById('hideseek-paint-fill')?.addEventListener('click', () => {
+                const col = document.getElementById('hideseek-paint-color')?.value || '#22c55e';
+                state.hideSeekPaint = new Array(HIDE_SEEK_PAINT_SIZE * HIDE_SEEK_PAINT_SIZE).fill(col);
+                renderHideSeekPaintCanvas();
+            });
+            const hsPaintCanvas = document.getElementById('hideseek-paint-canvas');
+            if (hsPaintCanvas) {
+                let painting = false;
+                const paintAt = (e) => {
+                    const pt = e.touches ? e.touches[0] : e;
+                    paintHideSeekPixel(pt.clientX, pt.clientY);
+                };
+                hsPaintCanvas.addEventListener('mousedown', (e) => { painting = true; paintAt(e); });
+                hsPaintCanvas.addEventListener('mousemove', (e) => { if (painting) paintAt(e); });
+                window.addEventListener('mouseup', () => { painting = false; });
+                hsPaintCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); painting = true; paintAt(e); }, { passive: false });
+                hsPaintCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (painting) paintAt(e); }, { passive: false });
+                window.addEventListener('touchend', () => { painting = false; });
+            }
 
             document.getElementById('menu-delete-btn')?.addEventListener('click', () => {
                 deleteConfirmCount++;
