@@ -6284,15 +6284,6 @@
             return theirRole === 'hider';
         }
 
-        function shouldHideHiderInWorld(uid, rp) {
-            if (!isHideSeekRoundActive() || state.hideSeek.phase === 'intermission') return false;
-            if (getMyHideSeekRole() !== 'seeker') return false;
-            const theirRole = uid === state.supabaseUserId
-                ? getMyHideSeekRole()
-                : (rp && rp.hsRole) || getHideSeekRoleForUid(uid);
-            return theirRole === 'hider';
-        }
-
         function getHideSeekSpeedMultiplier() {
             if (!isHideSeekRoundActive()) return 1;
             if (state.hideSeek.phase === 'headstart' && getMyHideSeekRole() === 'seeker') return 0.35;
@@ -13851,7 +13842,6 @@
             if (state.playMode === 'online') {
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
-                    if (shouldHideHiderInWorld(uid, rp)) continue;
                     const rx = rp.renderX != null ? rp.renderX : rp.x;
                     const ry = rp.renderY != null ? rp.renderY : rp.y;
                     const rpColor = rp.color || DEFAULT_PLAYER_COLOR;
