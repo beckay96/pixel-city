@@ -6243,7 +6243,7 @@
         }
 
         function shouldHideHiderInWorld(uid, rp) {
-            if (!isHideSeekRoundActive() || state.hideSeek.phase !== 'seeking') return false;
+            if (!isHideSeekRoundActive() || state.hideSeek.phase === 'intermission') return false;
             if (getMyHideSeekRole() !== 'seeker') return false;
             const theirRole = uid === state.supabaseUserId
                 ? getMyHideSeekRole()
