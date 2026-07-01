@@ -2505,10 +2505,16 @@
         let initialBeta3d = false;
         try { initialBeta3d = localStorage.getItem(LS_BETA_3D) === '1'; } catch (_) { /* */ }
         let initialBeta3dQuality = 70;
+        const _uaLooksPhone = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '');
         try {
-            const q = parseInt(localStorage.getItem(LS_BETA_3D_QUALITY) || '', 10);
-            if (Number.isFinite(q)) initialBeta3dQuality = Math.max(0, Math.min(100, q));
-        } catch (_) { /* */ }
+            const savedBetaQ = localStorage.getItem(LS_BETA_3D_QUALITY);
+            if (savedBetaQ != null && savedBetaQ !== '') {
+                const q = parseInt(savedBetaQ, 10);
+                if (Number.isFinite(q)) initialBeta3dQuality = Math.max(0, Math.min(100, q));
+            } else if (_uaLooksPhone) {
+                initialBeta3dQuality = 45;
+            }
+        } catch (_) { /* private mode */ }
         let initialUiLang = 'en';
         try {
             const L = localStorage.getItem(LS_LANG);
@@ -8486,7 +8492,10 @@
                 const isNew = !state.remotePlayers[payload.uid];
                 const prev = state.remotePlayers[payload.uid];
                 state.remotePlayers[payload.uid] = {
-                    x: payload.x, y: payload.y, angle: payload.angle || 0,
+                    x: payload.x, y: payload.y,
+                    renderX: prev && prev.renderX != null ? prev.renderX : payload.x,
+                    renderY: prev && prev.renderY != null ? prev.renderY : payload.y,
+                    angle: payload.angle || 0,
                     inVehicle: !!payload.inVehicle,
                     inJail: !!payload.inJail,
                     username: payload.u || 'Friend',
@@ -10804,10 +10813,16 @@
         const BETA3D_RAY_COLS_MAX = 4096;
         /** In-game raycast cap (quality slider can go higher for lobby preview only). */
         const BETA3D_IN_GAME_RAY_CAP = 1920;
+        /** Lower ray cap on phones for smoother Beta 3D. */
+        const BETA3D_IN_GAME_RAY_CAP_PHONE = 720;
         /** World radius for Beta 3D vehicle billboard (ray–circle hit). */
         const BETA3D_VEHICLE_HIT_R = 28;
         /** Smaller hit disc for glitch mobs in Beta 3D */
         const BETA3D_GLITCH_HIT_R = 22;
+
+        function getBeta3dInGameRayCap() {
+            return isCoarseTouchPhoneLayout() ? BETA3D_IN_GAME_RAY_CAP_PHONE : BETA3D_IN_GAME_RAY_CAP;
+        }
 
         function getBeta3dMaxRayColumns() {
             return getBeta3dMaxRayColumnsForPercent(state.beta3dQualityPercent);
@@ -11054,11 +11069,7 @@
                         c.fillRect(xCar, carTop + carH * 0.52, sliceNarrow, Math.max(2, carH * 0.38));
                         continue;
                     }
-                    const gcar = c.createLinearGradient(xCar, carTop, xCar, carBot);
-                    gcar.addColorStop(0, topRgb);
-                    gcar.addColorStop(0.48, topRgb);
-                    gcar.addColorStop(1, botRgb);
-                    c.fillStyle = gcar;
+                    c.fillStyle = topRgb;
                     c.fillRect(xCar, carTop, sliceNarrow, Math.max(1, carBot - carTop));
                     if (faceDot > 0.22 && sideMag < 0.62) {
                         c.fillStyle = `rgba(226,232,240,${0.55 - fog * 0.15})`;
@@ -11100,11 +11111,7 @@
                 const dg = Math.floor(g * 0.35);
                 const db = Math.floor(bch * 0.4);
                 const botRgb = `rgb(${dr},${dg},${db})`;
-                const gwall = c.createLinearGradient(x0, wallTop, x0, wallBot);
-                gwall.addColorStop(0, topRgb);
-                gwall.addColorStop(0.55, topRgb);
-                gwall.addColorStop(1, botRgb);
-                c.fillStyle = gwall;
+                c.fillStyle = topRgb;
                 c.fillRect(x0, wallTop, sliceW, Math.max(1, wallBot - wallTop));
             }
             c.restore();
@@ -11144,7 +11151,7 @@
             const oy = p0.y;
             const yaw = state.beta3dYaw;
             const pitch = Math.max(-0.42, Math.min(0.42, state.beta3dPitch || 0));
-            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns(), BETA3D_IN_GAME_RAY_CAP);
+            const rayCols = Math.min(clipW, getBeta3dMaxRayColumns(), getBeta3dInGameRayCap());
             const beta3dSprites = (state.vehicles || []).slice();
             if (state.glitchMobs && state.glitchMobs.length) {
                 state.glitchMobs.forEach(g => {
@@ -11247,6 +11254,15 @@
             syncMobileViewport();
             syncIngameModalLayout();
             if (!isInGame()) paintLobbyBeta3dQualityPreview();
+        }
+
+        let resizeDebounceTimer = null;
+        function resizeDebounced() {
+            if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+            resizeDebounceTimer = setTimeout(() => {
+                resizeDebounceTimer = null;
+                resize();
+            }, 80);
         }
 
         /** True for phones/small touch layouts — wider world view + capped DPR so the city does not feel “zoomed in”. */
@@ -13037,7 +13053,9 @@
         }
 
         function getInternalPixelScale() {
-            if (isBeta3dFpP1() && isInGame()) return 1;
+            if (isBeta3dFpP1() && isInGame()) {
+                return isCoarseTouchPhoneLayout() ? 2 : 1;
+            }
             return n64RenderScale;
         }
 
@@ -13251,8 +13269,8 @@
                     const hitBuilding = !isGhost && state.buildings.some(b => buildingBlocksMovement(b) && nx > b.x-10 && nx < b.x+b.w+10 && ny > b.y-10 && ny < b.y+b.h+10);
                     
                     if (!hitBuilding) { p.x = nx; p.y = ny; }
-                    p.x = Math.max(20, Math.min(3980, Math.round(p.x)));
-                    p.y = Math.max(20, Math.min(3980, Math.round(p.y)));
+                    p.x = Math.max(20, Math.min(3980, p.x));
+                    p.y = Math.max(20, Math.min(3980, p.y));
                     if (idx === 0 && isBeta3dFpP1() && !p.inVehicle) {
                         p.angle = state.beta3dYaw;
                     } else if (mx !== 0 || my !== 0) {
@@ -13423,8 +13441,6 @@
                     const ty = f.y - (bh / Z) / 2;
                     state.camera.x += (tx - state.camera.x) * CAM_LERP;
                     state.camera.y += (ty - state.camera.y) * CAM_LERP;
-                    state.camera.x = Math.round(state.camera.x);
-                    state.camera.y = Math.round(state.camera.y);
                 }
             } else if (state.players.length > 1) {
                 const half = Math.floor(bw / 2);
@@ -13438,9 +13454,18 @@
                     const cam = state.cameras[ci];
                     cam.x += (txv - cam.x) * CAM_LERP;
                     cam.y += (tyv - cam.y) * CAM_LERP;
-                    cam.x = Math.round(cam.x);
-                    cam.y = Math.round(cam.y);
                 });
+            }
+
+            if (state.playMode === 'online') {
+                const remoteLerp = 0.32;
+                for (const uid in state.remotePlayers) {
+                    const rp = state.remotePlayers[uid];
+                    if (rp.renderX == null) rp.renderX = rp.x;
+                    if (rp.renderY == null) rp.renderY = rp.y;
+                    rp.renderX += (rp.x - rp.renderX) * remoteLerp;
+                    rp.renderY += (rp.y - rp.renderY) * remoteLerp;
+                }
             }
 
             if (state.playMode === 'online' && supabaseRealtimeChannel && state.players[0]) {
@@ -13599,6 +13624,12 @@
                 c.restore();
                 const cx = b.x + b.w / 2;
                 const cy = b.y + b.h / 2;
+                const labelPad = 160;
+                const inView = cx > camera.x - labelPad && cx < camera.x + clipW / Z + labelPad
+                    && cy > camera.y - labelPad && cy < camera.y + clipH / Z + labelPad;
+                if (!inView && isCoarseTouchPhoneLayout()) {
+                    return;
+                }
                 let short = b.type === 'hospital' ? 'Hospital' : b.type === 'jail' ? 'Police Station' : (b.type === 'admin_hall' ? 'Admin house' : (b.type === 'ben_hall' ? "Ben's House" : (b.type === 'shop_g' ? 'Gadget' : b.type === 'shop_w' ? 'Weapons' : buildingTypeLabel(b.type))));
                 if (isHomeLotBuilding(b) && b.type === 'home_lot' && !b.ownerUid) short = 'HOME LOT';
                 else if (isHomeLotBuilding(b) && ownsHomeLot(b)) short = 'MY HOME';
@@ -13751,7 +13782,9 @@
             // Colored dot player
             function drawPlayerAvatar(ctx, charType, color, p) {
                 const col = color || DEFAULT_PLAYER_COLOR;
-                ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
+                if (!isCoarseTouchPhoneLayout()) {
+                    ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
+                }
                 ctx.fillStyle = col;
                 ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
                 ctx.shadowBlur = 0;
@@ -13819,10 +13852,12 @@
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
                     if (shouldHideHiderInWorld(uid, rp)) continue;
+                    const rx = rp.renderX != null ? rp.renderX : rp.x;
+                    const ry = rp.renderY != null ? rp.renderY : rp.y;
                     const rpColor = rp.color || DEFAULT_PLAYER_COLOR;
                     const rpPaint = parseHideSeekPaint(rp.hsPaint);
                     c.save();
-                    c.translate(rp.x, rp.y);
+                    c.translate(rx, ry);
                     c.rotate(rp.angle || 0);
                     if (rp.dead) {
                         c.fillStyle = '#7f1d1d';
@@ -13843,7 +13878,7 @@
                     }
                     c.restore();
                     c.save();
-                    c.translate(rp.x, rp.y);
+                    c.translate(rx, ry);
                     c.fillStyle = '#fff';
                     c.font = 'bold 11px sans-serif';
                     c.textAlign = 'center';
@@ -13924,9 +13959,11 @@
             let shkx = 0;
             let shky = 0;
             if (glitchOn) {
-                shkx = (Math.random() - 0.5) * 14;
-                shky = (Math.random() - 0.5) * 14;
-                ctx.filter = `hue-rotate(${(state.frameCount * 13) % 360}deg) contrast(1.14) saturate(1.38)`;
+                if ((state.frameCount & 1) === 0) {
+                    shkx = (Math.random() - 0.5) * 8;
+                    shky = (Math.random() - 0.5) * 8;
+                    ctx.filter = `hue-rotate(${(state.frameCount * 13) % 360}deg) contrast(1.1) saturate(1.25)`;
+                }
             } else {
                 ctx.filter = 'none';
             }
@@ -13936,7 +13973,7 @@
             if (mmCont) mmCont.classList.toggle('hidden', isZombieSecretActive());
             if (isZombieSecretActive()) {
                 if (ctxM) ctxM.clearRect(0, 0, MINIMAP_PX, MINIMAP_PX);
-            } else {
+            } else if (!isCoarseTouchPhoneLayout() || (state.frameCount % 2 === 0)) {
             const ms = ctxM;
             const s = MINIMAP_PX / 4000;
             const mmBg = 'rgba(8, 15, 20, 0.92)';
@@ -13966,6 +14003,7 @@
             });
             state.buildings.forEach(b => {
                 if (b.type === 'invisible') return;
+                if (isCoarseTouchPhoneLayout()) return;
                 if (b.w * s < 3 || b.h * s < 2) return;
                 const full = b.type === 'ben_hall' ? "Ben" : (b.type === 'shop_g' ? 'Gad' : b.type === 'shop_w' ? 'Wpn' : buildingTypeLabel(b.type));
                 const short = (b.w * s < 12) ? (full.length > 3 ? full.slice(0, 3) : full) : full;
@@ -14023,16 +14061,18 @@
                 for (const uid in state.remotePlayers) {
                     const rp = state.remotePlayers[uid];
                     if (shouldHideHiderOnMinimap(uid, rp)) continue;
+                    const rpx = (rp.renderX != null ? rp.renderX : rp.x) * s;
+                    const rpy = (rp.renderY != null ? rp.renderY : rp.y) * s;
                     const r = rp.inJail ? 4 : (rp.inVehicle ? 4.5 : 3);
                     ms.fillStyle = rp.dead ? '#7f1d1d' : (rp.downed ? '#b45309' : (rp.color || DEFAULT_PLAYER_COLOR));
                     ms.beginPath();
-                    ms.arc(rp.x * s, rp.y * s, r, 0, Math.PI * 2);
+                    ms.arc(rpx, rpy, r, 0, Math.PI * 2);
                     ms.fill();
                     if (rp.inVehicle) {
-                        ms.strokeStyle = 'rgba(250,204,21,0.9)'; ms.lineWidth = 1; ms.beginPath(); ms.arc(rp.x * s, rp.y * s, r + 2, 0, Math.PI * 2); ms.stroke();
+                        ms.strokeStyle = 'rgba(250,204,21,0.9)'; ms.lineWidth = 1; ms.beginPath(); ms.arc(rpx, rpy, r + 2, 0, Math.PI * 2); ms.stroke();
                     }
                     if (rp.inJail) {
-                        ms.strokeStyle = 'rgba(148,163,184,0.95)'; ms.lineWidth = 1; ms.beginPath(); ms.arc(rp.x * s, rp.y * s, r + 2.5, 0, Math.PI * 2); ms.stroke();
+                        ms.strokeStyle = 'rgba(148,163,184,0.95)'; ms.lineWidth = 1; ms.beginPath(); ms.arc(rpx, rpy, r + 2.5, 0, Math.PI * 2); ms.stroke();
                     }
                 }
             }
@@ -14043,10 +14083,12 @@
         }
 
         function gameLoop() {
-            if (!state.gamePaused) update();
-            draw();
-            updateTutorialBuddyDockVisibility();
-            updateBeta3dBanner();
+            if (!document.hidden) {
+                if (!state.gamePaused) update();
+                draw();
+                updateTutorialBuddyDockVisibility();
+                updateBeta3dBanner();
+            }
             requestAnimationFrame(gameLoop);
         }
 
@@ -15633,8 +15675,8 @@
                 }
             });
 
-            window.addEventListener('resize', resize);
-            window.visualViewport?.addEventListener('resize', resize);
+            window.addEventListener('resize', resizeDebounced);
+            window.visualViewport?.addEventListener('resize', resizeDebounced);
             resize();
 
             function onBeta3dMouseMove(e) {
