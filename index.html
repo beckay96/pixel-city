@@ -1023,6 +1023,10 @@
                 <p id="creator-hub-projects-empty" class="text-[10px] text-slate-500 italic mt-2">No projects yet — create one in the Creator lab from your phone.</p>
                 <ul id="creator-hub-projects-list" class="text-xs text-slate-200 space-y-1 list-none pl-0 mt-2 max-h-32 overflow-y-auto hidden"></ul>
             </details>
+            <details class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
+                <summary id="creator-hub-posts-summary" class="text-[11px] text-sky-300 font-black cursor-pointer interactive">Recent posts</summary>
+                <ul id="creator-posts-list" class="text-xs text-slate-200 space-y-2 list-none pl-0 mt-2 max-h-48 overflow-y-auto"></ul>
+            </details>
         </div>
     </div>
 
@@ -1269,6 +1273,10 @@
             <div class="px-4 border-r border-slate-700">
                 <div class="text-xl font-black text-green-400" id="money-display">$0</div>
                 <div class="text-[8px] text-slate-400 uppercase font-bold text-center">Wallet</div>
+            </div>
+            <div id="wanted-stars" class="hidden px-3 flex items-center gap-0.5 self-center" title="Wanted level — avoid police!">
+                <span class="text-yellow-400 text-base leading-none">★</span>
+                <span class="text-[9px] text-yellow-300 font-black uppercase tracking-widest ml-1">WANTED</span>
             </div>
             <div class="px-4 text-center min-w-[8rem]">
                 <div class="text-[10px] text-rose-100 font-black uppercase tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" id="health-p0-label">P1</div>
@@ -13030,7 +13038,10 @@
                 window.__pixelCityBlurBound = true;
                 window.addEventListener('blur', clearMovementKeysForBlur);
             }
-            requestAnimationFrame(gameLoop);
+            if (!window.__pixelCityLoopStarted) {
+                window.__pixelCityLoopStarted = true;
+                requestAnimationFrame(gameLoop);
+            }
         }
 
         function buildingBlocksMovement(b) {
@@ -15834,7 +15845,7 @@
             // God/Admin Panel Listeners
             const godPanel = document.getElementById('god-panel-btn');
             const godModal = document.getElementById('god-modal');
-            if (godPanel) godPanel.onclick = () => godModal.classList.remove('hidden');
+            if (godPanel) godPanel.onclick = () => { godModal.classList.remove('hidden'); godModal.classList.add('flex'); };
             const speedSlider = document.getElementById('god-speed');
             if (speedSlider) speedSlider.oninput = (e) => document.getElementById('god-speed-val').innerText = e.target.value;
             const civSlider = document.getElementById('god-civs');
