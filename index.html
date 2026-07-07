@@ -1018,6 +1018,21 @@
                 <button type="button" id="creator-mode-close" class="text-slate-400 hover:text-white text-xl font-bold interactive leading-none">✕</button>
             </div>
             <p id="creator-mode-body" class="text-[10px] text-slate-500 mb-3 leading-snug">While playing, open your phone and tap Creator. Turn on Deep Creator mode in Lobby settings for Mod Mods and the full lab.</p>
+            <p id="creator-hub-stats-line" class="text-[10px] text-slate-300 leading-snug border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60 font-mono"></p>
+            <details class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
+                <summary id="creator-hub-backup-summary" class="text-[11px] text-emerald-300 font-black cursor-pointer interactive">Backup &amp; import</summary>
+                <p id="creator-hub-backup-hint" class="text-[9px] text-slate-500 mt-2 mb-2 leading-snug">Download a JSON copy of projects and blueprints, or merge a file from another browser on this machine.</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="creator-hub-export-btn" class="bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-black px-3 py-2 rounded-lg interactive">Export JSON</button>
+                    <button type="button" id="creator-hub-import-btn" class="bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold px-3 py-2 rounded-lg interactive border border-slate-500">Import…</button>
+                </div>
+                <input type="file" id="creator-hub-import-input" accept="application/json,.json" class="hidden" />
+                <p id="creator-hub-bundle-msg" class="text-[10px] mt-2 min-h-[1.25rem] text-amber-300/90"></p>
+            </details>
+            <details class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
+                <summary id="creator-hub-tips-summary" class="text-[11px] text-sky-300 font-black cursor-pointer interactive">Workflow tips</summary>
+                <ul id="creator-hub-tips-list" class="text-[10px] text-slate-400 mt-2 space-y-1.5 leading-snug list-disc pl-4"></ul>
+            </details>
             <details class="border border-slate-700 rounded-lg p-2 mb-2 bg-slate-950/60">
                 <summary id="creator-hub-projects-summary" class="text-[11px] text-violet-300 font-black cursor-pointer interactive">Projects on this device</summary>
                 <p id="creator-hub-projects-empty" class="text-[10px] text-slate-500 italic mt-2">No projects yet — create one in the Creator lab from your phone.</p>
@@ -1128,8 +1143,15 @@
                 </div>
                 <div id="deep-creator-extra-rows" class="space-y-2"></div>
             </div>
-            <button type="button" id="deep-creator-save" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-black py-2.5 rounded-xl interactive text-sm mb-2">Save blueprint</button>
+            <div class="flex flex-col sm:flex-row gap-2 items-stretch mb-2">
+                <button type="button" id="deep-creator-save" class="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-black py-2.5 rounded-xl interactive text-sm">Save blueprint</button>
+                <button type="button" id="deep-creator-clear-form" class="sm:w-28 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2.5 rounded-xl interactive border border-slate-600">Clear</button>
+            </div>
             <p id="deep-creator-msg" class="text-[10px] text-center min-h-[1.25rem] mb-2 text-emerald-400"></p>
+            <div class="mb-2">
+                <label id="deep-creator-bp-filter-label" for="deep-creator-bp-filter" class="block text-[9px] text-slate-500 uppercase font-bold mb-1">Filter list</label>
+                <input id="deep-creator-bp-filter" type="search" autocomplete="off" class="w-full bg-slate-800 border border-slate-600 rounded-lg text-white text-xs py-2 px-2 interactive" placeholder="Type, name, notes…" />
+            </div>
             <p id="deep-creator-list-heading" class="text-[9px] text-slate-500 uppercase font-bold mb-1">Your blueprints</p>
             <ul id="deep-creator-list" class="text-xs text-slate-200 space-y-2 list-none pl-0 mb-3"></ul>
             <button type="button" id="deep-creator-test-primary" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 rounded-lg interactive mb-1">Test primary behavior</button>
@@ -2242,6 +2264,7 @@
         const LS_CREATOR_PROJECTS = 'pixelCityCreatorProjects';
         const CREATOR_PROJECTS_MAX = 32;
         let deepCreatorOverlaySavedParent = null;
+        let deepCreatorEditingBlueprintId = null;
         const CREATOR_POSTS_MAX = 50;
         const LS_BETA_3D = 'pixelCityBeta3d';
         /** 0–100; maps to Beta 3D ray column cap (performance vs sharpness). */
@@ -9407,6 +9430,30 @@
                 deepCreatorScratchClear: 'Clear grid',
                 deepCreatorBpCodeTag: 'code',
                 deepCreatorBpScratchTag: 'scratch',
+                creatorHubStatProjects: 'projects',
+                creatorHubStatBlueprints: 'blueprints',
+                creatorHubStatScratch: 'scratch pads',
+                creatorHubBackupSummary: 'Backup & import',
+                creatorHubBackupHint: 'Download a JSON copy of projects and blueprints, or merge a file from another browser on this machine.',
+                creatorHubExportBtn: 'Export JSON',
+                creatorHubImportBtn: 'Import…',
+                creatorHubBundleImported: 'Imported and merged.',
+                creatorHubBundleErrInvalid: 'Could not read that file.',
+                creatorHubBundleErrVersion: 'Unsupported backup version.',
+                creatorHubBundleErrEmpty: 'No projects or blueprints in file.',
+                creatorHubTipsSummary: 'Workflow tips',
+                creatorHubTip1: 'Use Projects to group blueprints; pick the active folder before you save.',
+                creatorHubTip2: 'Scratch + Code together: doodle the icon in Scratch, describe rules in Code notes.',
+                creatorHubTip3: 'Export often — Creator data never leaves your device unless you copy it.',
+                deepCreatorBpFilterLabel: 'Filter list',
+                deepCreatorBpFilterPh: 'Type, name, notes…',
+                deepCreatorBpEdit: 'Edit',
+                deepCreatorBpDuplicate: 'Duplicate',
+                deepCreatorSaveUpdate: 'Update blueprint',
+                deepCreatorUpdated: 'Blueprint updated.',
+                deepCreatorClearForm: 'Clear',
+                deepCreatorEmptyFilter: 'No matches — try a shorter search.',
+                deepCreatorDuplicateSuffix: ' (copy)',
                 creatorStudioTitle: 'Creator studio',
                 creatorStudioHub: 'Hub',
                 creatorStudioLab: 'Lab',
@@ -9467,6 +9514,30 @@
                 deepCreatorScratchClear: 'Vaciar',
                 deepCreatorBpCodeTag: 'código',
                 deepCreatorBpScratchTag: 'scratch',
+                creatorHubStatProjects: 'proyectos',
+                creatorHubStatBlueprints: 'planos',
+                creatorHubStatScratch: 'borradores scratch',
+                creatorHubBackupSummary: 'Copia e importar',
+                creatorHubBackupHint: 'Descarga JSON con proyectos y planos, o fusiona un archivo de otro navegador en este equipo.',
+                creatorHubExportBtn: 'Exportar JSON',
+                creatorHubImportBtn: 'Importar…',
+                creatorHubBundleImported: 'Importado y fusionado.',
+                creatorHubBundleErrInvalid: 'No se pudo leer el archivo.',
+                creatorHubBundleErrVersion: 'Versión de copia no compatible.',
+                creatorHubBundleErrEmpty: 'No hay proyectos ni planos en el archivo.',
+                creatorHubTipsSummary: 'Consejos de flujo',
+                creatorHubTip1: 'Agrupa con Proyectos; elige la carpeta activa antes de guardar.',
+                creatorHubTip2: 'Scratch + Código: dibuja en Scratch y escribe reglas en notas de Código.',
+                creatorHubTip3: 'Exporta a menudo: los datos Creator no salen del dispositivo si no los copias.',
+                deepCreatorBpFilterLabel: 'Filtrar lista',
+                deepCreatorBpFilterPh: 'Tipo, nombre, notas…',
+                deepCreatorBpEdit: 'Editar',
+                deepCreatorBpDuplicate: 'Duplicar',
+                deepCreatorSaveUpdate: 'Actualizar plano',
+                deepCreatorUpdated: 'Plano actualizado.',
+                deepCreatorClearForm: 'Limpiar',
+                deepCreatorEmptyFilter: 'Sin coincidencias — prueba otra búsqueda.',
+                deepCreatorDuplicateSuffix: ' (copia)',
                 creatorStudioTitle: 'Estudio Creator',
                 creatorStudioHub: 'Hub',
                 creatorStudioLab: 'Laboratorio',
@@ -9527,6 +9598,30 @@
                 deepCreatorScratchClear: '全消去',
                 deepCreatorBpCodeTag: 'code',
                 deepCreatorBpScratchTag: 'scratch',
+                creatorHubStatProjects: 'プロジェクト',
+                creatorHubStatBlueprints: '設計',
+                creatorHubStatScratch: 'スクラッチあり',
+                creatorHubBackupSummary: 'バックアップと取り込み',
+                creatorHubBackupHint: 'プロジェクトと設計をJSONで保存するか、この端末の別ブラウザからマージします。',
+                creatorHubExportBtn: 'JSONを書き出し',
+                creatorHubImportBtn: '取り込み…',
+                creatorHubBundleImported: '取り込み・マージしました。',
+                creatorHubBundleErrInvalid: 'ファイルを読めませんでした。',
+                creatorHubBundleErrVersion: '未対応のバックアップ版です。',
+                creatorHubBundleErrEmpty: 'ファイルにプロジェクトも設計もありません。',
+                creatorHubTipsSummary: '作業のヒント',
+                creatorHubTip1: 'プロジェクトで整理し、保存前にフォルダを選びます。',
+                creatorHubTip2: 'スクラッチでラフ、コードでルールや数値メモを書き分けます。',
+                creatorHubTip3: 'こまめに書き出しを。Creatorのデータはコピーしない限り端末外に出ません。',
+                deepCreatorBpFilterLabel: '一覧を絞り込み',
+                deepCreatorBpFilterPh: '種類・名前・メモ…',
+                deepCreatorBpEdit: '編集',
+                deepCreatorBpDuplicate: '複製',
+                deepCreatorSaveUpdate: '設計を更新',
+                deepCreatorUpdated: '設計を更新しました。',
+                deepCreatorClearForm: 'クリア',
+                deepCreatorEmptyFilter: '該当なし — 別の語で試してください。',
+                deepCreatorDuplicateSuffix: '（複製）',
                 creatorStudioTitle: 'クリエイター作業台',
                 creatorStudioHub: 'ハブ',
                 creatorStudioLab: 'ラボ',
@@ -9819,7 +9914,10 @@
         function renderCreatorHubProjects() {
             const ul = document.getElementById('creator-hub-projects-list');
             const empty = document.getElementById('creator-hub-projects-empty');
-            if (!ul || !empty) return;
+            if (!ul || !empty) {
+                refreshCreatorHubDashboard();
+                return;
+            }
             ensureDefaultCreatorProjects();
             const projects = loadCreatorProjects();
             const bps = loadDeepBlueprints();
@@ -9827,6 +9925,7 @@
                 empty.classList.remove('hidden');
                 ul.classList.add('hidden');
                 ul.innerHTML = '';
+                refreshCreatorHubDashboard();
                 return;
             }
             empty.classList.add('hidden');
@@ -9838,6 +9937,152 @@
                 li.textContent = `${String(pr.name || 'Untitled')} (${n})`;
                 ul.appendChild(li);
             });
+            refreshCreatorHubDashboard();
+        }
+
+        function refreshCreatorHubTipsList() {
+            const ul = document.getElementById('creator-hub-tips-list');
+            if (!ul) return;
+            ul.innerHTML = '';
+            ['creatorHubTip1', 'creatorHubTip2', 'creatorHubTip3'].forEach((key) => {
+                const li = document.createElement('li');
+                li.textContent = getUiLabel(key);
+                ul.appendChild(li);
+            });
+        }
+
+        function refreshCreatorHubDashboard() {
+            const line = document.getElementById('creator-hub-stats-line');
+            if (!line) return;
+            ensureDefaultCreatorProjects();
+            const projects = loadCreatorProjects();
+            const bps = loadDeepBlueprints();
+            const nScratch = bps.filter((b) => {
+                if (b && b.designMode === 'scratch') return true;
+                try {
+                    const a = b.scratchCellsJson ? JSON.parse(String(b.scratchCellsJson)) : null;
+                    return Array.isArray(a) && a.some((x) => !!x);
+                } catch (_) {
+                    return false;
+                }
+            }).length;
+            line.textContent = `${projects.length} ${getUiLabel('creatorHubStatProjects')} · ${bps.length} ${getUiLabel('creatorHubStatBlueprints')} · ${nScratch} ${getUiLabel('creatorHubStatScratch')}`;
+            refreshCreatorHubTipsList();
+        }
+
+        function repairBlueprintProjectRefs() {
+            ensureDefaultCreatorProjects();
+            const pr = loadCreatorProjects();
+            const ids = new Set(pr.map((p) => String(p.id)));
+            const def = String(pr[0].id);
+            const bps = loadDeepBlueprints();
+            let changed = false;
+            bps.forEach((b) => {
+                const pid = b.projectId != null ? String(b.projectId) : '';
+                if (!pid || !ids.has(pid)) {
+                    b.projectId = def;
+                    changed = true;
+                }
+            });
+            if (changed) saveDeepBlueprints(bps);
+        }
+
+        function normalizeImportedBlueprint(raw, newId) {
+            const kindRaw = raw && raw.kind != null ? String(raw.kind) : 'item';
+            const kind = ['item', 'npc', 'player', 'menu'].indexOf(kindRaw) >= 0 ? kindRaw : 'item';
+            const id = raw && raw.id != null && String(raw.id).trim() ? String(raw.id).slice(0, 120) : newId;
+            const extras = [];
+            if (raw && Array.isArray(raw.extraButtons)) {
+                raw.extraButtons.forEach((ex) => {
+                    if (!ex) return;
+                    const label = ex.label != null ? String(ex.label).trim().slice(0, 60) : '';
+                    if (!label) return;
+                    const action = ex.action === 'message' ? 'message' : 'none';
+                    const msg = ex.msg != null ? String(ex.msg).trim().slice(0, 300) : '';
+                    extras.push({ label, action, msg });
+                });
+            }
+            let ac = raw && raw.appearanceColor != null ? String(raw.appearanceColor).trim() : '';
+            if (!/^#[0-9a-fA-F]{6}$/i.test(ac)) ac = '';
+            const scratchJ = raw && raw.scratchCellsJson != null ? String(raw.scratchCellsJson).slice(0, 12000) : '';
+            return {
+                id,
+                t: typeof raw.t === 'number' ? raw.t : Date.now(),
+                kind,
+                name: String(raw.name != null ? raw.name : '').slice(0, 80),
+                notes: String(raw.notes != null ? raw.notes : '').slice(0, 4000),
+                primaryAction: raw.primaryAction === 'message' ? 'message' : 'none',
+                primaryMsg: String(raw.primaryMsg != null ? raw.primaryMsg : '').slice(0, 300),
+                extraButtons: extras,
+                projectId: raw && raw.projectId != null ? String(raw.projectId).slice(0, 120) : '',
+                appearanceColor: ac || null,
+                pixelSkipped: !!raw.pixelSkipped,
+                designMode: raw.designMode === 'scratch' ? 'scratch' : 'code',
+                scratchCellsJson: scratchJ
+            };
+        }
+
+        function mergeCreatorImportBundle(data) {
+            if (!data || typeof data !== 'object') return { ok: false, err: 'invalid' };
+            if (data.v != null && data.v !== 1 && data.v !== '1') return { ok: false, err: 'version' };
+            const hasP = Array.isArray(data.projects);
+            const hasB = Array.isArray(data.blueprints);
+            if (!hasP && !hasB) return { ok: false, err: 'empty' };
+            ensureDefaultCreatorProjects();
+            if (hasP) {
+                let projects = loadCreatorProjects();
+                data.projects.forEach((p) => {
+                    if (!p || p.id == null) return;
+                    const id = String(p.id);
+                    const name = String(p.name != null ? p.name : 'Untitled').slice(0, 48);
+                    const idx = projects.findIndex((x) => String(x.id) === id);
+                    if (idx >= 0) {
+                        projects[idx] = { ...projects[idx], name, t: p.t || projects[idx].t || Date.now() };
+                    } else if (projects.length < CREATOR_PROJECTS_MAX) {
+                        projects.push({ id, name, t: p.t || Date.now() });
+                    }
+                });
+                saveCreatorProjects(projects);
+            }
+            if (hasB) {
+                let bps = loadDeepBlueprints();
+                const byId = new Map(bps.map((b) => [String(b.id), b]));
+                data.blueprints.forEach((raw) => {
+                    if (!raw) return;
+                    const nid = 'bp_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                    const norm = normalizeImportedBlueprint(raw, nid);
+                    if (!norm.name) norm.name = 'Imported';
+                    const sid = String(raw.id != null ? raw.id : norm.id);
+                    if (byId.has(sid)) {
+                        const cur = byId.get(sid);
+                        const merged = { ...cur, ...norm, id: cur.id, t: Date.now() };
+                        const ix = bps.findIndex((b) => String(b.id) === String(cur.id));
+                        if (ix >= 0) bps[ix] = merged;
+                    } else {
+                        if (bps.length >= DEEP_CREATOR_BLUEPRINTS_MAX) return;
+                        bps.unshift(norm);
+                        byId.set(String(norm.id), norm);
+                    }
+                });
+                if (bps.length > DEEP_CREATOR_BLUEPRINTS_MAX) bps = bps.slice(0, DEEP_CREATOR_BLUEPRINTS_MAX);
+                saveDeepBlueprints(bps);
+            }
+            repairBlueprintProjectRefs();
+            return { ok: true };
+        }
+
+        function exportCreatorBundleJson() {
+            ensureDefaultCreatorProjects();
+            const bundle = { v: 1, exportedAt: Date.now(), projects: loadCreatorProjects(), blueprints: loadDeepBlueprints() };
+            const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pixel-city-creator-${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
         }
 
         function syncPhoneCreatorAppsVisibility() {
@@ -10380,6 +10625,77 @@
             setDeepCreatorDesignMode('code');
             syncDeepPrimaryFields();
             syncScratchToolButtons();
+            deepCreatorEditingBlueprintId = null;
+            syncDeepCreatorSaveButtonLabel();
+        }
+
+        function syncDeepCreatorSaveButtonLabel() {
+            const btn = document.getElementById('deep-creator-save');
+            if (!btn) return;
+            btn.textContent = deepCreatorEditingBlueprintId ? getUiLabel('deepCreatorSaveUpdate') : getUiLabel('deepCreatorSave');
+        }
+
+        function applyScratchJsonToGrid(jsonStr) {
+            resetDeepCreatorScratchGrid();
+            if (!jsonStr || typeof jsonStr !== 'string') return;
+            try {
+                const arr = JSON.parse(jsonStr);
+                if (!Array.isArray(arr) || arr.length !== DEEP_SCRATCH_GRID * DEEP_SCRATCH_GRID) return;
+                for (let i = 0; i < arr.length; i++) {
+                    const c = arr[i];
+                    if (c == null || c === '') continue;
+                    const s = String(c);
+                    if (/^#[0-9a-fA-F]{6}$/i.test(s)) deepCreatorScratchCells[i] = s.toLowerCase();
+                }
+            } catch (_) { /* */ }
+        }
+
+        function loadBlueprintIntoDeepCreatorForm(bp) {
+            if (!bp) return;
+            fillDeepCreatorProjectPick();
+            const pp = document.getElementById('deep-creator-project-pick');
+            if (pp) {
+                const want = String(bp.projectId || '');
+                const opts = [...pp.querySelectorAll('option')].map((o) => o.value);
+                if (want && opts.includes(want)) pp.value = want;
+            }
+            const kind = document.getElementById('deep-creator-kind');
+            if (kind) {
+                const k = String(bp.kind || 'item');
+                kind.value = ['item', 'npc', 'player', 'menu'].indexOf(k) >= 0 ? k : 'item';
+            }
+            const name = document.getElementById('deep-creator-name');
+            if (name) name.value = bp.name != null ? String(bp.name) : '';
+            const notes = document.getElementById('deep-creator-notes');
+            if (notes) notes.value = bp.notes != null ? String(bp.notes) : '';
+            const pa = document.getElementById('deep-creator-primary-action');
+            if (pa) pa.value = bp.primaryAction === 'message' ? 'message' : 'none';
+            const pm = document.getElementById('deep-creator-primary-msg');
+            if (pm) pm.value = bp.primaryMsg != null ? String(bp.primaryMsg) : '';
+            const extra = document.getElementById('deep-creator-extra-rows');
+            if (extra) extra.innerHTML = '';
+            if (bp.extraButtons && Array.isArray(bp.extraButtons)) {
+                bp.extraButtons.forEach((ex) => addDeepExtraButtonRow(ex));
+            }
+            const pc = document.getElementById('deep-creator-pixel-color');
+            deepCreatorPixelSkipped = !!bp.pixelSkipped;
+            if (!deepCreatorPixelSkipped && pc) {
+                const ac = bp.appearanceColor && typeof bp.appearanceColor === 'string' && /^#[0-9a-fA-F]{6}$/i.test(bp.appearanceColor)
+                    ? String(bp.appearanceColor).toLowerCase() : '#c4b5fd';
+                pc.value = ac;
+            } else if (pc) {
+                pc.value = '#c4b5fd';
+            }
+            syncDeepCreatorSkipPixelUI();
+            setDeepCreatorDesignMode(bp.designMode === 'scratch' ? 'scratch' : 'code');
+            applyScratchJsonToGrid(bp.scratchCellsJson ? String(bp.scratchCellsJson) : '');
+            deepCreatorEditingBlueprintId = String(bp.id || '');
+            syncDeepCreatorSaveButtonLabel();
+            syncDeepPrimaryFields();
+            refreshDeepExtraRowI18n();
+            redrawDeepCreatorHoldPreview();
+            redrawDeepCreatorScratchCanvas();
+            renderDeepBlueprintList();
         }
 
         function addDeepExtraButtonRow(data) {
@@ -10513,19 +10829,30 @@
             const ul = document.getElementById('deep-creator-list');
             if (!ul) return;
             ul.innerHTML = '';
-            const bps = loadDeepBlueprints();
+            const filtEl = document.getElementById('deep-creator-bp-filter');
+            const q = (filtEl && filtEl.value ? String(filtEl.value) : '').trim().toLowerCase();
+            let bps = loadDeepBlueprints();
+            if (q) {
+                bps = bps.filter((bp) => {
+                    const hay = `${String(bp.kind || '')} ${String(bp.name || '')} ${String(bp.notes || '')}`.toLowerCase();
+                    return hay.includes(q);
+                });
+            }
             if (!bps.length) {
                 const li = document.createElement('li');
                 li.className = 'text-slate-500 text-[11px] italic';
-                li.textContent = getUiLabel('deepCreatorEmpty');
+                li.textContent = q ? getUiLabel('deepCreatorEmptyFilter') : getUiLabel('deepCreatorEmpty');
                 ul.appendChild(li);
                 return;
             }
             const testL = getUiLabel('deepCreatorTestPrimary');
             const delL = getUiLabel('deepCreatorDelete');
+            const editL = getUiLabel('deepCreatorBpEdit');
+            const dupL = getUiLabel('deepCreatorBpDuplicate');
             bps.forEach((bp) => {
                 const li = document.createElement('li');
-                li.className = 'border border-slate-700 rounded-lg p-2 bg-slate-950/80';
+                const editing = deepCreatorEditingBlueprintId && String(bp.id) === String(deepCreatorEditingBlueprintId);
+                li.className = 'border rounded-lg p-2 bg-slate-950/80 ' + (editing ? 'border-emerald-500/80' : 'border-slate-700');
                 const kind = escapeCreatorHtml(String(bp.kind || ''));
                 const nm = escapeCreatorHtml(String(bp.name || 'Untitled'));
                 const idEnc = encodeURIComponent(String(bp.id || ''));
@@ -10541,10 +10868,40 @@
                 li.innerHTML = '<div class="text-violet-300 text-[10px] font-black uppercase">' + kind + '</div>'
                     + '<div class="flex items-center gap-2 flex-wrap mt-0.5"><span class="text-slate-100 text-xs font-bold">' + nm + '</span>' + sw + scr + '</div>'
                     + '<div class="flex gap-2 mt-2 flex-wrap">'
+                    + '<button type="button" class="deep-bp-edit text-[10px] text-emerald-300 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(editL) + '</button>'
+                    + '<button type="button" class="deep-bp-dup text-[10px] text-amber-300 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(dupL) + '</button>'
                     + '<button type="button" class="deep-bp-test text-[10px] text-sky-300 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(testL) + '</button>'
                     + '<button type="button" class="deep-bp-del text-[10px] text-red-400 font-bold interactive" data-deep-id="' + idEnc + '">' + escapeCreatorHtml(delL) + '</button>'
                     + '</div>';
                 ul.appendChild(li);
+            });
+            ul.querySelectorAll('.deep-bp-edit').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = decodeURIComponent(btn.getAttribute('data-deep-id') || '');
+                    const found = loadDeepBlueprints().find((x) => String(x.id) === id);
+                    if (found) loadBlueprintIntoDeepCreatorForm(found);
+                });
+            });
+            ul.querySelectorAll('.deep-bp-dup').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = decodeURIComponent(btn.getAttribute('data-deep-id') || '');
+                    const found = loadDeepBlueprints().find((x) => String(x.id) === id);
+                    if (!found) return;
+                    const nid = 'bp_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                    const copy = {
+                        ...found,
+                        id: nid,
+                        t: Date.now(),
+                        name: (String(found.name || 'Untitled') + getUiLabel('deepCreatorDuplicateSuffix')).slice(0, 80)
+                    };
+                    let list = loadDeepBlueprints();
+                    if (list.length >= DEEP_CREATOR_BLUEPRINTS_MAX) return;
+                    list.unshift(copy);
+                    saveDeepBlueprints(list);
+                    renderDeepBlueprintList();
+                    renderCreatorHubProjects();
+                    populateIngameMenuCreatorBlueprints();
+                });
             });
             ul.querySelectorAll('.deep-bp-test').forEach((btn) => {
                 btn.addEventListener('click', () => {
@@ -10558,6 +10915,9 @@
                     const id = decodeURIComponent(btn.getAttribute('data-deep-id') || '');
                     const next = loadDeepBlueprints().filter((x) => String(x.id) !== id);
                     saveDeepBlueprints(next);
+                    if (deepCreatorEditingBlueprintId && String(deepCreatorEditingBlueprintId) === id) {
+                        clearDeepCreatorForm();
+                    }
                     renderDeepBlueprintList();
                     renderCreatorHubProjects();
                     populateIngameMenuCreatorBlueprints();
@@ -10602,7 +10962,6 @@
                 ['deep-creator-primary-label', 'deepCreatorPrimaryLabel'],
                 ['deep-creator-primary-msg-label', 'deepCreatorPrimaryMsgLabel'],
                 ['deep-creator-extra-heading', 'deepCreatorExtraHeading'],
-                ['deep-creator-save', 'deepCreatorSave'],
                 ['deep-creator-list-heading', 'deepCreatorListHeading'],
                 ['deep-creator-test-primary', 'deepCreatorTestPrimary']
             ];
@@ -10631,6 +10990,12 @@
             }
             const addBtn = document.getElementById('deep-creator-add-btn-row');
             if (addBtn) addBtn.textContent = getUiLabel('deepCreatorAddBtnRow');
+            const clr = document.getElementById('deep-creator-clear-form');
+            if (clr) clr.textContent = getUiLabel('deepCreatorClearForm');
+            const fl = document.getElementById('deep-creator-bp-filter-label');
+            if (fl) fl.textContent = getUiLabel('deepCreatorBpFilterLabel');
+            const finp = document.getElementById('deep-creator-bp-filter');
+            if (finp) finp.setAttribute('placeholder', getUiLabel('deepCreatorBpFilterPh'));
             const npName = document.getElementById('deep-creator-new-project-name');
             if (npName) npName.setAttribute('placeholder', getUiLabel('deepCreatorNewProjectPh'));
             const npBtn = document.getElementById('deep-creator-new-project-btn');
@@ -10639,6 +11004,7 @@
             syncDeepCreatorSkipPixelUI();
             redrawDeepCreatorHoldPreview();
             setDeepCreatorDesignMode(deepCreatorDesignMode);
+            syncDeepCreatorSaveButtonLabel();
         }
 
         function populateIngameMenuCreatorBlueprints() {
@@ -10764,6 +11130,16 @@
             if (pmm) pmm.textContent = getUiLabel('phoneModModsTitle');
             const pcm = document.getElementById('phone-view-community-title');
             if (pcm) pcm.textContent = getUiLabel('phoneCommunityTitle');
+            const bsum = document.getElementById('creator-hub-backup-summary');
+            if (bsum) bsum.textContent = getUiLabel('creatorHubBackupSummary');
+            const bh = document.getElementById('creator-hub-backup-hint');
+            if (bh) bh.textContent = getUiLabel('creatorHubBackupHint');
+            const bex = document.getElementById('creator-hub-export-btn');
+            if (bex) bex.textContent = getUiLabel('creatorHubExportBtn');
+            const bim = document.getElementById('creator-hub-import-btn');
+            if (bim) bim.textContent = getUiLabel('creatorHubImportBtn');
+            const tsum = document.getElementById('creator-hub-tips-summary');
+            if (tsum) tsum.textContent = getUiLabel('creatorHubTipsSummary');
             applyDeepCreatorOverlayLanguage();
             refreshPhoneCreatorScreen();
             applyCreatorStudioBarLanguage();
@@ -15204,11 +15580,10 @@
                     if (msg) msg.textContent = getUiLabel('deepCreatorNeedName');
                     return;
                 }
-                const id = 'bp_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                const editId = deepCreatorEditingBlueprintId ? String(deepCreatorEditingBlueprintId) : '';
                 let list = loadDeepBlueprints();
-                list.unshift({
-                    id,
-                    t: Date.now(),
+                let didUpdate = false;
+                const row = {
                     kind: draft.kind,
                     name: draft.name.slice(0, 80),
                     notes: draft.notes.slice(0, 4000),
@@ -15220,7 +15595,21 @@
                     pixelSkipped: !!draft.pixelSkipped,
                     designMode: draft.designMode === 'scratch' ? 'scratch' : 'code',
                     scratchCellsJson: draft.scratchCellsJson ? String(draft.scratchCellsJson).slice(0, 12000) : ''
-                });
+                };
+                if (editId) {
+                    const idx = list.findIndex((x) => String(x.id) === editId);
+                    if (idx >= 0) {
+                        const prev = list[idx];
+                        list[idx] = { ...prev, ...row, id: prev.id, t: Date.now() };
+                        didUpdate = true;
+                    } else {
+                        const nid = 'bp_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                        list.unshift({ ...row, id: nid, t: Date.now() });
+                    }
+                } else {
+                    const nid = 'bp_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+                    list.unshift({ ...row, id: nid, t: Date.now() });
+                }
                 if (list.length > DEEP_CREATOR_BLUEPRINTS_MAX) list = list.slice(0, DEEP_CREATOR_BLUEPRINTS_MAX);
                 saveDeepBlueprints(list);
                 renderDeepBlueprintList();
@@ -15228,9 +15617,49 @@
                 populateIngameMenuCreatorBlueprints();
                 clearDeepCreatorForm();
                 if (msg) {
-                    msg.textContent = getUiLabel('deepCreatorSaved');
+                    msg.textContent = didUpdate ? getUiLabel('deepCreatorUpdated') : getUiLabel('deepCreatorSaved');
                     setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
                 }
+            });
+            document.getElementById('deep-creator-clear-form')?.addEventListener('click', () => {
+                clearDeepCreatorForm();
+                renderDeepBlueprintList();
+            });
+            document.getElementById('deep-creator-bp-filter')?.addEventListener('input', () => {
+                renderDeepBlueprintList();
+            });
+            document.getElementById('creator-hub-export-btn')?.addEventListener('click', () => exportCreatorBundleJson());
+            document.getElementById('creator-hub-import-btn')?.addEventListener('click', () => {
+                document.getElementById('creator-hub-import-input')?.click();
+            });
+            document.getElementById('creator-hub-import-input')?.addEventListener('change', (e) => {
+                const inp = e.target;
+                const file = inp && inp.files && inp.files[0];
+                const msgEl = document.getElementById('creator-hub-bundle-msg');
+                if (msgEl) msgEl.textContent = '';
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const data = JSON.parse(String(reader.result || ''));
+                        const r = mergeCreatorImportBundle(data);
+                        if (!r.ok) {
+                            const key = r.err === 'version' ? 'creatorHubBundleErrVersion' : (r.err === 'empty' ? 'creatorHubBundleErrEmpty' : 'creatorHubBundleErrInvalid');
+                            if (msgEl) msgEl.textContent = getUiLabel(key);
+                            return;
+                        }
+                        if (msgEl) msgEl.textContent = getUiLabel('creatorHubBundleImported');
+                        fillDeepCreatorProjectPick();
+                        renderDeepBlueprintList();
+                        renderCreatorHubProjects();
+                        populateIngameMenuCreatorBlueprints();
+                        refreshPhoneModMods();
+                    } catch (_) {
+                        if (msgEl) msgEl.textContent = getUiLabel('creatorHubBundleErrInvalid');
+                    }
+                    try { if (inp) inp.value = ''; } catch (_) { /* */ }
+                };
+                reader.readAsText(file);
             });
             document.getElementById('lobby-character-btn')?.addEventListener('click', () => {
                 openAdminSkinModal();
